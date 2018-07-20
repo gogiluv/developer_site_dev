@@ -7,7 +7,8 @@ import { scrollTop } from "discourse/mixins/scroll-top";
 
 export default Discourse.Route.extend(OpenComposer, {
   redirect() {
-    return this.redirectIfLoginRequired();
+    return false;
+    //return this.redirectIfLoginRequired();
   },
 
   beforeModel(transition) {

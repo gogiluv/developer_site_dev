@@ -30,7 +30,8 @@ class UserActionSerializer < ApplicationSerializer
              :edit_reason,
              :category_id,
              :closed,
-             :archived
+             :archived,
+             :post_anonymous_chk
 
   def avatar_template
     User.avatar_template(object.username, object.uploaded_avatar_id)

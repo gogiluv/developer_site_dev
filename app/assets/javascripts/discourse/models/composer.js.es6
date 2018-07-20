@@ -40,7 +40,8 @@ const CLOSED = "closed",
     composer_open_duration_msecs: "composerTime",
     tags: "tags",
     featured_link: "featuredLink",
-    shared_draft: "sharedDraft"
+    shared_draft: "sharedDraft",
+    anonymous_chk: "anonymous_chk"
   },
   _edit_topic_serializer = {
     title: "topic.title",
@@ -625,7 +626,8 @@ const Composer = RestModel.extend({
     this.setProperties({
       archetypeId: opts.archetypeId || this.site.get("default_archetype"),
       metaData: opts.metaData ? Em.Object.create(opts.metaData) : null,
-      reply: opts.reply || this.get("reply") || ""
+      reply: opts.reply || this.get("reply") || "",
+      anonymous_chk: opts.anonymous_chk || this.get("anonymous_chk")
     });
 
     // We set the category id separately for topic templates on opening of composer
@@ -748,7 +750,8 @@ const Composer = RestModel.extend({
       raw: this.get("reply"),
       edit_reason: opts.editReason,
       image_sizes: opts.imageSizes,
-      cooked: this.getCookedHtml()
+      cooked: this.getCookedHtml(),
+      anonymous_chk: this.get("anonymous_chk")
     };
 
     this.set("composeState", SAVING);
@@ -820,7 +823,8 @@ const Composer = RestModel.extend({
       read: true,
       wiki: false,
       typingTime: this.get("typingTime"),
-      composerTime: this.get("composerTime")
+      composerTime: this.get("composerTime"),
+      anonymous_chk: opts.anonymous_chk
     });
 
     this.serialize(_create_serializer, createdPost);
@@ -966,7 +970,8 @@ const Composer = RestModel.extend({
       usernames: this.get("targetUsernames"),
       composerTime: this.get("composerTime"),
       typingTime: this.get("typingTime"),
-      tags: this.get("tags")
+      tags: this.get("tags"),
+      anonymous_chk: this.get("anonymous_chk")
     };
 
     this.set("draftStatus", I18n.t("composer.saving_draft_tip"));
@@ -1002,7 +1007,12 @@ const Composer = RestModel.extend({
         1000
       );
     }
-  }.observes("title", "reply")
+  }.observes("title", "reply"),
+
+  anonymous_chk: function(){
+    return false;
+  }.property("anonymous_chk")
+
 });
 
 Composer.reopenClass({

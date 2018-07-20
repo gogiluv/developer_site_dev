@@ -7,15 +7,59 @@ class TopicPostersSummary
   def initialize(topic, options = {})
     @topic = topic
     @options = options
+
+    @recent_post = Post.find_by_sql(['select distinct(t1.user_id), t1.anonymous_chk from (select user_id, created_at, anonymous_chk 
+                                      from posts where topic_id=? and anonymous_chk=false order by created_at desc) as t1 limit 4', topic.id])
+    @last_anonymous_post = Post.find_by_sql(['select user_id, anonymous_chk from posts where topic_id=? and anonymous_chk=true order by created_at desc limit 1', topic.id])
+    @posters_from_post = @recent_post.concat(@last_anonymous_post)
   end
 
   def summary
-    sorted_top_posters.compact.map(&method(:new_topic_poster_for))
+    #sorted_top_posters.compact.map(&method(:new_topic_poster_for))
+    new_topic_poster_for()
   end
 
   private
 
-  def new_topic_poster_for(user)
+  def new_topic_poster_for()
+    topic_posters = []
+    @posters_from_post.each do |poster|      
+      user = avatar_lookup[poster.user_id]
+      TopicPoster.new.tap do |topic_poster|
+        topic_poster.user = user
+        topic_poster.description = descriptions_for(user)
+        topic_poster.primary_group = primary_group_lookup[user.id]
+        if topic.last_post_user_id == user.id
+          topic_poster.extras = 'latest'
+          topic_poster.extras << ' single' if user_ids.uniq.size == 1
+        end
+        topic_poster.anonymous_chk = poster.anonymous_chk
+        topic_posters << topic_poster
+      end      
+    end
+    topic_posters
+  end
+
+  def new_topic_poster_for_back2(uu)
+    topic_posters = []
+    @posters_from_post.each do |poster|      
+      user = avatar_lookup[poster.user_id]
+      TopicPoster.new.tap do |topic_poster|
+        topic_poster.user = user
+        topic_poster.description = descriptions_for(user)
+        topic_poster.primary_group = primary_group_lookup[user.id]
+        if topic.last_post_user_id == user.id
+          topic_poster.extras = 'latest'
+          topic_poster.extras << ' single' if user_ids.uniq.size == 1
+        end
+        topic_poster.anonymous_chk = poster.anonymous_chk
+        topic_posters << topic_poster
+      end      
+    end
+    topic_posters
+  end
+
+  def new_topic_poster_for_back(user)
     TopicPoster.new.tap do |topic_poster|
       topic_poster.user = user
       topic_poster.description = descriptions_for(user)
@@ -24,6 +68,7 @@ class TopicPostersSummary
         topic_poster.extras = 'latest'
         topic_poster.extras << ' single' if user_ids.uniq.size == 1
       end
+      topic_poster.anonymous_chk = false
     end
   end
 
@@ -40,7 +85,7 @@ class TopicPostersSummary
     descriptions_by_id[user.id].join ', '
   end
 
-  def shuffle_last_poster_to_back_in(summary)
+  def shuffle_last_poster_to_back_in_back(summary)
     unless last_poster_is_topic_creator?
       summary.reject! { |u| u.id == topic.last_post_user_id }
       summary << avatar_lookup[topic.last_post_user_id]
@@ -68,11 +113,17 @@ class TopicPostersSummary
   end
 
   def top_posters
-    user_ids.map { |id| avatar_lookup[id] }.compact.uniq.take(5)
+    #user_ids.map { |id| avatar_lookup[id] }.compact.uniq.take(5)
+    user_ids.map { |id| avatar_lookup[id] }.compact.take(5)
   end
 
   def user_ids
-    [ topic.user_id, topic.last_post_user_id, *topic.featured_user_ids ]
+    posted_user_ids = []
+    @posters_from_post.each do |poster|
+      posted_user_ids << poster.user_id
+    end
+    posted_user_ids
+    #[ topic.user_id, topic.last_post_user_id, *topic.featured_user_ids ]
   end
 
   def avatar_lookup

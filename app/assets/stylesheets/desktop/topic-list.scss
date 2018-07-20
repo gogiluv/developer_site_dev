@@ -94,9 +94,9 @@
     > a {
       float: left;
       margin-right: 4px;
-      &:last-of-type {
-        margin-right: 0;
-      }
+      //&:last-of-type {
+      //  margin-right: 0;
+      //}
     }
   }
   td.posters {

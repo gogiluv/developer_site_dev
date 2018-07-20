@@ -193,7 +193,8 @@ class PostsController < ApplicationController
 
     changes = {
       raw: params[:post][:raw],
-      edit_reason: params[:post][:edit_reason]
+      edit_reason: params[:post][:edit_reason],
+      anonymous_chk: params[:post][:anonymous_chk]
     }
 
     # to stay consistent with the create api, we allow for title & category changes here
@@ -230,7 +231,6 @@ class PostsController < ApplicationController
     post_serializer.draft_sequence = DraftSequence.current(current_user, topic.draft_key)
     link_counts = TopicLink.counts_for(guardian, topic, [post])
     post_serializer.single_post_link_counts = link_counts[post.id] if link_counts.present?
-
     result = { post: post_serializer.as_json }
     if revisor.category_changed.present?
       result[:category] = BasicCategorySerializer.new(revisor.category_changed, scope: guardian, root: false).as_json
@@ -605,13 +605,14 @@ class PostsController < ApplicationController
       :auto_track,
       :typing_duration_msecs,
       :composer_open_duration_msecs,
-      :visible
+      :visible,
+      :anonymous_chk
     ]
 
     if Post.permitted_create_params.present?
       permitted.concat(Post.permitted_create_params.to_a)
     end
-
+    
     # param munging for WordPress
     params[:auto_track] = !(params[:auto_track].to_s == "false") if params[:auto_track]
     params[:visible] = (params[:unlist_topic].to_s == "false") if params[:unlist_topic]
@@ -631,7 +632,7 @@ class PostsController < ApplicationController
       permitted << :created_at
 
     end
-
+ 
     result = params.permit(*permitted).tap do |whitelisted|
       whitelisted[:image_sizes] = params[:image_sizes]
       # TODO this does not feel right, we should name what meta_data is allowed

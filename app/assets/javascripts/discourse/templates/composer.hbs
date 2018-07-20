@@ -34,6 +34,12 @@
                         toggleToolbar=(action "toggleToolbar")}}
             </div>
 
+	  <!--//////////////익명 작성 체크박스 추가////////////////-->
+	  <label>익명 작성
+		{{input type="checkbox" checked=model.anonymous_chk}}<br/>			
+	  </label>
+	  <!--///////////////////////////////-->
+
             {{#if model.canEditTitle}}
               {{#if model.creatingPrivateMessage}}
                 <div class='user-selector'>
@@ -73,7 +79,6 @@
             {{plugin-outlet name="composer-fields" args=(hash model=model)}}
 
           </div>
-
           {{composer-editor topic=topic
                             composer=model
                             lastValidatedAt=lastValidatedAt

@@ -2,6 +2,11 @@
   {{discourse-banner user=currentUser banner=site.banner}}
 </div>
 
+<div class="searcharea">
+                 <input type="text" class="input_search" id="search_keyword" name="keyword" value="" placeholder="주제, 글, 사용자, 카테고리 검색" onkeydown="ecowiki.keychk()"/>
+                 <input type="button" class="button red btn_search" value="검색" onclick="ecowiki.search()"/>
+</div>
+
 <div class="list-controls">
   <div class="container">
     {{outlet "navigation-bar"}}

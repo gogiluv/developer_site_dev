@@ -84,19 +84,37 @@ createWidget("topic-map-summary", {
 
   html(attrs, state) {
     const contents = [];
-    contents.push(
-      h("li", [
-        h("h4", I18n.t("created_lowercase")),
-        h("div.topic-map-post.created-at", [
-          avatarFor("tiny", {
-            username: attrs.createdByUsername,
-            template: attrs.createdByAvatarTemplate,
-            name: attrs.createdByName
-          }),
-          dateNode(attrs.topicCreatedAt)
+    if(!attrs.anonymous_chk){
+      contents.push(
+        h("li", [
+          h("h4", I18n.t("created_lowercase")),
+          h("div.topic-map-post.created-at", [
+              avatarFor("tiny", {
+              username: attrs.createdByUsername,
+              template: attrs.createdByAvatarTemplate,
+              name: attrs.createdByName
+            }),
+            dateNode(attrs.topicCreatedAt)
+          ])
         ])
-      ])
-    );
+      );
+    }else{
+      contents.push(
+        h("li", [
+          h("h4", I18n.t("created_lowercase")),
+          h("div.topic-map-post.created-at", [
+              avatarImg("tiny", {
+              template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
+              username: "unknown",
+              name: attrs.name
+            }),
+            dateNode(attrs.topicCreatedAt)
+          ])
+        ])
+      );
+    }
+    if(!attrs.lastPostAnonymousChk){
+
     contents.push(
       h(
         "li",
@@ -113,6 +131,25 @@ createWidget("topic-map-summary", {
         ])
       )
     );
+    }else{
+
+    contents.push(
+      h(
+        "li",
+        h("a", { attributes: { href: attrs.lastPostUrl } }, [
+          h("h4", I18n.t("last_reply_lowercase")),
+          h("div.topic-map-post.last-reply", [
+            avatarImg("tiny", {
+              template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
+              username: "unknown",
+              name: attrs.name
+            }),
+            dateNode(attrs.lastPostAt)
+          ])
+        ])
+      )
+    );
+    }
     contents.push(
       h("li", [
         numberNode(attrs.topicReplyCount),

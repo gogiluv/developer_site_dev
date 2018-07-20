@@ -41,6 +41,7 @@ export function avatarImg(wanted, attrs) {
 }
 
 export function avatarFor(wanted, attrs) {
+  //if(attrs.anonymous_chk) return "익명";
   return h(
     "a",
     {
@@ -106,7 +107,7 @@ createWidget("reply-to-tab", {
     if (state.loading) {
       return I18n.t("loading");
     }
-
+    console.log(attrs);
     return [
       iconNode("mail-forward"),
       " ",
@@ -117,6 +118,30 @@ createWidget("reply-to-tab", {
       " ",
       h("span", formatUsername(attrs.replyToUsername))
     ];
+    /*
+    if(!attrs.anonymous_chk){
+      return [
+        iconNode("mail-forward"),
+        " ",
+        avatarImg("small", {
+          template: attrs.replyToAvatarTemplate,
+          username: attrs.replyToUsername
+        }),
+        " ",
+        h("span", formatUsername(attrs.replyToUsername))
+      ];
+    }else{
+      return [
+        iconNode("mail-forward"),
+        " ",
+        avatarImg("small", {
+          template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
+          username: "unknown"
+        }),
+        " ",
+        h("span", formatUsername("unknown"))
+      ];
+    }*/
   },
 
   click() {
@@ -146,7 +171,13 @@ createWidget("post-avatar", {
   html(attrs) {
     let body;
     if (!attrs.user_id) {
-      body = iconNode("trash-o", { class: "deleted-user-avatar" });
+      body = iconNode("trash-o", { class: "deleted-user-avatar" });      
+    } else if(attrs.anonymous_chk){
+      body = avatarImg(this.settings.size, {
+        template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
+        username: "unknown",
+        className: "main-avatar"
+      });
     } else {
       body = avatarFor.call(this, this.settings.size, {
         template: attrs.avatar_template,

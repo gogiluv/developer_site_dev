@@ -39,7 +39,10 @@ class TopicList
     :current_user,
     :tags,
     :shared_drafts,
-    :category
+    :category,
+    :guide_list,
+    :qna_list,
+    :popular_tags
   )
 
   def initialize(filter, current_user, topics, opts = nil)
@@ -102,9 +105,20 @@ class TopicList
     post_action_lookup = PostAction.lookup_for(@current_user, @topics, post_action_type) if post_action_type
 
     # Create a lookup for all the user ids we need
-    user_ids = []
-    @topics.each do |ft|
-      user_ids << ft.user_id << ft.last_post_user_id << ft.featured_user_ids << ft.allowed_user_ids
+    user_ids_from_post_sql = "select user_id from posts where topic_id in (?) group by user_id"
+    topic_ids = []
+    @topics.each do |raw|
+     topic_ids << raw.id
+    end
+
+    @user_ids_from_post = Post.find_by_sql(['select user_id from posts where topic_id in (?) group by user_id', topic_ids])
+
+    user_ids = []    
+    #@topics.each do |ft|
+     # user_ids << ft.user_id << ft.last_post_user_id << ft.featured_user_ids << ft.allowed_user_ids
+    #end
+    @user_ids_from_post.each do |raw|
+      user_ids << raw.user_id
     end
 
     avatar_lookup = AvatarLookup.new(user_ids)

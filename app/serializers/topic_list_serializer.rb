@@ -9,7 +9,10 @@ class TopicListSerializer < ApplicationSerializer
              :per_page,
              :top_tags,
              :tags,
-             :shared_drafts
+             :shared_drafts,
+             :guide_list,
+             :qna_list,
+             :popular_tags
 
   has_many :topics, serializer: TopicListItemSerializer, embed: :objects
   has_many :shared_drafts, serializer: TopicListItemSerializer, embed: :objects

@@ -11,7 +11,8 @@ import showModal from "discourse/lib/show-modal";
 
 const TopicRoute = Discourse.Route.extend({
   redirect() {
-    return this.redirectIfLoginRequired();
+    return false;
+    //return this.redirectIfLoginRequired();
   },
 
   queryParams: {

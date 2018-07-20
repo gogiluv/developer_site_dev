@@ -79,7 +79,8 @@ export function transformBasicPost(post) {
     cooked_hidden: !!post.cooked_hidden,
     expandablePost: false,
     replyCount: post.reply_count,
-    locked: post.locked
+    locked: post.locked,
+    anonymous_chk: post.anonymous_chk
   };
 
   _additionalAttributes.forEach(a => (postAtts[a] = post[a]));
@@ -180,6 +181,7 @@ export default function transformPost(
     postAtts.topicSummaryEnabled = postStream.summary;
     postAtts.topicWordCount = topic.word_count;
     postAtts.hasTopicSummary = topic.has_summary;
+    postAtts.lastPostAnonymousChk = details.last_post.anonymous_chk;
   }
 
   if (postAtts.isDeleted) {

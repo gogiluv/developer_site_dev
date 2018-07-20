@@ -76,6 +76,9 @@ export function ajax() {
     }
 
     args.success = (data, textStatus, xhr) => {
+      if(xhr==null){
+	return location.reload();
+      }
       handleLogoff(xhr);
 
       Ember.run(() => {

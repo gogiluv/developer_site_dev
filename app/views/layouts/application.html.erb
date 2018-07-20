@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="<%= SiteSetting.default_locale %>" class="<%= html_classes %>">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta charset="utf-8">
     <title><%= content_for?(:title) ? yield(:title) : SiteSetting.title %></title>
     <meta name="description" content="<%= @description_meta || SiteSetting.site_description %>">

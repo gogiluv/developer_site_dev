@@ -211,7 +211,9 @@ class TopicQuery
   def list_topics_by(user)
     @options[:filtered_to_user] = user.id
     create_list(:user_topics) do |topics|
-      topics.where(user_id: user.id)
+      #topics.where(user_id: user.id)
+      # 익명으로 작성한 토픽은 제외한다.
+      topics.joins(:posts).where(user_id: user.id, 'posts.post_number': 1, 'posts.anonymous_chk': false)
     end
   end
 

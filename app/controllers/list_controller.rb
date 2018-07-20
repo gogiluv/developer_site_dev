@@ -4,6 +4,8 @@ class ListController < ApplicationController
   include TopicListResponder
 
   skip_before_action :check_xhr
+  #로그인 체크 안하도록 skip 한다
+  skip_before_action :redirect_to_login_if_required
 
   before_action :set_category, only: [
     :category_default,
@@ -109,6 +111,42 @@ class ListController < ApplicationController
           @title << " - #{SiteSetting.title}"
         end
       end
+
+      #puts "----------main list query-----------"
+      if params[:category].blank?
+        if filter == :latest
+          @guide_c_info = Category.where(parent_category_id: nil, name: "개발 가이드").select(:id, :parent_category_id, :name).limit(1)
+          @guide_c_info.each do |raw|
+                  @guide_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD HH24:MI:SS\') as created_dt,
+                                           t.views, t.visible, t.deleted_at,  u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+                                           c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk from topics as t
+                                           inner join categories as c on t.category_id=c.id
+                                           inner join users as u on t.user_id = u.id
+                                           inner join posts as p on t.id = p.topic_id and p.post_number=1
+                                           where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 3', raw.id, raw.id])
+          end
+          @qna_c_info = Category.where(parent_category_id: nil, name: "질의 응답").select(:id, :parent_category_id, :name).limit(1)
+
+          @qna_c_info.each do |raw|
+                  @qna_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD HH24:MI:SS\') as created_dt,
+                                         t.views, t.visible, t.deleted_at,  u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+                                         c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk from topics as t
+                                         inner join categories as c on t.category_id=c.id
+                                         inner join users as u on t.user_id = u.id
+                                         inner join posts as p on t.id = p.topic_id and p.post_number=1
+                                         where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 3', raw.id, raw.id])
+          end
+        end
+      end
+      #@categorys = Category.where(parent_category_id: nil).select(:id, :parent_category_id, :name)
+
+      @popular_tags = Tag.order(topic_count: :desc).limit(20)
+
+      list.guide_list = @guide_list
+      list.qna_list = @qna_list
+      list.popular_tags = @popular_tags
+
+      #puts "query end---------------------------------------------------------"
 
       respond_with_list(list)
     end

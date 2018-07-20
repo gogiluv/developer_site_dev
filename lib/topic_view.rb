@@ -287,6 +287,7 @@ class TopicView
           FROM posts
          WHERE id in (:post_ids)
            AND user_id IS NOT NULL
+           AND anonymous_chk IS FALSE
       GROUP BY user_id
       ORDER BY count_all DESC
          LIMIT #{MAX_PARTICIPANTS}
@@ -305,6 +306,7 @@ class TopicView
             FROM posts
             WHERE id IN (:post_ids)
             AND user_id IS NOT NULL
+            AND anonymous_chk IS FALSE
           SQL
           DB.query_single(sql, post_ids: unfiltered_post_ids).first.to_i
         else

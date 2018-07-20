@@ -39,7 +39,7 @@ class PostRevisor
     end
   end
 
-  POST_TRACKED_FIELDS = %w{raw cooked edit_reason user_id wiki post_type}
+  POST_TRACKED_FIELDS = %w{raw cooked edit_reason user_id wiki post_type anonymous_chk}
 
   attr_reader :category_changed
 
@@ -125,6 +125,7 @@ class PostRevisor
     @fields[:raw] = cleanup_whitespaces(@fields[:raw]) if @fields.has_key?(:raw)
     @fields[:user_id] = @fields[:user_id].to_i if @fields.has_key?(:user_id)
     @fields[:category_id] = @fields[:category_id].to_i if @fields.has_key?(:category_id)
+    @fields[:anonymous_chk] = @fields[:anonymous_chk] if @fields.has_key?(:anonymous_chk)
 
     # always reset edit_reason unless provided
     @fields[:edit_reason] = nil unless @fields[:edit_reason].present?

@@ -14,6 +14,18 @@ class UserSummary
 
   def topics
     Topic
+      .joins(:posts)
+      .secured(@guardian)
+      .listable_topics
+      .visible
+      .where(user: @user)
+      .where('posts.post_number=1 and posts.anonymous_chk=false')
+      .order('like_count DESC, created_at ASC')
+      .limit(MAX_SUMMARY_RESULTS)
+  end
+
+  def topics_bak
+    Topic
       .secured(@guardian)
       .listable_topics
       .visible
@@ -29,7 +41,7 @@ class UserSummary
       .secured(@guardian)
       .merge(Topic.listable_topics.visible.secured(@guardian))
       .where(user: @user)
-      .where('post_number > 1')
+      .where('post_number > 1 and anonymous_chk = false')
       .order('posts.like_count DESC, posts.created_at ASC')
       .limit(MAX_SUMMARY_RESULTS)
   end

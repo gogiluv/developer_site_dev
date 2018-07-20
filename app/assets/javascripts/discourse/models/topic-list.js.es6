@@ -178,6 +178,10 @@ TopicList.reopenClass({
     json.per_page = json.topic_list.per_page;
     json.topics = this.topicsFrom(store, json);
 
+    json.guide_list = json.topic_list.guide_list;
+    json.qna_list = json.topic_list.qna_list;
+    json.popular_tags = json.topic_list.popular_tags
+
     if (json.topic_list.shared_drafts) {
       json.sharedDrafts = this.topicsFrom(store, json, {
         listKey: "shared_drafts"

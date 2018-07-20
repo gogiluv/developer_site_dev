@@ -117,7 +117,7 @@ class Topic < ActiveRecord::Base
   belongs_to :category
   has_many :category_users, through: :category
   has_many :posts
-  has_many :ordered_posts, -> { order(post_number: :asc) }, class_name: "Post"
+  has_many :ordered_posts, -> { order(post_number: :asc) }, class_name: "Post"  
   has_many :topic_allowed_users
   has_many :topic_allowed_groups
 
@@ -153,6 +153,8 @@ class Topic < ActiveRecord::Base
   has_one :first_post, -> { where post_number: 1 }, class_name: 'Post'
   has_one :topic_search_data
   has_one :topic_embed, dependent: :destroy
+
+  has_one :last_post, -> { order(created_at: :desc).limit(1) }, class_name: 'Post'
 
   # When we want to temporarily attach some data to a forum topic (usually before serialization)
   attr_accessor :user_data

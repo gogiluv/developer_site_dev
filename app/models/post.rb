@@ -387,6 +387,7 @@ class Post < ActiveRecord::Base
   end
 
   def reply_to_post
+    puts "reply_to_post=============================== \n\n\n\n\n"
     return if reply_to_post_number.blank?
     @reply_to_post ||= Post.find_by("topic_id = :topic_id AND post_number = :post_number", topic_id: topic_id, post_number: reply_to_post_number)
   end

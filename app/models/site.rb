@@ -81,15 +81,15 @@ class Site
 
   def self.json_for(guardian)
 
-    if guardian.anonymous? && SiteSetting.login_required
-      return {
-        periods: TopTopic.periods.map(&:to_s),
-        filters: Discourse.filters.map(&:to_s),
-        user_fields: UserField.all.map do |userfield|
-          UserFieldSerializer.new(userfield, root: false, scope: guardian)
-        end
-      }.to_json
-    end
+#    if guardian.anonymous? && SiteSetting.login_required
+#      return {
+#        periods: TopTopic.periods.map(&:to_s),
+#        filters: Discourse.filters.map(&:to_s),
+#        user_fields: UserField.all.map do |userfield|
+#          UserFieldSerializer.new(userfield, root: false, scope: guardian)
+#        end
+#      }.to_json
+#    end
 
     seq = nil
 

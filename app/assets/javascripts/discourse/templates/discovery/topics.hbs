@@ -40,7 +40,137 @@
       </div>
     {{/if}}
   {{/if}}
+<!-- /////////////insert test code////////////////////////////////// -->
+{{#if latest}}
+  {{#unless category}}
 
+<div class="C2Scontent">
+        <!--
+        <div class="searcharea">
+                <input type="text" class="input_search" name="keyword" value=""/>
+                <input type="button" class="button red btn_search" value="검색"/>
+        </div>
+        -->
+
+        <div class="boxlist">
+                <div class="boxlabel"><div style="width:auto; float:left;"><h3 class="mtit">&nbsp; Answers </h3> </div>
+                                      <div style="width:20%; float:left; margin:4px 0px 0px 20px; text-align:left;"><h5 class="mtit"><a href="/c/qna/">더 보기</a></h5></div>
+                </div>
+
+                {{#each model.qna_list as |row|}}
+                        <div class="postbox">
+
+                                <ul>
+                                        <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
+                                        {{#if row.anonymous_chk}}
+                                          <li>작성자 : <span class="t3" style="color:black;">unknown</span></li>
+                                        {{else}}
+                                          <li>작성자 : <a href="/u/{{row.username}}"><span class="t3" style="color:black;">{{row.username}} {{#if row.u_name}} ({{row.u_name}}) {{/if}}</span></a></li>
+                                        {{/if}}
+                                        <li>카테고리 :
+                                                       {{#if row.c_parent_category_id}}
+                                                       <a class="badge-wrapper box" href="/c/qna/{{row.c_slug}}">
+                                                         <span class="badge-category-bg" style="background-color: #{{row.c_color}};"></span>
+                                                         <span style="color: #FFFFFF;" data-drop-close="true" class="badge-category clear-badge">
+                                                         <span class="category-name">{{row.c_name}}</span></span>
+                                                       </a>
+                                                       {{else}}
+                                                       <a class="badge-wrapper box" href="/c/qna/">
+                                                         <span class="badge-category-bg" style="background-color: #{{row.c_color}};"></span>
+                                                         <span style="color: #FFFFFF;" data-drop-close="true" class="badge-category clear-badge">
+                                                         <span class="category-name">{{row.c_name}}</span></span>
+                                                       </a>
+                                                       {{/if}}
+                                        </li>
+                                        <li>등록일 : {{row.created_dt}}</li>
+                                        <li>조회수 : {{row.views}}</li>
+                                </ul>
+                        </div>
+                {{/each}}
+<div class="boxlabel"><div style="width:auto; float:left;"><h3 class="mtit">&nbsp; 개발 가이드</h3></div>
+                                      <div style="width:20%; float:left; margin:4px 0px 0px 20px; text-align:left;"><h5 class="mtit"><a href="/c/dv-guide/">더 보기</a></h5></div>
+                </div>
+
+                {{#each model.guide_list as |row|}}
+                        <div class="postbox">
+                                <ul>
+                                        <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
+                                        {{#if row.anonymous_chk}}
+                                          <li>작성자 : <span class="t3" style="color:black;">unknown</span></li>
+                                        {{else}}
+                                          <li>작성자 : <a href="/u/{{row.username}}"><span class="t3" style="color:black;">{{row.username}} {{#if row.u_name}} ({{row.u_name}}) {{/if}}</span></a></li>
+                                        {{/if}}
+                                        <li>카테고리 :
+                                                       {{#if row.c_parent_category_id}}
+                                                       <a class="badge-wrapper box" href="/c/dv-guide/{{row.c_slug}}">
+                                                         <span class="badge-category-bg" style="background-color: #{{row.c_color}};"></span>
+                                                         <span style="color: #FFFFFF;" data-drop-close="true" class="badge-category clear-badge">
+                                                         <span class="category-name">{{row.c_name}}</span></span>
+                                                       </a>
+                                                       {{else}}
+                                                       <a class="badge-wrapper box" href="/c/dv-guide/">
+                                                         <span class="badge-category-bg" style="background-color: #{{row.c_color}};"></span>
+                                                         <span style="color: #FFFFFF;" data-drop-close="true" class="badge-category clear-badge">
+                                                         <span class="category-name">{{row.c_name}}</span></span>
+                                                       </a>
+                                                       {{/if}}
+                                        </li>
+                                        <li>등록일 : {{row.created_dt}}</li>
+                                        <li>조회수 : {{row.views}}</li>
+                                </ul>
+                        </div>
+                {{/each}}
+        </div>
+
+        <div class="rightbox">
+                <div class="noticebox">
+                        <h3 class="t-align-c">Com2us 지식공유 사이트에<br/> 오신것을 환영합니다</h3>
+                        <h5 class="t-align-c">
+                                이곳에서는 개발관련 노하우 공유는 물론<br/>
+                                google신보다 빠르게 우리에게 필요한 <br/>
+                                정보를 공유하고자 합니다. <br/>
+                                누구나 쉽게 질문하고 답변을 등록 할 수 있습니다. <br/>
+                                당신의 노하우를 자랑해 주세요~ <br/><br/>
+                                <h3>* 퀵 링크</h3>
+                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140546128">ECO-WIKI 회원 가입 및 사용 가이드</a><br/>
+                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542552">MarkDown 작성 가이드</a><br/>
+                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542565">게시물에 태그를 추가하는 방법</a><br/>
+                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140543801">수식 표기법(MathJax)</a><br/>
+                        </h5>
+                </div>
+                <div class="tagbox">
+                        <h3 class="t-align-c">popular tags</h3>
+                        {{#each model.popular_tags as |row|}}
+                                <a href="/tags/{{row.name}}" class="tag discourse-tag simple button">{{row.name}}({{row.topic_count}})</a>
+                        {{/each}}
+                </div>
+        </div>
+</div>
+  {{/unless}}
+  {{#if category}}
+    {{#if hasTopics}}
+      {{topic-list
+        highlightLastVisited=true
+        top=top
+        showTopicPostBadges=showTopicPostBadges
+        showPosters=true
+        canBulkSelect=canBulkSelect
+        changeSort="changeSort"
+        toggleBulkSelect="toggleBulkSelect"
+        hideCategory=model.hideCategory
+        order=order
+        ascending=ascending
+        bulkSelectEnabled=bulkSelectEnabled
+        selected=selected
+        expandGloballyPinned=expandGloballyPinned
+        expandAllPinned=expandAllPinned
+        category=category
+        topics=model.topics
+        discoveryList=true}}
+    {{/if}}
+  {{/if}}
+{{/if}}
+{{#unless latest}}
   {{#if hasTopics}}
     {{topic-list
       highlightLastVisited=true
@@ -61,6 +191,8 @@
       topics=model.topics
       discoveryList=true}}
   {{/if}}
+{{/unless}}
+<!-- //////////////////insert test code end///////////////////////////// -->
 {{/discovery-topics-list}}
 
 <footer class='topic-list-bottom'>

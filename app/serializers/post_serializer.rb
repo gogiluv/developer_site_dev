@@ -70,7 +70,9 @@ class PostSerializer < BasicPostSerializer
              :action_code,
              :action_code_who,
              :last_wiki_edit,
-             :locked
+             :locked,
+             :anonymous_chk,
+             :reply_post_anonymous_chk
 
   def initialize(object, opts)
     super(object, opts)
@@ -199,10 +201,25 @@ class PostSerializer < BasicPostSerializer
   end
 
   def reply_to_user
+    print object.reply_to_post.class, ",---------------------------reply_to_user\n\n\n\n\n\n"
+    if !object.reply_to_post.nil?
+      print object.reply_to_post.methods, "=========================\n\n\n\n\n\n"
+    if object.reply_to_post.anonymous_chk
+    {
+      username: 'unknown',
+      avatar_template: '/letter_avatar_proxy/v2/letter/u/000000/{size}.png'
+    }
+    else
     {
       username: object.reply_to_user.username,
-      avatar_template: object.reply_to_user.avatar_template
+      avatar_template: object.reply_to_user.avatar_template      
     }
+    end
+    end
+    #{
+    #  username: object.reply_to_user.username,
+    #  avatar_template: object.reply_to_user.avatar_template      
+    #}
   end
 
   def bookmarked
@@ -376,6 +393,10 @@ class PostSerializer < BasicPostSerializer
 
   def include_hidden_reason_id?
     object.hidden
+  end
+
+  def reply_post_anonymous_chk
+    false
   end
 
   private

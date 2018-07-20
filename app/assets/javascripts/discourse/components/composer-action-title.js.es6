@@ -72,6 +72,9 @@ export default Ember.Component.extend({
   },
 
   _formatReplyToUserPost(avatar, link) {
+    if(this.model.post.anonymous_chk){
+     return 'unknown';
+    }
     const htmlLink = `<a class="user-link" href="${link.href}">${
       link.anchor
     }</a>`;
