@@ -1,23 +1,15 @@
 import RestrictedUserRoute from "discourse/routes/restricted-user";
 import showModal from "discourse/lib/show-modal";
 import { popupAjaxError } from "discourse/lib/ajax-error";
+import { ajax } from "discourse/lib/ajax";
 
 export default RestrictedUserRoute.extend({
   model() {
     return this.modelFor("user");
   },
 
-  setupController(controller, user) {
-    controller.setProperties({
-      model: user
-    });
-  },
-
   actions: {
     showAvatarSelector() {
-      showModal("avatar-selector");
-
-      // all the properties needed for displaying the avatar selector modal
       const props = this.modelFor("user").getProperties(
         "id",
         "email",
@@ -42,32 +34,40 @@ export default RestrictedUserRoute.extend({
           props.selected = "uploaded";
       }
 
-      this.controllerFor("avatar-selector").setProperties(props);
+      const controller = showModal("avatar-selector");
+      controller.setProperties(props);
+
+      if (this.siteSettings.selectable_avatars_enabled) {
+        ajax("/site/selectable-avatars.json").then(avatars =>
+          controller.set("selectableAvatars", avatars)
+        );
+      }
+    },
+
+    selectAvatar(url) {
+      const user = this.modelFor("user");
+
+      this.controllerFor("avatar-selector").send("closeModal");
+
+      user
+        .selectAvatar(url)
+        .then(() => window.location.reload())
+        .catch(popupAjaxError);
     },
 
     saveAvatarSelection() {
-      const user = this.modelFor("user"),
-        controller = this.controllerFor("avatar-selector"),
-        selectedUploadId = controller.get("selectedUploadId"),
-        selectedAvatarTemplate = controller.get("selectedAvatarTemplate"),
-        type = controller.get("selected");
+      const user = this.modelFor("user");
+      const controller = this.controllerFor("avatar-selector");
+      const selectedUploadId = controller.get("selectedUploadId");
+      const selectedAvatarTemplate = controller.get("selectedAvatarTemplate");
+      const type = controller.get("selected");
+
+      controller.send("closeModal");
 
       user
         .pickAvatar(selectedUploadId, type, selectedAvatarTemplate)
-        .then(() => {
-          user.setProperties(
-            controller.getProperties(
-              "system_avatar_template",
-              "gravatar_avatar_template",
-              "custom_avatar_template"
-            )
-          );
-          bootbox.alert(I18n.t("user.change_avatar.cache_notice"));
-        })
+        .then(() => window.location.reload())
         .catch(popupAjaxError);
-
-      // saves the data back
-      controller.send("closeModal");
     }
   }
 });

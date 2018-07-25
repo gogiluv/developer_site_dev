@@ -29,7 +29,8 @@ class SiteSettings::TypeSupervisor
       regex: 13,
       email: 14,
       username: 15,
-      category: 16
+      category: 16,
+      uploaded_image_list: 17,
     )
   end
 
@@ -169,7 +170,11 @@ class SiteSettings::TypeSupervisor
       if enum_class(name)
         raise Discourse::InvalidParameters.new(:value) unless enum_class(name).valid_value?(val)
       else
-        raise Discourse::InvalidParameters.new(:value) unless @choices[name].include?(val)
+        unless (choice = @choices[name])
+          raise Discourse::InvalidParameters.new(name)
+        end
+
+        raise Discourse::InvalidParameters.new(:value) unless choice.include?(val)
       end
     end
 

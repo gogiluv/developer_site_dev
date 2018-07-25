@@ -26,8 +26,6 @@ h1 .topic-statuses .topic-status i {
   }
   .reply-to-tab {
     z-index: z("base") + 1;
-    float: right;
-    margin: -2px 25px 0 0;
     color: dark-light-choose($primary-medium, $secondary-medium);
   }
   .actions .fade-out {
@@ -787,7 +785,7 @@ $topic-avatar-width: 45px;
   padding: 5px;
   margin-bottom: 5px;
   right: 10px;
-  @include large-width {
+  @include breakpoint(extra-large, min-width) {
     right: auto;
     margin-left: 330px;
     left: 50%;
@@ -839,7 +837,7 @@ $topic-avatar-width: 45px;
     &[disabled] {
       text-shadow: 0 1px 0 rgba($primary, 0.2);
       @include linear-gradient($tertiary, darken($tertiary, 20%));
-      @include box-shadow(inset 0 1px 0 rgba(0, 0, 0, 0.33));
+      box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.33);
     }
   }
 }
@@ -902,6 +900,13 @@ a.attachment:before {
 }
 
 .topic-meta-data {
+  align-items: center;
+
+  .names {
+    display: flex;
+    align-items: center;
+  }
+
   &:after {
     visibility: hidden;
     display: block;
@@ -910,11 +915,14 @@ a.attachment:before {
     clear: both;
     height: 0;
   }
+
   .post-info {
-    display: inline-block;
-    float: right;
     a {
       color: dark-light-choose($primary-medium, $secondary-medium);
+    }
+
+    a.wiki {
+      color: $wiki;
     }
   }
 }
@@ -936,6 +944,7 @@ span.highlighted {
 
 .read-state {
   color: $tertiary-medium;
+  // We use absolute positioning here because we want it to display in the padding
   position: absolute;
   right: 0;
   top: 2em;

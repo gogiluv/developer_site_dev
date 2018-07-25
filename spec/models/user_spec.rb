@@ -990,6 +990,12 @@ describe User do
       u.user_stat.first_post_created_at = 25.hours.ago
       expect(u.new_user_posting_on_first_day?).to eq(false)
     end
+
+    it "considers trust level 0 users as new users unconditionally" do
+      u = Fabricate(:user, created_at: 28.hours.ago, trust_level: TrustLevel[0])
+      u.user_stat.first_post_created_at = 25.hours.ago
+      expect(u.new_user_posting_on_first_day?).to eq(true)
+    end
   end
 
   describe 'api keys' do
@@ -1251,26 +1257,34 @@ describe User do
     let!(:user) { Fabricate(:user) }
     let!(:unactivated) { Fabricate(:user, active: false) }
     let!(:unactivated_old) { Fabricate(:user, active: false, created_at: 1.month.ago) }
-    let!(:unactivated_old_with_pm) { Fabricate(:user, active: false, created_at: 2.months.ago) }
+    let!(:unactivated_old_with_system_pm) { Fabricate(:user, active: false, created_at: 2.months.ago) }
+    let!(:unactivated_old_with_human_pm) { Fabricate(:user, active: false, created_at: 2.months.ago) }
 
     before do
       PostCreator.new(Discourse.system_user,
         title: "Welcome to our Discourse",
         raw: "This is a welcome message",
         archetype: Archetype.private_message,
-        target_usernames: [unactivated_old_with_pm.username],
+        target_usernames: [unactivated_old_with_system_pm.username],
+      ).create
+
+      PostCreator.new(user,
+        title: "Welcome to our Discourse",
+        raw: "This is a welcome message",
+        archetype: Archetype.private_message,
+        target_usernames: [unactivated_old_with_human_pm.username],
       ).create
     end
 
     it 'should only remove old, unactivated users' do
       User.purge_unactivated
-      expect(User.real.all).to match_array([user, unactivated, unactivated_old_with_pm])
+      expect(User.real.all).to match_array([user, unactivated, unactivated_old_with_human_pm])
     end
 
     it "does nothing if purge_unactivated_users_grace_period_days is 0" do
       SiteSetting.purge_unactivated_users_grace_period_days = 0
       User.purge_unactivated
-      expect(User.real.all).to match_array([user, unactivated, unactivated_old, unactivated_old_with_pm])
+      expect(User.real.all).to match_array([user, unactivated, unactivated_old, unactivated_old_with_system_pm, unactivated_old_with_human_pm])
     end
   end
 
@@ -1744,4 +1758,31 @@ describe User do
       filter_by(:filter_by_username_or_email)
     end
   end
+
+  describe "#secondary_emails" do
+    let(:user) { Fabricate(:user_single_email) }
+
+    it "only contains secondary emails" do
+      expect(user.user_emails.secondary).to eq([])
+
+      secondary_email = Fabricate(:secondary_email, user: user)
+
+      expect(user.user_emails.secondary).to contain_exactly(secondary_email)
+    end
+  end
+
+  describe "set_random_avatar" do
+    it "sets a random avatar when selectable avatars is enabled" do
+      avatar1 = Fabricate(:upload)
+      avatar2 = Fabricate(:upload)
+      SiteSetting.selectable_avatars_enabled = true
+      SiteSetting.selectable_avatars = [avatar1.url, avatar2.url].join("\n")
+
+      user = Fabricate(:user)
+      expect(user.uploaded_avatar_id).not_to be(nil)
+      expect([avatar1.id, avatar2.id]).to include(user.uploaded_avatar_id)
+      expect(user.user_avatar.custom_upload_id).to eq(user.uploaded_avatar_id)
+    end
+  end
+
 end

@@ -78,13 +78,14 @@
         {{partial "selected-posts"}}
       </div>
 
-      {{#topic-navigation topic=model jumpToIndex=(action "jumpToIndex") as |info|}}
+      {{#topic-navigation topic=model jumpToDate=(action "jumpToDate") jumpToIndex=(action "jumpToIndex") as |info|}}
         {{#if info.renderTimeline}}
           {{#if info.renderAdminMenuButton}}
             {{topic-admin-menu-button
               topic=model
               fixed="true"
               toggleMultiSelect=(action "toggleMultiSelect")
+              hideMultiSelect=(action "hideMultiSelect")
               deleteTopic=(action "deleteTopic")
               recoverTopic=(action "recoverTopic")
               toggleClosed=(action "toggleClosed")
@@ -111,6 +112,7 @@
             jumpToIndex=(action "jumpToIndex")
             replyToPost=(action "replyToPost")
             toggleMultiSelect=(action "toggleMultiSelect")
+            hideMultiSelect=(action "hideMultiSelect")
             deleteTopic=(action "deleteTopic")
             recoverTopic=(action "recoverTopic")
             toggleClosed=(action "toggleClosed")
@@ -133,6 +135,7 @@
                 openUpwards="true"
                 rightSide="true"
                 toggleMultiSelect=(action "toggleMultiSelect")
+                hideMultiSelect=(action "hideMultiSelect")
                 deleteTopic=(action "deleteTopic")
                 recoverTopic=(action "recoverTopic")
                 toggleClosed=(action "toggleClosed")
@@ -242,6 +245,7 @@
                   {{topic-footer-buttons
                     topic=model
                     toggleMultiSelect=(action "toggleMultiSelect")
+                    hideMultiSelect=(action "hideMultiSelect")
                     deleteTopic=(action "deleteTopic")
                     recoverTopic=(action "recoverTopic")
                     toggleClosed=(action "toggleClosed")

@@ -3,6 +3,7 @@ require_dependency 'system_message'
 
 class PostAction < ActiveRecord::Base
   class AlreadyActed < StandardError; end
+  class FailedToCreatePost < StandardError; end
 
   include RateLimiter::OnCreateRecord
   include Trashable
@@ -101,18 +102,19 @@ class PostAction < ActiveRecord::Base
     #
     topic_ids = topics.map(&:id)
     map = {}
-        builder = SqlBuilder.new <<SQL
-        SELECT p.topic_id, p.post_number
-        FROM post_actions pa
-        JOIN posts p ON pa.post_id = p.id
-        WHERE p.deleted_at IS NULL AND pa.deleted_at IS NULL AND
-           pa.post_action_type_id = :post_action_type_id AND
-           pa.user_id = :user_id AND
-           p.topic_id IN (:topic_ids)
-        ORDER BY p.topic_id, p.post_number
-SQL
 
-    builder.map_exec(OpenStruct, user_id: user.id, post_action_type_id: post_action_type_id, topic_ids: topic_ids).each do |row|
+    builder = DB.build <<~SQL
+      SELECT p.topic_id, p.post_number
+      FROM post_actions pa
+      JOIN posts p ON pa.post_id = p.id
+      WHERE p.deleted_at IS NULL AND pa.deleted_at IS NULL AND
+         pa.post_action_type_id = :post_action_type_id AND
+         pa.user_id = :user_id AND
+         p.topic_id IN (:topic_ids)
+      ORDER BY p.topic_id, p.post_number
+    SQL
+
+    builder.query(user_id: user.id, post_action_type_id: post_action_type_id, topic_ids: topic_ids).each do |row|
       (map[row.topic_id] ||= []) << row.post_number
     end
 
@@ -150,7 +152,7 @@ SQL
   def self.agree_flags!(post, moderator, delete_post = false)
     actions = PostAction.active
       .where(post_id: post.id)
-      .where(post_action_type_id: PostActionType.flag_types.values)
+      .where(post_action_type_id: PostActionType.notify_flag_types.values)
 
     trigger_spam = false
     actions.each do |action|
@@ -280,7 +282,12 @@ SQL
   def self.act(user, post, post_action_type_id, opts = {})
     limit_action!(user, post, post_action_type_id)
 
-    related_post_id = create_message_for_post_action(user, post, post_action_type_id, opts)
+    begin
+      related_post_id = create_message_for_post_action(user, post, post_action_type_id, opts)
+    rescue ActiveRecord::RecordNotSaved => e
+      raise FailedToCreatePost.new(e.message)
+    end
+
     staff_took_action = opts[:take_action] || false
 
     targets_topic =
@@ -463,9 +470,6 @@ SQL
 
     # We probably want to refactor this method to something cleaner.
     case post_action_type_key
-    when :vote
-      # Voting also changes the sort_order
-      Post.where(id: post_id).update_all ["vote_count = :count, sort_order = :max - :count", count: count, max: Topic.max_sort_order]
     when :like
       # 'like_score' is weighted higher for staff accounts
       score = PostAction.joins(:user)
@@ -653,8 +657,8 @@ end
 #
 # Indexes
 #
-#  idx_unique_actions                                     (user_id,post_action_type_id,post_id,targets_topic) UNIQUE
-#  idx_unique_flags                                       (user_id,post_id,targets_topic) UNIQUE
+#  idx_unique_actions                                     (user_id,post_action_type_id,post_id,targets_topic) UNIQUE WHERE ((deleted_at IS NULL) AND (disagreed_at IS NULL) AND (deferred_at IS NULL))
+#  idx_unique_flags                                       (user_id,post_id,targets_topic) UNIQUE WHERE ((deleted_at IS NULL) AND (disagreed_at IS NULL) AND (deferred_at IS NULL) AND (post_action_type_id = ANY (ARRAY[3, 4, 7, 8])))
 #  index_post_actions_on_post_id                          (post_id)
-#  index_post_actions_on_user_id_and_post_action_type_id  (user_id,post_action_type_id)
+#  index_post_actions_on_user_id_and_post_action_type_id  (user_id,post_action_type_id) WHERE (deleted_at IS NULL)
 #

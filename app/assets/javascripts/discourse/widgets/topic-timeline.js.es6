@@ -151,8 +151,20 @@ createWidget("timeline-scrollarea", {
     const current = clamp(Math.floor(total * percentage) + 1, 1, total);
 
     const daysAgo = postStream.closestDaysAgoFor(current);
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo || 0);
+    let date;
+
+    if (daysAgo === undefined) {
+      const post = postStream
+        .get("posts")
+        .findBy("id", postStream.get("stream")[current]);
+
+      if (post) date = new Date(post.get("created_at"));
+    } else if (daysAgo !== null) {
+      date = new Date();
+      date.setDate(date.getDate() - daysAgo || 0);
+    } else {
+      date = null;
+    }
 
     const result = {
       current,
@@ -483,8 +495,9 @@ export default createWidget("topic-timeline", {
     }
 
     result.push(this.attach("timeline-controls", attrs));
+    const streamLength = stream.length;
 
-    if (stream.length < 3) {
+    if (streamLength !== 0 && streamLength < 3) {
       const topicHeight = $("#topic").height();
       const windowHeight = $(window).height();
       if (topicHeight / windowHeight < 2.0) {

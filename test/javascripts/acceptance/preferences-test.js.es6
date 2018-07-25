@@ -18,6 +18,11 @@ acceptance("User Preferences", {
     server.put("/u/second_factor.json", () => { //eslint-disable-line
       return response({ error: "invalid token" });
     });
+
+    // prettier-ignore
+    server.put("/u/second_factors_backup.json", () => { //eslint-disable-line
+      return response({ backup_codes: ["dsffdsd", "fdfdfdsf", "fddsds"] });
+    });
   }
 });
 
@@ -120,7 +125,7 @@ QUnit.test("second factor", assert => {
   });
 
   fillIn("#password", "secrets");
-  click(".user-content .btn-primary");
+  click(".user-preferences .btn-primary");
 
   andThen(() => {
     assert.ok(exists("#test-qr"), "shows qr code");
@@ -140,11 +145,61 @@ QUnit.test("second factor", assert => {
   });
 });
 
+QUnit.test("second factor backup", assert => {
+  visit("/u/eviltrout/preferences/second-factor-backup");
+
+  andThen(() => {
+    assert.ok(
+      exists("#second-factor-token"),
+      "it has a authentication token input"
+    );
+  });
+
+  fillIn("#second-factor-token", "111111");
+  click(".user-preferences .btn-primary");
+
+  andThen(() => {
+    assert.ok(exists(".backup-codes-area"), "shows backup codes");
+  });
+});
+
+QUnit.test("default avatar selector", assert => {
+  visit("/u/eviltrout/preferences");
+
+  click(".pref-avatar .btn");
+  andThen(() => {
+    assert.ok(exists(".avatar-choice", "opens the avatar selection modal"));
+  });
+});
+
+acceptance("Avatar selector when selectable avatars is enabled", {
+  loggedIn: true,
+  settings: { selectable_avatars_enabled: true },
+  beforeEach() {
+    // prettier-ignore
+    server.get("/site/selectable-avatars.json", () => { //eslint-disable-line
+      return [200, { "Content-Type": "application/json" }, [
+        "https://www.discourse.org",
+        "https://meta.discourse.org",
+      ]];
+    });
+  }
+});
+
+QUnit.test("selectable avatars", assert => {
+  visit("/u/eviltrout/preferences");
+
+  click(".pref-avatar .btn");
+  andThen(() => {
+    assert.ok(
+      exists(".selectable-avatars", "opens the avatar selection modal")
+    );
+  });
+});
+
 acceptance("User Preferences when badges are disabled", {
   loggedIn: true,
-  settings: {
-    enable_badges: false
-  }
+  settings: { enable_badges: false }
 });
 
 QUnit.test("visit my preferences", assert => {

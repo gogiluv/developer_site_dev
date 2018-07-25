@@ -301,6 +301,8 @@ module Discourse
       unless @threads[key]&.alive?
         @threads[key] = Thread.new do
           while @dbs.size > 0
+            sleep 30
+
             @dbs.each do |db|
               RailsMultisite::ConnectionManagement.with_connection(db) do
                 if readonly_mode?(key)
@@ -310,8 +312,6 @@ module Discourse
                 end
               end
             end
-
-            sleep 30
           end
         end
       end
@@ -525,6 +525,23 @@ module Discourse
         pool.flush(idle)
       end
     end
+  end
+
+  def self.deprecate(warning)
+    location = caller_locations[1]
+    warning = "Deprecation Notice: #{warning}\nAt: #{location.label} #{location.path}:#{location.lineno}"
+    if Rails.env == "development"
+      STDERR.puts(warning)
+    end
+
+    digest = Digest::MD5.hexdigest(warning)
+    redis_key = "deprecate-notice-#{digest}"
+
+    if !$redis.without_namespace.get(redis_key)
+      Rails.logger.warn(warning)
+      $redis.without_namespace.setex(redis_key, 3600, "x")
+    end
+    warning
   end
 
   SIDEKIQ_NAMESPACE ||= 'sidekiq'.freeze

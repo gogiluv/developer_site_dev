@@ -744,6 +744,12 @@ describe Post do
         expect(reply.quoted_post_numbers).to be_blank
       end
 
+      it "doesn't find the quote in the same post" do
+        reply = Fabricate.build(:post, post_args.merge(post_number: 646))
+        reply.raw = "[quote=\"EvilTrout, post:#{reply.post_number}, topic:#{post.topic_id}\"]hello[/quote]"
+        reply.extract_quoted_post_numbers
+        expect(reply.quoted_post_numbers).to be_blank
+      end
     end
 
     describe 'a new reply' do
@@ -805,12 +811,13 @@ describe Post do
     let!(:p1) { Fabricate(:post, post_args.merge(score: 4, percent_rank: 0.33)) }
     let!(:p2) { Fabricate(:post, post_args.merge(score: 10, percent_rank: 0.66)) }
     let!(:p3) { Fabricate(:post, post_args.merge(score: 5, percent_rank: 0.99)) }
+    let!(:p4) { Fabricate(:post, percent_rank: 0.99) }
 
     it "returns the OP and posts above the threshold in summary mode" do
       SiteSetting.summary_percent_filter = 66
-      expect(Post.summary.order(:post_number)).to eq([p1, p2])
+      expect(Post.summary(topic.id).order(:post_number)).to eq([p1, p2])
+      expect(Post.summary(p4.topic.id)).to eq([p4])
     end
-
   end
 
   context 'sort_order' do

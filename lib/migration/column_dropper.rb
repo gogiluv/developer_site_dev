@@ -2,11 +2,13 @@ require_dependency 'migration/base_dropper'
 
 module Migration
   class ColumnDropper < BaseDropper
-    def self.drop(table:, after_migration:, columns:, delay: nil, on_drop: nil)
+    def self.drop(table:, after_migration:, columns:, delay: nil, on_drop: nil, after_drop: nil)
       validate_table_name(table)
       columns.each { |column| validate_column_name(column) }
 
-      ColumnDropper.new(table, columns, after_migration, delay, on_drop).delayed_drop
+      ColumnDropper.new(
+        table, columns, after_migration, delay, on_drop, after_drop
+      ).delayed_drop
     end
 
     def self.mark_readonly(table_name, column_name)
@@ -24,29 +26,30 @@ module Migration
 
     private
 
-    def initialize(table, columns, after_migration, delay, on_drop)
-      super(after_migration, delay, on_drop)
+    def initialize(table, columns, after_migration, delay, on_drop, after_drop)
+      super(after_migration, delay, on_drop, after_drop)
 
       @table = table
       @columns = columns
     end
 
     def droppable?
-      builder = SqlBuilder.new(<<~SQL)
+      builder = DB.build(<<~SQL)
         SELECT 1
         FROM INFORMATION_SCHEMA.COLUMNS
         /*where*/
         LIMIT 1
       SQL
 
-      builder.where("table_schema = 'public'")
+      builder
+        .where("table_schema = 'public'")
         .where("table_name = :table")
         .where("column_name IN (:columns)")
         .where(previous_migration_done)
         .exec(table: @table,
               columns: @columns,
               delay: "#{@delay} seconds",
-              after_migration: @after_migration).to_a.length > 0
+              after_migration: @after_migration) > 0
     end
 
     def execute_drop!

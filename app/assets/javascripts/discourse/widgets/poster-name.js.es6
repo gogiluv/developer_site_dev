@@ -1,5 +1,5 @@
 import { iconNode } from "discourse-common/lib/icon-library";
-import { createWidget } from "discourse/widgets/widget";
+import { createWidget, applyDecorators } from "discourse/widgets/widget";
 import { h } from "virtual-dom";
 import { formatUsername } from "discourse/lib/utilities";
 
@@ -85,11 +85,14 @@ export default createWidget("poster-name", {
       classNames.push("new-user");
     }
 
+    let afterNameContents =
+      applyDecorators(this, "after-name", attrs, this.state) || [];
+
     const primaryGroupName = attrs.primary_group_name;
     if (primaryGroupName && primaryGroupName.length) {
       classNames.push(primaryGroupName);
     }
-    const nameContents = [this.userLink(attrs, nameFirst ? name : username)];
+    let nameContents = [this.userLink(attrs, nameFirst ? name : username)];
 
     if (this.settings.showGlyph) {
       const glyph = this.posterGlyph(attrs);
@@ -97,6 +100,7 @@ export default createWidget("poster-name", {
         nameContents.push(glyph);
       }
     }
+    nameContents = nameContents.concat(afterNameContents);
 
     const contents = [
       h("span", { className: classNames.join(" ") }, nameContents)
@@ -114,7 +118,9 @@ export default createWidget("poster-name", {
       contents.push(
         h(
           "span.second." + (nameFirst ? "username" : "full-name"),
-          this.userLink(attrs, nameFirst ? username : name)
+          [this.userLink(attrs, nameFirst ? username : name)].concat(
+            afterNameContents
+          )
         )
       );
     }
