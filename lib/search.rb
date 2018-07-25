@@ -443,7 +443,8 @@ class Search
   advanced_filter(/^\@([a-zA-Z0-9_\-.]+)/) do |posts, match|
     user_id = User.where(staged: false).where(username_lower: match.downcase).pluck(:id).first
     if user_id
-      posts.where("posts.user_id = #{user_id}")
+      #posts.where("posts.user_id = #{user_id}")
+      posts.where("posts.user_id = #{user_id} and posts.anonymous_chk=false")
     else
       posts.where("1 = 0")
     end

@@ -71,13 +71,12 @@ class PostSerializer < BasicPostSerializer
              :action_code_who,
              :last_wiki_edit,
              :locked,
-             :anonymous_chk,
-             :reply_post_anonymous_chk
+             :anonymous_chk
 
   def initialize(object, opts)
     super(object, opts)
     PostSerializer::INSTANCE_VARS.each do |name|
-      if opts.include? name
+      if opts.include? name        
         self.send("#{name}=", opts[name])
       end
     end
@@ -201,9 +200,7 @@ class PostSerializer < BasicPostSerializer
   end
 
   def reply_to_user
-    print object.reply_to_post.class, ",---------------------------reply_to_user\n\n\n\n\n\n"
     if !object.reply_to_post.nil?
-      print object.reply_to_post.methods, "=========================\n\n\n\n\n\n"
     if object.reply_to_post.anonymous_chk
     {
       username: 'unknown',
@@ -393,10 +390,6 @@ class PostSerializer < BasicPostSerializer
 
   def include_hidden_reason_id?
     object.hidden
-  end
-
-  def reply_post_anonymous_chk
-    false
   end
 
   private

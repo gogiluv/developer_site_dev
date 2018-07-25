@@ -23,7 +23,9 @@ class ListableTopicSerializer < BasicTopicSerializer
              :notification_level,
              :bookmarked,
              :liked,
-             :unicode_title
+             :unicode_title,
+             :first_post_anonymous_chk,
+             :last_post_anonymous_chk
 
   has_one :last_poster, serializer: BasicUserSerializer, embed: :objects
 
@@ -117,6 +119,22 @@ class ListableTopicSerializer < BasicTopicSerializer
 
   def unpinned
     PinnedCheck.unpinned?(object, object.user_data)
+  end
+
+  def first_post_anonymous_chk
+    if object.first_post.nil?
+      false
+    else 
+      object.first_post.anonymous_chk
+    end
+  end
+
+  def last_post_anonymous_chk
+    if object.first_post.nil?
+      false
+    else 
+      object.last_post.anonymous_chk
+    end
   end
 
   protected

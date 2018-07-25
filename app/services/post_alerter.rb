@@ -57,7 +57,8 @@ class PostAlerter
 
       if post.last_editor_id != post.user_id
         # Mention comes from an edit by someone else, so notification should say who added the mention.
-        mentioned_opts = { user_id: editor.id, original_username: editor.username, display_username: editor.username }
+        #mentioned_opts = { user_id: editor.id, original_username: editor.username, display_username: editor.username }
+        mentioned_opts = { user_id: editor.id, original_username: post.anonymous_chk ? "unknown" : editor.username, display_username: epost.anonymous_chk ? "unknown" : editor.username }
       end
 
       expand_group_mentions(mentioned_groups, post) do |group, users|

@@ -326,7 +326,8 @@ class UserNotifications < ActionMailer::Base
   def email_post_markdown(post, add_posted_by = false)
     result = "#{post.raw}\n\n"
     if add_posted_by
-      result << "#{I18n.t('user_notifications.posted_by', username: post.username, post_date: post.created_at.strftime("%m/%d/%Y"))}\n\n"
+      #result << "#{I18n.t('user_notifications.posted_by', username: post.username, post_date: post.created_at.strftime("%m/%d/%Y"))}\n\n"
+      result << "#{I18n.t('user_notifications.posted_by', username: post.anonymous_chk ? "unknown" : post.username, post_date: post.created_at.strftime("%m/%d/%Y"))}\n\n"
     end
     result
   end
@@ -381,6 +382,11 @@ class UserNotifications < ActionMailer::Base
 
     allow_reply_by_email = opts[:allow_reply_by_email] unless user.suspended?
     original_username = notification_data[:original_username] || notification_data[:display_username]
+
+    if post.anonymous_chk
+      user_name = "unknown"
+      original_username = "unknown"
+    end
 
     email_options = {
       title: notification_data[:topic_title],

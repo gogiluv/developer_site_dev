@@ -11,6 +11,11 @@ export default Ember.Component.extend({
 
   @computed("flag.name", "flag.name_key", "flag.is_custom_flag", "username")
   formattedName(name, nameKey, isCustomFlag, username) {
+    
+    if(this.anonymous_chk){
+      username="unknown";
+    }
+
     if (isCustomFlag) {
       return name.replace("{{username}}", username);
     } else {
