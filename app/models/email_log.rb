@@ -1,7 +1,10 @@
 require_dependency 'distributed_mutex'
 
 class EmailLog < ActiveRecord::Base
-  self.ignored_columns = %w{topic_id}
+  self.ignored_columns = %w{
+    topic_id
+    reply_key
+  }
 
   CRITICAL_EMAIL_TYPES ||= Set.new %w{
     account_created
@@ -74,10 +77,6 @@ class EmailLog < ActiveRecord::Base
     super&.delete('-')
   end
 
-  def reply_key
-    super&.delete('-')
-  end
-
 end
 
 # == Schema Information
@@ -90,9 +89,7 @@ end
 #  user_id        :integer
 #  created_at     :datetime         not null
 #  updated_at     :datetime         not null
-#  reply_key      :uuid
 #  post_id        :integer
-#  topic_id       :integer
 #  skipped        :boolean          default(FALSE)
 #  skipped_reason :string
 #  bounce_key     :uuid
@@ -101,12 +98,11 @@ end
 #
 # Indexes
 #
-#  idx_email_logs_user_created_filtered        (user_id,created_at) WHERE (skipped = false)
-#  index_email_logs_on_created_at              (created_at)
-#  index_email_logs_on_message_id              (message_id)
-#  index_email_logs_on_post_id                 (post_id)
-#  index_email_logs_on_reply_key               (reply_key)
-#  index_email_logs_on_skipped_and_created_at  (skipped,created_at)
-#  index_email_logs_on_topic_id                (topic_id)
-#  index_email_logs_on_user_id_and_created_at  (user_id,created_at DESC)
+#  idx_email_logs_user_created_filtered                    (user_id,created_at) WHERE (skipped = false)
+#  index_email_logs_on_created_at                          (created_at)
+#  index_email_logs_on_message_id                          (message_id)
+#  index_email_logs_on_post_id                             (post_id)
+#  index_email_logs_on_reply_key                           (reply_key)
+#  index_email_logs_on_skipped_and_bounced_and_created_at  (skipped,bounced,created_at)
+#  index_email_logs_on_user_id                             (user_id)
 #

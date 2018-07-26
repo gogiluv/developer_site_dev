@@ -197,6 +197,7 @@ en:
   not_logged_in: "You need to be logged in to do that."
   not_found: "The requested URL or resource could not be found."
   invalid_access: "You are not permitted to view the requested resource."
+  authenticator_not_found: "Authentication method does not exist, or has been disabled."
   invalid_api_credentials: "You are not permitted to view the requested resource. The API username or key is invalid."
   provider_not_enabled: "You are not permitted to view the requested resource. The authentication provider is not enabled."
   provider_not_found: "You are not permitted to view the requested resource. The authentication provider does not exist."
@@ -700,6 +701,9 @@ en:
     authorizing_old:
       title: "Thanks for confirming your current email address"
       description: "We're now emailing your new address for confirmation."
+
+  associated_accounts:
+    revoke_failed: "Failed to revoke your account with %{provider_name}."
 
   activation:
     action: "Click here to activate your account"
@@ -1702,6 +1706,7 @@ en:
     enable_emoji_shortcuts: "Common smiley text such as :) :p :( will be converted to emojis"
     emoji_set: "How would you like your emoji?"
     enforce_square_emoji: "Force a square aspect ratio to all emojis."
+    emoji_autocomplete_min_chars: "Minimum number of characters required to trigger autocomplete emoji popup"
 
     approve_post_count: "The amount of posts from a new or basic user that must be approved"
     approve_unless_trust_level: "Posts for users below this trust level must be approved"
@@ -1746,6 +1751,7 @@ en:
     default_categories_watching_first_post: "List of categories in which first post in each new topic will be watched by default."
 
     retain_web_hook_events_period_days: "Number of days to retain web hook event records."
+    retry_web_hook_events: "Automatically retry failed web hook events for 4 times. Time gaps between the retries are 1, 5, 25 and 125 minutes."
 
     allow_user_api_keys: "Allow generation of user API keys"
     allow_user_api_key_scopes: "List of scopes allowed for user API keys"
@@ -1949,7 +1955,6 @@ en:
       backup_code: "Log in using a backup code"
 
   user:
-    no_accounts_associated: "No accounts associated"
     deactivated: "Was deactivated due to too many bounced emails to '%{email}'."
     deactivated_by_staff: "Deactivated by staff"
     activated_by_staff: "Activated by staff"
@@ -2236,6 +2241,20 @@ en:
         Multiple community members flagged this post before it was hidden. **Because this post has been hidden more than once, your post will now remain hidden until it is handled by a staff member.**
 
         For additional guidance, please refer to our [community guidelines](%{base_url}/guidelines).
+
+    flags_agreed_and_post_deleted:
+      title: "Flagged post removed by staff"
+      subject_template: "Flagged post removed by staff"
+      text_body_template: |
+        Hello,
+
+        This is an automated message from %{site_name} to let you know that your post was removed.
+
+        <%{base_url}%{url}>
+
+        This post was flagged by the community and a staff member opted to remove it.
+
+        Please review our [community guidelines](%{base_url}/guidelines) for details.
 
     usage_tips:
       text_body_template: |
@@ -3159,33 +3178,45 @@ en:
     sockpuppet: "A new user created a topic, and another new user at the same IP address (%{ip_address}) replied. See the <a href='/admin/site_settings/category/spam'>`flag_sockpuppets`</a> site setting."
     spam_hosts: "This new user tried to create multiple posts with links to the same domain (%{domain}). See the <a href='/admin/site_settings/category/spam'>`newuser_spam_host_threshold`</a> site setting."
 
-  email_log:
-    post_user_deleted: "User of the post has been deleted."
-    no_user: "Can't find user with id %{user_id}"
-    anonymous_user: "User is anonymous"
-    suspended_not_pm: "User is suspended, not a message"
-    seen_recently: "User was seen recently"
-    post_not_found: "Can't find a post with id %{post_id}"
-    notification_already_read: "The notification this email is about has already been read"
-    topic_nil: "post.topic is nil"
-    post_deleted: "post was deleted by the author"
-    user_suspended: "user was suspended"
-    already_read: "user has already read this post"
+  skipped_email_log:
     exceeded_emails_limit: "Exceeded max_emails_per_day_per_user"
     exceeded_bounces_limit: "Exceeded bounce_score_threshold"
-    message_blank: "message is blank"
-    message_to_blank: "message.to is blank"
-    text_part_body_blank: "text_part.body is blank"
-    body_blank: "body is blank"
-    no_echo_mailing_list_mode: "Mailing list notifications disabled for user's own posts"
+    mailing_list_no_echo_mode: "Mailing list notifications disabled for user's own posts"
+    user_email_no_user: "Can't find user with id %{user_id}"
+    user_email_post_not_found: "Can't find a post with id %{post_id}"
+    user_email_anonymous_user: "User is anonymous"
+    user_email_user_suspended_not_pm: "User is suspended, not a message"
+    user_email_seen_recently: "User was seen recently"
+    user_email_notification_already_read: "The notification this email is about has already been read"
+    user_email_notification_topic_nil: "post.topic is nil"
+    user_email_post_user_deleted: "User of the post has been deleted."
+    user_email_post_deleted: "post was deleted by the author"
+    user_email_user_suspended: "user was suspended"
+    user_email_already_read: "user has already read this post"
+    sender_message_blank: "message is blank"
+    sender_message_to_blank: "message.to is blank"
+    sender_text_part_body_blank: "text_part.body is blank"
+    sender_text_body_blank: "body is blank"
 
   color_schemes:
     base_theme_name: "Base"
-    default: "Light Scheme"
+    light: "Light Scheme"
     dark: "Dark Scheme"
-    default_theme_name: "Default"
-    dark_theme_name: "Dark"
+    neutral: "Neutral Scheme"
+    grey_amber: "Grey Amber Scheme"
+    shades_of_blue: "Shades of Blue Scheme"
+    latte: "Latte Scheme"
+    summer: "Summer Scheme"
+    dark_rose: "Dark Rose Scheme"
+    default_theme_name: "Light"
     light_theme_name: "Light"
+    dark_theme_name: "Dark"
+    neutral_theme_name: "Neutral"
+    grey_amber_theme_name: "Grey Amber"
+    shades_of_blue_theme_name: "Shades of Blue"
+    latte_theme_name: "Latte"
+    summer_theme_name: "Summer"
+    dark_rose_theme_name: "Dark Rose"
 
   about: "About"
   guidelines: "Guidelines"
@@ -3790,7 +3821,7 @@ en:
       button: "Register"
       title: "Register Admin Account"
       help: "register a new account to get started"
-      no_emails: "Unfortunately, no administrator emails were defined during setup, so finalizing the configuration <a href='https://meta.discourse.org/t/how-to-create-an-administrator-account-after-install/14046'>may be difficult</a>."
+      no_emails: "Unfortunately, no administrator emails were defined during setup, so finalizing the configuration may be difficult. Please add a developer email in the configuration file or <a href='https://meta.discourse.org/t/create-admin-account-from-console/17274'>create an administrator account from console</a>."
     confirm_email:
       title: "Confirm your Email"
       message: "<p>We sent an activation mail to <b>%{email}</b>. Please follow the instructions in the email to activate your account.</p><p>If it doesn't arrive, ensure you have set up email correctly for your Discourse and check your spam folder.</p>"
