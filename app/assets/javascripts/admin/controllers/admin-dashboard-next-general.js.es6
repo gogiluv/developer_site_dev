@@ -28,7 +28,7 @@ export default Ember.Controller.extend(PeriodComputationMixin, {
   lastBackupTakenAt: Ember.computed.alias(
     "model.attributes.last_backup_taken_at"
   ),
-  shouldDisplayDurability: Ember.computed.and("lastBackupTakenAt", "diskSpace"),
+  shouldDisplayDurability: Ember.computed.and("diskSpace"),
 
   @computed
   topReferredTopicsTopions() {
@@ -77,6 +77,11 @@ export default Ember.Controller.extend(PeriodComputationMixin, {
     }
   },
 
+  @computed("startDate", "endDate")
+  filters(startDate, endDate) {
+    return { startDate, endDate };
+  },
+
   @computed("model.attributes.updated_at")
   updatedTimestamp(updatedAt) {
     return moment(updatedAt).format("LLL");
@@ -88,6 +93,6 @@ export default Ember.Controller.extend(PeriodComputationMixin, {
   },
 
   _reportsForPeriodURL(period) {
-    return Discourse.getURL(`/admin/dashboard/general?period=${period}`);
+    return Discourse.getURL(`/admin?period=${period}`);
   }
 });

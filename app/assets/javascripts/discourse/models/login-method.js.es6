@@ -47,7 +47,17 @@ const LoginMethod = Ember.Object.extend({
       customLogin();
     } else {
       let authUrl = this.get("customUrl") || Discourse.getURL("/auth/" + name);
-      if (this.get("fullScreenLogin")) {
+
+      // first check if this plugin has a site setting for full screen login before using the static setting
+      let fullScreenLogin = false;
+      const fullScreenLoginSetting = this.get("fullScreenLoginSetting");
+      if (!Ember.isEmpty(fullScreenLoginSetting)) {
+        fullScreenLogin = this.siteSettings[fullScreenLoginSetting];
+      } else {
+        fullScreenLogin = this.get("fullScreenLogin");
+      }
+
+      if (fullScreenLogin) {
         document.cookie = "fsl=true";
         window.location = authUrl;
       } else {
@@ -117,7 +127,11 @@ export function findAll(siteSettings, capabilities, isMobileDevice) {
         params.displayPopup = true;
       }
 
-      if (["facebook", "google_oauth2"].includes(name)) {
+      if (
+        ["facebook", "google_oauth2", "twitter", "yahoo", "github"].includes(
+          name
+        )
+      ) {
         params.canConnect = true;
       }
 

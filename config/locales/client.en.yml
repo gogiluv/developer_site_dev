@@ -571,6 +571,7 @@ en:
       topic_stat_sentence:
         one: "%{count} new topic in the past %{unit}."
         other: "%{count} new topics in the past %{unit}."
+      more: "more"
 
     ip_lookup:
       title: IP Address Lookup
@@ -3028,6 +3029,9 @@ en:
         flag_event:
           name: "Flag Event"
           details: "When a flag is created, agreed, disagreed or ignored."
+        queued_post_event:
+          name: "Post Approval Event"
+          details: "When a new queued post is created, approved or rejected."
         delivery_status:
           title: "Delivery Status"
           inactive: "Inactive"

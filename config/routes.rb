@@ -236,9 +236,11 @@ Discourse::Application.routes.draw do
 
     get "version_check" => "versions#show"
 
-    get "dashboard-next" => "dashboard_next#index"
-    get "dashboard-old" => "dashboard#index"
+    get "dashboard" => "dashboard_next#index"
     get "dashboard/general" => "dashboard_next#general"
+    get "dashboard/moderation" => "dashboard_next#moderation"
+
+    get "dashboard-old" => "dashboard#index"
 
     resources :dashboard, only: [:index] do
       collection do
@@ -326,6 +328,7 @@ Discourse::Application.routes.draw do
   get "password-reset" => "static#show", id: "password_reset", constraints: { format: /(json|html)/ }
   get "faq" => "static#show", id: "faq", constraints: { format: /(json|html)/ }
   get "guidelines" => "static#show", id: "guidelines", as: 'guidelines', constraints: { format: /(json|html)/ }
+  get "rules" => "static#show", id: "rules", as: 'rules', constraints: { format: /(json|html)/ }
   get "tos" => "static#show", id: "tos", as: 'tos', constraints: { format: /(json|html)/ }
   get "privacy" => "static#show", id: "privacy", as: 'privacy', constraints: { format: /(json|html)/ }
   get "signup" => "static#show", id: "signup", constraints: { format: /(json|html)/ }
