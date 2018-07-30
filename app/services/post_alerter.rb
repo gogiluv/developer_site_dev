@@ -369,8 +369,8 @@ class PostAlerter
     notification_data.merge!(topic_title: topic_title,
                              original_post_id: original_post.id,
                              original_post_type: original_post.post_type,
-                             original_username: original_username,
-                             display_username: opts[:display_username] || post.user.username)
+                             original_username: post.anonymous_chk ? "unknown" : original_username,
+                             display_username: post.anonymous_chk ? "unknown" : (opts[:display_username] || post.user.username))
 
     if group = opts[:group]
       notification_data[:group_id] = group.id
