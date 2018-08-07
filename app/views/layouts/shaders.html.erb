@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="<%= SiteSetting.default_locale %>">
+<head>
+  <meta charset="utf-8">
+  <title><%= content_for?(:title) ? yield(:title) : SiteSetting.title %></title>
+  <meta name="description" content="">
+  <%= render partial: "layouts/head" %>
+  <%= render partial: "common/special_font_face" %>
+  <%= render partial: "common/discourse_stylesheet" %>
+  <%= discourse_csrf_tags %>
+
+  <%= theme_lookup("head_tag") %>
+  <style>
+    .postbox {
+      height: 200px;
+    }
+    .noshow {
+      display: none;
+    }
+    ul {
+      margin: 0 5px 5px 0;
+    }
+    .btn.active {
+      color: #fff;
+      background-color: #e45735;
+    }
+    .write-form table { 
+      border-collapse: separate;
+      border-spacing: 8px;
+    }
+
+    .write-form table tr {
+	margin-bottom:5px;
+    }
+
+    .write-form table tr td:nth-child(odd){ 
+	width: 150px;
+    }
+
+    .write-form table tr td:nth-child(even){
+	width: 100%;
+	border: 1px solid lightgrey;	
+    }
+
+
+  </style>
+
+  <!-- bktree -->
+  <style>
+    
+    body{
+      /* set margin to 0 and overflow to hidden, to use the complete page
+      Three.min.js : Three.js의 축소버전
+      UglifyJS : 정상 크기의 1/4
+      Three.js : 일반적인 Three.js라이브러리
+      */
+      /*
+      font-family: Monospace;
+      background-color: gray;
+      color: #fff;
+      margin: 0px;
+      overflow: hidden;
+      */
+    }
+  
+    #info {
+      color: #fff;
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      width: 100%;
+      text-align: center;
+      z-index: 100;
+      display:white;
+    }
+
+    #info a {
+      color: #046;
+      font-weight: bold;
+    }
+  
+    .CodeMirror {
+      font-size: 110%;
+      line-height: 1.3;
+      width: 100%;
+      height: 600px;
+      right: : 10px;
+      height: 100%;
+    }
+  
+    .CodeMirror-scroll {
+      min-height: 200px;
+      max-height: 600px;
+    }
+    .CodeMirror-linenumbers { padding: 0 8px; }
+  
+    #GUIediotor {
+      position: absolute;
+      top: 0px;
+      left: 0px;
+      width: 50%;
+      height: 100%;
+    }
+    #output {
+      position: absolute;
+      top: 0px;
+      right: 0px;
+      width: 50%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    #fbxFile { display: none; }
+    #vertexFile { display: none; }
+    #fragFile { display: none; }
+
+    #textureFile0 { display: none; }
+    #textureFile1 { display: none; }
+    #textureFile2 { display: none; }
+    #textureFile3 { display: none; }
+    #textureFile4 { display: none; }
+    #textureFile5 { display: none; }
+    #textureFile6 { display: none; }
+    #textureFile7 { display: none; }
+    #textureFile8 { display: none; }
+    #textureFile9 { display: none; }
+    #textureFile10 { display: none; }
+    #textureFile11 { display: none; }
+    #textureFile12 { display: none; }
+    #textureFile13 { display: none; }
+    #textureFile14 { display: none; }
+    #textureFile15 { display: none; }
+    #textureFile16 { display: none; }
+    #textureFile17 { display: none; }
+    #textureFile18 { display: none; }
+    #textureFile19 { display: none; }
+    #textureFile20 { display: none; }
+
+</style>
+  <%= javascript_include_tag "shaders_manifest", media: "all", "data-turbolinks-track" => true %>
+  <%= stylesheet_link_tag "bktree_manifest", media: "all", "data-turbolinks-track" => true %>
+  <%= javascript_include_tag "bktree_manifest", media: "all", "data-turbolinks-track" => true %>
+</head>
+<body <% if @custom_body_class %>class="<%= @custom_body_class %>"<% end %>>
+  <%= theme_lookup("header") %>
+  <%= build_plugin_html 'server:header' %>
+  <section id='main'>
+    <%= render partial: 'header' %>
+    <div id="main-outlet" class="<%= @container_class ? @container_class : 'wrap' %>">
+      <%= yield %>
+    </div>
+  </section>
+  <%= theme_lookup("footer") %>
+  <%= build_plugin_html 'no-client:footer' %>
+  <%= build_plugin_html 'server:before-body-close' %>
+</body>
+</html>

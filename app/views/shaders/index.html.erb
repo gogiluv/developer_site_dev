@@ -1,0 +1,172 @@
+<div class="noshow">
+<p id="notice"><%= notice %></p>
+
+<h1>Shaders</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>User</th>
+      <th>Fbx text</th>
+      <th>Vertex text</th>
+      <th>Fragment text</th>
+      <th>Dat gui text</th>
+      <th>Img url</th>
+      <th colspan="3"></th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% @shaders.each do |shader| %>
+      <tr>
+        <td><%= shader.user_id %></td>
+        <td><%= shader.fbx_text %></td>
+        <td><%= shader.vertex_text %></td>
+        <td><%= shader.fragment_text %></td>
+        <td><%= shader.dat_gui_text %></td>
+        <td><%= shader.img_url %></td>
+        <td><%= link_to 'Show', shader %></td>
+        <td><%= link_to 'Edit', edit_shader_path(shader) %></td>
+        <td><%= link_to 'Destroy', shader, method: :delete, data: { confirm: 'Are you sure?' } %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<br>
+
+<%= link_to 'New Shader', new_shader_path %>
+</div>
+
+<div class="searcharea">
+                   <input type="text" id="search_keyword" name="keyword" value="" placeholder="Shader 검색" onkeydown="#" class="input_search">
+                   <input type="button" value="검색" onclick="#" class="button red btn_search">
+</div>
+
+<div class="list-controls">
+	<div class="container">
+	<section id="ember768" class="navigation-container ember-view"> 
+                <!-- 
+		<ol id="ember782" class="category-breadcrumb ember-view">
+			<li id="ember807" class="select-kit single-select combobox combo-box category-drop is-below is-left-aligned has-reached-minimum box ember-view">
+				<div title="전체 카테고리" aria-haspopup="" aria-label="전체 카테고리" tabindex="0" id="ember820" class="select-kit-header combo-box-header category-drop-header is-none ember-view">
+					<span class="selected-name">
+						<span class="category-name">전체 카테고리</span>
+					</span>
+				</div>
+			</li>
+		</ol>-->
+		<ul id="navigation-bar" class="nav nav-pills ember-view">  
+			<li title="가장 최근 Shader" id="ember862" class="active ember-view">
+				<a href="#">최근글</a>
+			</li>
+			<li title="카테고리별로 그룹화 된 모든 주제" id="ember864" class="ember-view">
+				<a href="#">즐겨찾기</a>
+			</li>
+			<li title="내가 게시한 글" id="ember868" class="ember-view">
+				<a href="#">내 글</a>
+			</li>
+			<li id="ember869" class="ember-view"></li>
+		</ul>
+		<button id="create-topic" class="btn btn-default btn btn-icon-text ember-view">  
+			<a href="shaders/new">
+				<i class="fa fa-plus d-icon d-icon-plus"></i>
+				<span class="d-button-label">새 게시물  작성</span>
+			</a>
+		</button>
+		<button id="create-topic" class="btn btn-default btn btn-icon-text ember-view">  <i class="fa fa-plus d-icon d-icon-plus"></i>
+			<span class="d-button-label">퀵  게시물  작성</span>
+		</button>
+	</section>
+	</div>
+</div>
+
+<div class="C2Scontent">
+
+        <div class="boxlist">
+
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+                        <div class="postbox">
+                                <ul>
+					<li><a href="shaders/1"><img src="/uploads/default/original/1X/36cc86cc748ebe00b34aab88c0c05ef9a0e8ee8a.jpg" width="250" height="150" alt="Com2uS Developer"></a></li>
+                                        <li><a href="shaders/1"><strong>shader name xxxxx </strong></a> by.abc ♥27</li>
+                                </ul>
+                        </div>
+
+			<div style="width:100%; height:30px; text-align:center; float:left">
+				<a href="#"><<</a><a href="#"> 1 </a><a href="#"> 2 </a><a href="#"> 3 </a><a href="#"> 4 </a><a href="#"> 5 </a><a href="#"> 6 </a><a href="#"> 7 </a><a href="#"> 8 </a><a href="#">>></a>
+			</div>
+        </div>
+
+        <div class="rightbox">
+                <div class="noticebox">
+                        <h3 class="t-align-c">ShaderRoom 에<br> 오신것을 환영합니다</h3>
+                        <h5 class="t-align-c">
+                                이곳에서는 Shader 노하우 공유는 물론<br>
+                                우리이게 필요한 정보를 <br>
+                                공유하고자 합니다. <br>
+                                누구나 쉽게 질문하고 답변을 등록 할 수 있습니다. <br>
+                                당신의 노하우를 자랑해 주세요~ <br><br>
+                                *퀵 링크<br>
+                                <a href="#">ShaderRoom 회원 가입</a><br>
+                                <a href="#">ShaderRoom 사용 가이드</a><br>
+                                <a href="#">Com2uS Developer 로 가기</a><br>
+                        </h5>
+                </div>
+                <div class="tagbox">
+                        <h3 class="t-align-c">popular tags</h3>
+                                <a href="#" class="tag discourse-tag simple button">light(10)</a>
+                                <a href="#" class="tag discourse-tag simple button">diffuse(6)</a>
+                                <a href="#" class="tag discourse-tag simple button">water(5)</a>
+                                <a href="#" class="tag discourse-tag simple button">fire(3)</a>
+                                <a href="#" class="tag discourse-tag simple button">summon(2)</a>
+                </div>
+        </div>
+</div>
