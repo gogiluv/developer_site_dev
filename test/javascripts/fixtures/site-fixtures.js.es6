@@ -206,7 +206,7 @@ export default {
         {
           id: 27,
           name: "translations",
-          color: "808281",
+          color: "27AA5B",
           text_color: "FFFFFF",
           slug: "translations",
           topic_count: 95,
@@ -376,7 +376,7 @@ export default {
         {
           id: 17,
           name: "uncategorized",
-          color: "AB9364",
+          color: "0088CC",
           text_color: "FFFFFF",
           slug: "uncategorized",
           topic_count: 342,
@@ -633,6 +633,20 @@ export default {
           id: "banner",
           name: "translation missing: en.archetypes.banner.title",
           options: []
+        }
+      ],
+      auth_providers: [
+        {
+          name: "facebook",
+          custom_url: null,
+          pretty_name_override: null,
+          title_override: null,
+          message_override: null,
+          frame_width: 580,
+          frame_height: 400,
+          full_screen_login: false,
+          can_connect: true,
+          can_revoke: true
         }
       ]
     }

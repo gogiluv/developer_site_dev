@@ -26,9 +26,10 @@ class PostDestroyer
       .where("NOT EXISTS (
                   SELECT 1
                   FROM post_actions pa
-                  WHERE pa.post_id = posts.id AND
-                        pa.deleted_at IS NULL AND
-                        pa.post_action_type_id IN (?)
+                  WHERE pa.post_id = posts.id
+                    AND pa.deleted_at IS NULL
+                    AND pa.deferred_at IS NULL
+                    AND pa.post_action_type_id IN (?)
               )", PostActionType.notify_flag_type_ids)
       .find_each do |post|
 
@@ -201,7 +202,10 @@ class PostDestroyer
         :send_system_message,
         user_id: @post.user.id,
         message_type: :flags_agreed_and_post_deleted,
-        message_options: { url: @post.url }
+        message_options: {
+          url: @post.url,
+          flag_reason: I18n.t("flag_reasons.#{@post.active_flags.last.post_action_type.name_key}", locale: SiteSetting.default_locale)
+        }
       )
     end
 

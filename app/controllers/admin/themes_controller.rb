@@ -95,13 +95,13 @@ class Admin::ThemesController < Admin::AdminController
   end
 
   def index
-    @theme = Theme.order(:name).includes(:theme_fields, :remote_theme)
+    @themes = Theme.order(:name).includes(:theme_fields, :remote_theme)
     @color_schemes = ColorScheme.all.to_a
     light = ColorScheme.new(name: I18n.t("color_schemes.light"))
     @color_schemes.unshift(light)
 
     payload = {
-      themes: ActiveModel::ArraySerializer.new(@theme, each_serializer: ThemeSerializer),
+      themes: ActiveModel::ArraySerializer.new(@themes, each_serializer: ThemeSerializer),
       extras: {
         color_schemes: ActiveModel::ArraySerializer.new(@color_schemes, each_serializer: ColorSchemeSerializer)
       }
@@ -116,7 +116,8 @@ class Admin::ThemesController < Admin::AdminController
     @theme = Theme.new(name: theme_params[:name],
                        user_id: current_user.id,
                        user_selectable: theme_params[:user_selectable] || false,
-                       color_scheme_id: theme_params[:color_scheme_id])
+                       color_scheme_id: theme_params[:color_scheme_id],
+                       component: [true, "true"].include?(theme_params[:component]))
     set_fields
 
     respond_to do |format|
@@ -155,11 +156,11 @@ class Admin::ThemesController < Admin::AdminController
       Theme.where(id: expected).each do |theme|
         @theme.add_child_theme!(theme)
       end
-
     end
 
     set_fields
     update_settings
+    handle_switch
 
     save_remote = false
     if params[:theme][:remote_check]
@@ -182,11 +183,13 @@ class Admin::ThemesController < Admin::AdminController
         log_theme_change(original_json, @theme)
         format.json { render json: @theme, status: :ok }
       else
-        format.json {
+        format.json do
+          error = @theme.errors.full_messages.join(", ").presence
+          error = I18n.t("themes.bad_color_scheme") if @theme.errors[:color_scheme].present?
+          error ||= I18n.t("themes.other_error")
 
-          error = @theme.errors[:color_scheme] ? I18n.t("themes.bad_color_scheme") : I18n.t("themes.other_error")
           render json: { errors: [ error ] }, status: :unprocessable_entity
-        }
+        end
       end
     end
   end
@@ -245,6 +248,7 @@ class Admin::ThemesController < Admin::AdminController
           :color_scheme_id,
           :default,
           :user_selectable,
+          :component,
           settings: {},
           theme_fields: [:name, :target, :value, :upload_id, :type_id],
           child_theme_ids: []
@@ -278,4 +282,12 @@ class Admin::ThemesController < Admin::AdminController
     StaffActionLogger.new(current_user).log_theme_change(old_record, new_record)
   end
 
+  def handle_switch
+    param = theme_params[:component]
+    if param.to_s == "false" && @theme.component?
+      @theme.switch_to_theme!
+    elsif param.to_s == "true" && !@theme.component?
+      @theme.switch_to_component!
+    end
+  end
 end

@@ -33,7 +33,8 @@ class TopicsController < ApplicationController
     :move_to_inbox,
     :convert_topic,
     :bookmark,
-    :publish
+    :publish,
+    :reset_bump_date
   ]
 
   before_action :consider_user_for_promotion, only: :show
@@ -135,8 +136,12 @@ class TopicsController < ApplicationController
     end
 
     if ex.obj && Topic === ex.obj && guardian.can_see_topic_if_not_deleted?(ex.obj)
-      rescue_discourse_actions(:not_found, 410)
-      return
+      raise Discourse::NotFound.new(
+        "topic was deleted",
+        status: 410,
+        check_permalinks: true,
+        original_path: ex.obj.relative_url
+      )
     end
 
     raise ex
@@ -518,6 +523,12 @@ class TopicsController < ApplicationController
 
     topic = Topic.find_by(id: params[:topic_id])
 
+    unless pm_has_slots?(topic)
+      return render_json_error(I18n.t("pm_reached_recipients_limit",
+        recipients_limit: SiteSetting.max_allowed_message_recipients
+      ))
+    end
+
     if topic.private_message?
       guardian.ensure_can_invite_group_to_private_message!(group, topic)
       topic.invite_group(current_user, group)
@@ -537,6 +548,12 @@ class TopicsController < ApplicationController
       group_ids: params[:group_ids],
       group_names: params[:group_names]
     )
+
+    unless pm_has_slots?(topic)
+      return render_json_error(I18n.t("pm_reached_recipients_limit",
+        recipients_limit: SiteSetting.max_allowed_message_recipients
+      ))
+    end
 
     guardian.ensure_can_invite_to!(topic, groups)
     group_ids = groups.map(&:id)
@@ -716,6 +733,17 @@ class TopicsController < ApplicationController
     render_json_error(ex)
   end
 
+  def reset_bump_date
+    params.require(:id)
+    guardian.ensure_can_update_bumped_at!
+
+    topic = Topic.find_by(id: params[:id])
+    raise Discourse::NotFound.new unless topic
+
+    topic.reset_bumped_at
+    render body: nil
+  end
+
   private
 
   def topic_params
@@ -767,8 +795,8 @@ class TopicsController < ApplicationController
     user_id = (current_user.id if current_user)
     track_visit = should_track_visit_to_topic?
 
-    Scheduler::Defer.later "Track Link" do
-      IncomingLink.add(
+    if !request.format.json?
+      hash = {
         referer: request.referer || flash[:referer],
         host: request.host,
         current_user: current_user,
@@ -776,14 +804,26 @@ class TopicsController < ApplicationController
         post_number: params[:post_number],
         username: request['u'],
         ip_address: request.remote_ip
-      )
-    end unless request.format.json?
+      }
+      # defer this way so we do not capture the whole controller
+      # in the closure
+      TopicsController.defer_add_incoming_link(hash)
+    end
 
+    TopicsController.defer_track_visit(topic_id, ip, user_id, track_visit)
+  end
+
+  def self.defer_track_visit(topic_id, ip, user_id, track_visit)
     Scheduler::Defer.later "Track Visit" do
       TopicViewItem.add(topic_id, ip, user_id)
       TopicUser.track_visit!(topic_id, user_id) if track_visit
     end
+  end
 
+  def self.defer_add_incoming_link(hash)
+    Scheduler::Defer.later "Track Link" do
+      IncomingLink.add(hash)
+    end
   end
 
   def should_track_visit_to_topic?
@@ -852,4 +892,7 @@ class TopicsController < ApplicationController
     params[:email]
   end
 
+  def pm_has_slots?(pm)
+    guardian.is_staff? || !pm.reached_recipients_limit?
+  end
 end

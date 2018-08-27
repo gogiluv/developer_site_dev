@@ -2,8 +2,6 @@ require_dependency 'new_post_manager'
 
 class CurrentUserSerializer < BasicUserSerializer
 
-  MAX_TOP_CATEGORIES_COUNT = 6.freeze
-
   attributes :name,
              :unread_notifications,
              :unread_private_messages,
@@ -103,7 +101,7 @@ class CurrentUserSerializer < BasicUserSerializer
   end
 
   def can_send_private_email_messages
-    scope.cand_send_private_messages_to_email?
+    scope.can_send_private_messages_to_email?
   end
 
   def can_edit
@@ -160,8 +158,9 @@ class CurrentUserSerializer < BasicUserSerializer
   end
 
   def top_category_ids
+    omitted_notification_levels = [CategoryUser.notification_levels[:muted], CategoryUser.notification_levels[:regular]]
     CategoryUser.where(user_id: object.id)
-      .where.not(notification_level: CategoryUser.notification_levels[:muted])
+      .where.not(notification_level: omitted_notification_levels)
       .order("
         CASE
           WHEN notification_level = 3 THEN 1
@@ -169,7 +168,7 @@ class CurrentUserSerializer < BasicUserSerializer
           WHEN notification_level = 4 THEN 3
         END")
       .pluck(:category_id)
-      .slice(0, MAX_TOP_CATEGORIES_COUNT)
+      .slice(0, SiteSetting.header_dropdown_category_count)
   end
 
   def dismissed_banner_key

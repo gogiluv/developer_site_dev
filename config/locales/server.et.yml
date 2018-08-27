@@ -476,7 +476,6 @@ et:
       long_form: 'laikis seda'
   user_activity:
     no_bookmarks:
-      self: "Te ei ole postitustele järjehoidjaid lisanud. Postitustele järjehoidjate lisamine lubab nende juurde hiljem hõlpsasti tagasi pöörduda."
       others: "Järjehoidjad puuduvad."
     no_likes_given:
       self: "Sa pole oma meeldimist ühelegi postitusele andnud."
@@ -711,7 +710,6 @@ et:
     recent_topics: "Viimased"
     see_more: "Veel"
     search_title: "Otsi sellelt saidilt"
-    search_google: "Google"
   terms_of_service:
     title: "Teenuse tingimused"
   deleted: 'kustutatud'

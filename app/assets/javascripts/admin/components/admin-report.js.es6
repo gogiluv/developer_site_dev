@@ -1,15 +1,19 @@
+import ReportLoader from "discourse/lib/reports-loader";
 import Category from "discourse/models/category";
 import { exportEntity } from "discourse/lib/export-csv";
 import { outputExportResult } from "discourse/lib/export-result";
-import { ajax } from "discourse/lib/ajax";
-import Report from "admin/models/report";
+import { SCHEMA_VERSION, default as Report } from "admin/models/report";
 import computed from "ember-addons/ember-computed-decorators";
-import { registerTooltip, unregisterTooltip } from "discourse/lib/tooltip";
+import {
+  registerHoverTooltip,
+  unregisterHoverTooltip
+} from "discourse/lib/tooltip";
 
 const TABLE_OPTIONS = {
   perPage: 8,
   total: true,
-  limit: 20
+  limit: 20,
+  formatNumbers: true
 };
 
 const CHART_OPTIONS = {};
@@ -34,16 +38,12 @@ function collapseWeekly(data, average) {
 }
 
 export default Ember.Component.extend({
-  classNameBindings: [
-    "isEnabled",
-    "isLoading",
-    "dasherizedDataSourceName",
-    "currentMode"
-  ],
+  classNameBindings: ["isEnabled", "isLoading", "dasherizedDataSourceName"],
   classNames: ["admin-report"],
   isEnabled: true,
   disabledLabel: "admin.dashboard.disabled",
   isLoading: false,
+  rateLimitationString: null,
   dataSourceName: null,
   report: null,
   model: null,
@@ -68,6 +68,7 @@ export default Ember.Component.extend({
     "showDatesOptions",
     "showGroupOptions"
   ),
+  shouldDisplayTrend: Ember.computed.and("showTrend", "model.prev_period"),
 
   init() {
     this._super(...arguments);
@@ -79,6 +80,7 @@ export default Ember.Component.extend({
     this._super(...arguments);
 
     const state = this.get("filters") || {};
+
     this.setProperties({
       category: Category.findById(state.categoryId),
       groupId: state.groupId,
@@ -93,24 +95,25 @@ export default Ember.Component.extend({
         this.get("currentMode")
       );
     } else if (this.get("dataSourceName")) {
-      this._fetchReport().finally(() => this._computeReport());
+      this._fetchReport();
     }
   },
 
   didRender() {
     this._super(...arguments);
 
-    unregisterTooltip($(".info[data-tooltip]"));
-    registerTooltip($(".info[data-tooltip]"));
+    registerHoverTooltip($(".info[data-tooltip]"));
   },
 
   willDestroyElement() {
     this._super(...arguments);
 
-    unregisterTooltip($(".info[data-tooltip]"));
+    unregisterHoverTooltip($(".info[data-tooltip]"));
   },
 
-  showTimeoutError: Ember.computed.alias("model.timeout"),
+  showError: Ember.computed.or("showTimeoutError", "showExceptionError"),
+  showTimeoutError: Ember.computed.equal("model.error", "timeout"),
+  showExceptionError: Ember.computed.equal("model.error", "exception"),
 
   hasData: Ember.computed.notEmpty("model.data"),
 
@@ -137,8 +140,8 @@ export default Ember.Component.extend({
     const modes = forcedModes ? forcedModes.split(",") : reportModes;
 
     return Ember.makeArray(modes).map(mode => {
-      const base = `mode-button ${mode}`;
-      const cssClass = currentMode === mode ? `${base} current` : base;
+      const base = `mode-btn ${mode}`;
+      const cssClass = currentMode === mode ? `${base} is-current` : base;
 
       return {
         mode,
@@ -154,7 +157,7 @@ export default Ember.Component.extend({
       { name: I18n.t("admin.dashboard.reports.groups"), value: "all" }
     ];
     return arr.concat(
-      this.site.groups.map(i => {
+      (this.site.groups || []).map(i => {
         return { name: i["name"], value: i["id"] };
       })
     );
@@ -168,15 +171,25 @@ export default Ember.Component.extend({
   @computed("startDate")
   normalizedStartDate(startDate) {
     return startDate && typeof startDate.isValid === "function"
-      ? startDate.format("YYYYMMDD")
-      : startDate;
+      ? moment
+          .utc(startDate.toISOString())
+          .locale("en")
+          .format("YYYYMMDD")
+      : moment(startDate)
+          .locale("en")
+          .format("YYYYMMDD");
   },
 
   @computed("endDate")
   normalizedEndDate(endDate) {
     return endDate && typeof endDate.isValid === "function"
-      ? endDate.format("YYYYMMDD")
-      : endDate;
+      ? moment
+          .utc(endDate.toISOString())
+          .locale("en")
+          .format("YYYYMMDD")
+      : moment(endDate)
+          .locale("en")
+          .format("YYYYMMDD");
   },
 
   @computed(
@@ -189,24 +202,20 @@ export default Ember.Component.extend({
   reportKey(dataSourceName, categoryId, groupId, startDate, endDate) {
     if (!dataSourceName || !startDate || !endDate) return null;
 
-    let reportKey = `reports:${dataSourceName}`;
-
-    if (categoryId && categoryId !== "all") {
-      reportKey += `:${categoryId}`;
-    } else {
-      reportKey += `:`;
-    }
-
-    reportKey += `:${startDate.replace(/-/g, "")}`;
-    reportKey += `:${endDate.replace(/-/g, "")}`;
-
-    if (groupId && groupId !== "all") {
-      reportKey += `:${groupId}`;
-    } else {
-      reportKey += `:`;
-    }
-
-    reportKey += `:`;
+    let reportKey = "reports:";
+    reportKey += [
+      dataSourceName,
+      categoryId,
+      startDate.replace(/-/g, ""),
+      endDate.replace(/-/g, ""),
+      groupId,
+      "[:prev_period]",
+      this.get("reportOptions.table.limit"),
+      SCHEMA_VERSION
+    ]
+      .filter(x => x)
+      .map(x => x.toString())
+      .join(":");
 
     return reportKey;
   },
@@ -295,39 +304,48 @@ export default Ember.Component.extend({
   _fetchReport() {
     this._super();
 
-    this.set("isLoading", true);
+    this.setProperties({ isLoading: true, rateLimitationString: null });
 
-    let payload = this._buildPayload(["prev_period"]);
+    Ember.run.next(() => {
+      let payload = this._buildPayload(["prev_period"]);
 
-    return ajax(this.get("dataSource"), payload)
-      .then(response => {
-        if (response && response.report) {
-          this._reports.push(this._loadReport(response.report));
-        } else {
-          console.log("failed loading", this.get("dataSource"));
+      const callback = response => {
+        if (!this.element || this.isDestroying || this.isDestroyed) {
+          return;
         }
-      })
-      .finally(() => {
-        if (this.element && !this.isDestroying && !this.isDestroyed) {
-          this.set("isLoading", false);
+
+        this.set("isLoading", false);
+
+        if (response === 429) {
+          this.set(
+            "rateLimitationString",
+            I18n.t("admin.dashboard.too_many_requests")
+          );
+        } else if (response === 500) {
+          this.set("model.error", "exception");
+        } else if (response) {
+          this._reports.push(this._loadReport(response));
+          this._computeReport();
         }
-      });
+      };
+
+      ReportLoader.enqueue(this.get("dataSourceName"), payload.data, callback);
+    });
   },
 
   _buildPayload(facets) {
     let payload = { data: { cache: true, facets } };
 
     if (this.get("startDate")) {
-      payload.data.start_date = moment(
-        this.get("startDate"),
-        "YYYY-MM-DD"
-      ).format("YYYY-MM-DD[T]HH:mm:ss.SSSZZ");
+      payload.data.start_date = moment
+        .utc(this.get("startDate"), "YYYY-MM-DD")
+        .toISOString();
     }
 
     if (this.get("endDate")) {
-      payload.data.end_date = moment(this.get("endDate"), "YYYY-MM-DD").format(
-        "YYYY-MM-DD[T]HH:mm:ss.SSSZZ"
-      );
+      payload.data.end_date = moment
+        .utc(this.get("endDate"), "YYYY-MM-DD")
+        .toISOString();
     }
 
     if (this.get("groupId") && this.get("groupId") !== "all") {
@@ -349,12 +367,12 @@ export default Ember.Component.extend({
     if (mode === "table") {
       const tableOptions = JSON.parse(JSON.stringify(TABLE_OPTIONS));
       return Ember.Object.create(
-        _.assign(tableOptions, this.get("reportOptions.table") || {})
+        Object.assign(tableOptions, this.get("reportOptions.table") || {})
       );
     } else {
       const chartOptions = JSON.parse(JSON.stringify(CHART_OPTIONS));
       return Ember.Object.create(
-        _.assign(chartOptions, this.get("reportOptions.chart") || {})
+        Object.assign(chartOptions, this.get("reportOptions.chart") || {})
       );
     }
   },

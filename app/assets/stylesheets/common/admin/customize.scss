@@ -44,6 +44,16 @@
   }
 }
 
+.create-theme-modal {
+  div.input {
+    margin-bottom: 12px;
+    .label {
+      width: 20%;
+      display: inline-block;
+    }
+  }
+}
+
 .admin-customize {
   h1 {
     margin-bottom: 10px;
@@ -101,6 +111,62 @@
     }
   }
 
+  .create-actions {
+    margin-bottom: 10px;
+  }
+
+  .themes-list {
+    margin-bottom: 20px;
+  }
+
+  .themes-list-header {
+    font-size: $font-up-1;
+    padding: 10px;
+    background-color: $primary-low;
+  }
+
+  .themes-list-container {
+    max-height: 280px;
+    overflow-y: scroll;
+
+    &::-webkit-scrollbar-track {
+      border-radius: 10px;
+      background-color: $secondary;
+    }
+
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 10px;
+      background-color: $primary-low-mid;
+    }
+
+    .themes-list-item {
+      color: $primary;
+      border-bottom: 1px solid $primary-low;
+      display: flex;
+
+      &:hover {
+        background-color: $tertiary-low;
+      }
+
+      &.active {
+        color: $secondary;
+        font-weight: bold;
+        background-color: $tertiary;
+      }
+
+      a,
+      span.empty {
+        color: inherit;
+        width: 100%;
+        padding: 10px;
+      }
+    }
+  }
+
   .theme.settings {
     .theme-setting {
       padding-bottom: 0;
@@ -136,7 +202,7 @@
     }
   }
 
-  .nav.nav-pills.fields {
+  .nav-pills.fields {
     margin-left: 10px;
   }
   .content-list,
@@ -333,6 +399,10 @@
   }
 }
 
+.permalink-form .select-kit {
+  width: 150px;
+}
+
 .permalink-title {
   margin-bottom: 10px;
 }
@@ -444,8 +514,16 @@
       padding: 0.25em 0;
       &.input-area {
         width: 75%;
+        .value-list,
+        .select-kit,
         input[type="text"] {
           width: 50%;
+        }
+
+        .value-list {
+          .select-kit {
+            width: 100%;
+          }
         }
       }
       &.label-area {

@@ -1,7 +1,7 @@
 <td class='posters'>
 {{#each posters as |poster|}}
 {{#unless poster.anonymous_chk}}
-<a href="{{poster.user.path}}" data-user-card="{{poster.user.username}}" class="{{poster.extraClasses}}">{{avatar poster avatarTemplatePath="user.avatar_template" usernamePath="user.username" imageSize="small"}}</a>
+<a href="{{poster.user.path}}" data-user-card="{{poster.user.username}}" class="{{poster.extraClasses}}">{{avatar poster avatarTemplatePath="user.avatar_template" usernamePath="user.username" namePath="user.name" imageSize="small"}}</a>
 {{/unless}}
 {{#if poster.anonymous_chk}}
 <img alt="" width="25" height="25" src="/letter_avatar_proxy/v2/letter/u/000000/50.png" class="avatar">

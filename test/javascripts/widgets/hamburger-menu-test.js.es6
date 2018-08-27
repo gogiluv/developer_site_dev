@@ -1,9 +1,12 @@
 import { moduleForWidget, widgetTest } from "helpers/widget-test";
+import { NotificationLevels } from "discourse/lib/notification-levels";
 
 moduleForWidget("hamburger-menu");
 
-const maxCategoriesToDisplay = 6;
 const topCategoryIds = [2, 3, 1];
+let mutedCategoryIds = [];
+let unreadCategoryIds = [];
+let categoriesByCount = [];
 
 widgetTest("prioritize faq", {
   template: '{{mount-widget widget="hamburger-menu"}}',
@@ -128,15 +131,30 @@ widgetTest("general links", {
   }
 });
 
+let maxCategoriesToDisplay;
+
 widgetTest("top categories - anonymous", {
   template: '{{mount-widget widget="hamburger-menu"}}',
   anonymous: true,
 
+  beforeEach() {
+    this.siteSettings.header_dropdown_category_count = 8;
+    maxCategoriesToDisplay = this.siteSettings.header_dropdown_category_count;
+    categoriesByCount = this.site.get("categoriesByCount");
+  },
+
   test(assert) {
-    const count = this.site.get("categoriesByCount").length;
+    const count = categoriesByCount.length;
     const maximum =
       count <= maxCategoriesToDisplay ? count : maxCategoriesToDisplay;
     assert.equal(find(".category-link").length, maximum);
+    assert.equal(
+      find(".category-link .category-name").text(),
+      categoriesByCount
+        .slice(0, maxCategoriesToDisplay)
+        .map(c => c.name)
+        .join("")
+    );
   }
 });
 
@@ -144,23 +162,45 @@ widgetTest("top categories", {
   template: '{{mount-widget widget="hamburger-menu"}}',
 
   beforeEach() {
+    this.siteSettings.header_dropdown_category_count = 8;
+    maxCategoriesToDisplay = this.siteSettings.header_dropdown_category_count;
+    categoriesByCount = this.site.get("categoriesByCount").slice();
+    categoriesByCount.every(c => {
+      if (!topCategoryIds.includes(c.id)) {
+        if (mutedCategoryIds.length === 0) {
+          mutedCategoryIds.push(c.id);
+          c.set("notification_level", NotificationLevels.MUTED);
+        } else if (unreadCategoryIds.length === 0) {
+          unreadCategoryIds.push(c.id);
+          c.set("unreadTopics", 5);
+        } else {
+          unreadCategoryIds.splice(0, 0, c.id);
+          c.set("newTopics", 10);
+          return false;
+        }
+      }
+      return true;
+    });
     this.currentUser.set("top_category_ids", topCategoryIds);
   },
 
   test(assert) {
     assert.equal(find(".category-link").length, maxCategoriesToDisplay);
 
-    const categoriesList = this.site
-      .get("categoriesByCount")
-      .reject(c => c.parent_category_id);
-    let ids = topCategoryIds
-      .concat(categoriesList.map(c => c.id))
+    categoriesByCount = categoriesByCount.filter(
+      c => !mutedCategoryIds.includes(c.id)
+    );
+    let ids = [
+      ...unreadCategoryIds,
+      ...topCategoryIds,
+      ...categoriesByCount.map(c => c.id)
+    ]
       .uniq()
       .slice(0, maxCategoriesToDisplay);
 
     assert.equal(
       find(".category-link .category-name").text(),
-      ids.map(i => categoriesList.find(c => c.id === i).name).join("")
+      ids.map(i => categoriesByCount.find(c => c.id === i).name).join("")
     );
   }
 });
