@@ -667,7 +667,10 @@
 			function SetGenerateBackupData()
 			{
 				if(backupQualifiers.length <= 0)
+				{
+					console.log("SetGenerateBackupData length : " + backupQualifiers.length);
 					return;
+				}
 
 				for(var i = 0; i < qualifiers.length; ++i)
 				{
@@ -681,7 +684,25 @@
 							{
 								if(backupQualifiers[k].keyword == 'sampler2D') 
 				        		{
+				        			var _b64Data =  GetBackupQualifiersValues(i);
+						        	if(_b64Data != 'undefined')
+				        			{
+							        	var _contentType = 'image/jpeg';
+							        	var _blob = ByteCharstoBlob(_b64Data, _contentType);					        	
+							        	var _blobUrl = URL.createObjectURL(_blob);
+							        	var _img = new Image();//document.createElement('img');
+										_img.src = _blobUrl;
+							        	var _texture = GetTexture(_img);
 
+							        	if(typeof _texture != 'undefined') {
+							        		if(_Material.uniforms[_folderKey].value != _texture) {
+							        			
+							        			var _name = backupQualifiers[k].name;
+							        			SetTextureName(_folderKey, _name);
+							        			_Material.uniforms[_folderKey].value = _texture;
+							        		}
+							        	}
+				        			}	
 				        		}
 				     			else
 				     			{
@@ -706,8 +727,7 @@
 					if(typeof qualifiers[i].value != 'undefined')					
 					{
 						if(qualifiers[i].keyword == 'sampler2D') 
-				        {
-				        	var _key = _GUI.__folders[_folderKey].__controllers[0].property;				        	
+				        {				        	
 				        	var _b64Data =  GetQualifiersValues(i);
 				        	if(_b64Data != 'undefined')
 		        			{
@@ -717,6 +737,7 @@
 					        	var _img = new Image();//document.createElement('img');
 								_img.src = _blobUrl;
 					        	var _texture = GetTexture(_img);
+
 					        	if(typeof _texture != 'undefined') {
 					        		if(_Material.uniforms[_folderKey].value != _texture) {
 					        			
@@ -736,6 +757,12 @@
 				        }
 					}			        
 				}
+			}
+
+
+			function CreateTexture()
+			{
+
 			}
 
 			function GetBackupQualifiersValues (index)
