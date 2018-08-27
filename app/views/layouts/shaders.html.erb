@@ -38,10 +38,192 @@
     }
 
     .write-form table tr td:nth-child(even){
-	width: 100%;
+	width: 95%;
 	border: 1px solid lightgrey;	
     }
-
+    .widget-button:hover {
+	background: #e9e9e9;
+    }
+    .fa.fa-heart.liked{
+	color: #fa6c8d;
+    }
+    .fa.fa-bookmark.bookmarked{
+	color: #08c;
+    }
+    .loading {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: -4px;
+        left: 0;
+        z-index: 99999;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+    }
+    .loading p {
+        position: relative;
+        top: 50%;
+        margin: -75px auto 0 auto;
+        width: 200px;
+        height: 50px;
+        -webkit-border-radius: 10px;
+        -moz-border-radius: 10px;
+        border-radius: 10px;
+        background: #fff;
+        box-sizing: border-box;
+        padding: 0 30px;
+        text-align: center;
+        font-size: 16px;
+        color: #555;
+    }
+    .loading p strong {
+        display: block;
+        padding-top: 15px;
+        font-style: italic;
+    }
+    .overlay {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: -4px;
+        left: 0;
+        z-index: 1001;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+	text-align: center;
+	vertical-align: middle;
+    }
+    .overlay-inbox{
+        position: relative;
+        top: 30%;
+        margin: -75px auto 0 auto;
+        width: auto;
+	max-width: 500px;
+        height: auto;
+	max-height: 250px;
+	min-height: 50px;
+        -webkit-border-radius: 10px;
+        -moz-border-radius: 10px;
+        border-radius: 10px;
+        background: #fff;
+        box-sizing: border-box;
+        padding: 0 30px;
+        text-align: center;
+        font-size: 16px;
+        color: #555;
+	width: auto;
+    }
+    .overlay-inbox strong {
+        display: block;
+        padding-top: 15px;
+        font-style: italic;
+	color:red;
+    }
+    .shader-pop-close, .shader-pop-check {
+	width: 30px;
+	height: 30px;
+	padding: 0px;
+	font-size: 20px !important;
+	border-radius: 15px;
+	margin-bottom: 10px;
+    }
+    .shader-pop-close > i,.shader-pop-check > i{
+	margin-right: 0px !important;
+    }
+    .create_widget {
+	width: 400px;
+	height: 275px;
+	border: 1px solid lightgray;
+	border-radius: 25px;
+	position: relative;
+	background-color:white;
+	display: none;
+	box-shadow:0 -1px 40px rgba(0,0,0,0.12);	
+	top: 30%;
+        margin: -75px auto 0 auto;
+    }
+    .create_widget table{
+      border-collapse: separate;
+      border-spacing: 8px 0px;
+    }
+    .create_widget table th {
+	font-size: 15px;
+	margin-bottom: 5px;
+	width: 100px;
+    }
+    .create_widget table tr {
+	text-align: center;
+    }
+    .create_widget  i{
+	margin-right: 0px !important;
+    }
+    .widget-table-box {
+	display:inline-block;
+	height:100%;
+	width:100%;
+	margin-top:15px;
+    }
+    .widget-add {
+	width: 100px;
+	font-size: 50px !important;
+	padding: 10px 15px 10px 20px;
+	margin: 0px !important;
+	float: none !important;
+	border-radius: 15px;
+    }
+    .widget-arrow {
+	width: 40px;
+	font-size: 20px !important;
+	padding: 5px 0px;;
+	margin: 0px !important;
+	float: none !important;
+	border-radius: 5px;
+    }
+    .widget-close{
+	width: 30px;
+	height: 30px;
+	padding: 0px;
+	font-size: 20px !important;
+	margin: -5px 2px 5px 0 !important;
+	float: right !important;
+	border-radius: 15px;
+    }
+    .widget-empty{
+	width: 250px;
+	height: 50px;
+	font-size: 20px !important;
+	margin: 0px !important;
+	float: none !important;
+	border-radius: 15px;
+    }
+    .widget-empty span {
+	font-weight: bold;
+    }
+    .c > .button {
+	color: white;
+	display: block;	
+	background-color: #1a1a1a !important;
+	background:none;
+	border: 0px;
+    }
+    .c > .button:hover {
+        text-decoration: none;
+        color: #666;
+        background: none;
+    }
+    .scene-error {
+	width:100px;
+	height:50px;
+	z-index:100;
+	display:block;
+	position:relative;
+	float:right;
+	top:calc(100% - 51px);
+	color:red;
+	font-weight:bold;
+	text-align:center;
+	line-height:50px;
+    }
 
   </style>
 
@@ -136,6 +318,21 @@
     #textureFile19 { display: none; }
     #textureFile20 { display: none; }
 
+    canvas {
+	position: absolute;
+    }
+    .dg.ac {
+	position: relative !important;
+    }
+    .dg.main.a{
+	max-height: 760px;
+	overflow-y: auto;
+	width: 370px !important;
+    }
+    .dg.main.a > ul{
+	max-height: 740px;
+    }
+
 </style>
   <%= javascript_include_tag "shaders_manifest", media: "all", "data-turbolinks-track" => true %>
   <%= stylesheet_link_tag "bktree_manifest", media: "all", "data-turbolinks-track" => true %>
@@ -144,6 +341,9 @@
 <body <% if @custom_body_class %>class="<%= @custom_body_class %>"<% end %>>
   <%= theme_lookup("header") %>
   <%= build_plugin_html 'server:header' %>
+  <section class="loading">
+	<p><strong>로딩중...</strong></p>		
+  </section>
   <section id='main'>
     <%= render partial: 'header' %>
     <div id="main-outlet" class="<%= @container_class ? @container_class : 'wrap' %>">

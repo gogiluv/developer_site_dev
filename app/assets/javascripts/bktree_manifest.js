@@ -21,3 +21,4 @@
 //= require ./bktree/codemirror/keymap/sublime.js
 //= require ./bktree/codemirror/addon/hint/show-hint.js
 //= require ./bktree/codemirror/mode/webGL-clike.js
+

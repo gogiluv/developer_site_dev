@@ -7,6 +7,13 @@ class CreateShaders < ActiveRecord::Migration[5.2]
       t.text :fragment_text
       t.text :dat_gui_text
       t.string :img_url
+      t.text :img_data
+      t.string :title
+      t.text :content
+      t.integer :view_count
+      t.integer :like_count
+      t.integer :reply_count
+      t.integer :bookmark_count
 
       t.timestamps
     end

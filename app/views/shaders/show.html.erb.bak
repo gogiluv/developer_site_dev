@@ -1,0 +1,207 @@
+<div class="noshow">
+<p id="notice"><%= notice %></p>
+
+<p>
+  <strong>User:</strong>
+  <%= @shader.user_id %>
+</p>
+
+<p>
+  <strong>Fbx text:</strong>
+  <%= @shader.fbx_text %>
+</p>
+
+<p>
+  <strong>Vertex text:</strong>
+  <%= @shader.vertex_text %>
+</p>
+
+<p>
+  <strong>Fragment text:</strong>
+  <%= @shader.fragment_text %>
+</p>
+
+<p>
+  <strong>Dat gui text:</strong>
+  <%= @shader.dat_gui_text %>
+</p>
+
+<p>
+  <strong>Img url:</strong>
+  <%= @shader.img_url %>
+</p>
+
+<%= link_to 'Edit', edit_shader_path(@shader) %> |
+<%= link_to 'Back', shaders_path %>
+
+</div>
+
+<div style="width:60%; height:800px; float:left;">
+
+	<div style="width:100%; height:30px; border-bottom:1px solid lightgrey;">
+                <button id="btn-scene" class="btn btn-default btn btn-icon-text ember-view active" onclick="shaders.select_tab(this)">
+                        <span class="d-button-label">Scene</span>
+                </button>
+                <button id="btn-code" class="btn btn-default btn btn-icon-text ember-view" onclick="shaders.select_tab(this)">
+                        <span class="d-button-label">Code</span>
+                </button>
+                <button id="btn-redo" class="btn btn-default btn btn-icon-text ember-view" style="float:right;" onclick="shaders.undo(this)">
+                        <span class="d-button-label">최초 설정으로 돌리기</span>
+                </button>
+
+	</div>
+	<div id="tab-scene" class="tab-view" style="width:100%; height:500px; border:1px solid grey; display:block;">
+		<div id="scene-view" style="width:100%; height:470px;"></div>
+	</div>
+	<div id="tab-code" class="tab-view"style="width:100%; height:auto; display:none; border: 1px solid lightgrey; border-top:none;">
+		<div id="btnbox-in-code" style="width:100%; height:30px; border-bottom:1px solid lightgrey;">			
+                	<button id="btn-vertex" class="btn btn-default btn btn-icon-text ember-view active" style="width:150px;" onclick="select_code_tab(this)">
+        	                <span class="d-button-label">vertex</span>
+	                </button>			
+			<button id="btn-fragment" class="btn btn-default btn btn-icon-text ember-view" style="width:150px;" onclick="select_code_tab(this)">
+                        	<span class="d-button-label">fragment</span>
+                	</button>
+		</div>
+		<div id="tab-vertex" class="tab-view-sub" style="width:100%; height:450px; overflow:auto; padding: 10px; box-sizing: border-box;">
+			<b>vertex</b><br><br>
+
+			tab-coder_agent", "user_auth_tokens"."auth_token_seen", "user_auth_tokens"."client_ip", 
+			"user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+			  prev_auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=') AND rotated_at > '2018-06-02 10:33:30.353172') LIMIT 1
+			D, [2018-08-01T19:33:30.356438 #18827] DEBUG -- :   User Load (0.5ms)  SELECT  "users".* FROM "users" WHERE "users"."id" = 1 LIMIT 1
+			D, [2018-08-01T19:33:30.357873 #18827] DEBUG -- :    (0.2ms)  SELECT "groups"."id" FROM "groups"
+			D, [2018-08-01T19:33:30.360016 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:55.360335 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:56.352810 #18827] DEBUG -- :   
+			UserAuthToken Load (0.2ms)  SELECT  "user_auth_tokens"."id", "user_auth_tokens"."user_id", "user_auth_tokens"."auth_token", 
+			"user_auth_tokens"."prev_auth_token", "user_auth_tokens"."user_agent", "user_auth_tokens"."auth_token_seen", 
+			"user_auth_tokens"."client_ip", "user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+			tab-coder_agent", "user_auth_tokens"."auth_token_seen", "user_auth_tokens"."client_ip", 
+			"user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+			  prev_auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=') AND rotated_at > '2018-06-02 10:33:30.353172') LIMIT 1
+			D, [2018-08-01T19:33:30.356438 #18827] DEBUG -- :   User Load (0.5ms)  SELECT  "users".* FROM "users" WHERE "users"."id" = 1 LIMIT 1
+			D, [2018-08-01T19:33:30.357873 #18827] DEBUG -- :    (0.2ms)  SELECT "groups"."id" FROM "groups"
+			D, [2018-08-01T19:33:30.360016 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:55.360335 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:56.352810 #18827] DEBUG -- :   
+			UserAuthToken Load (0.2ms)  SELECT  "user_auth_tokens"."id", "user_auth_tokens"."user_id", "user_auth_tokens"."auth_token", 
+			"user_auth_tokens"."prev_auth_token", "user_auth_tokens"."user_agent", "user_auth_tokens"."auth_token_seen", 
+			"user_auth_tokens"."client_ip", "user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+			tab-coder_agent", "user_auth_tokens"."auth_token_seen", "user_auth_tokens"."client_ip", 
+			"user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+			  prev_auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=') AND rotated_at > '2018-06-02 10:33:30.353172') LIMIT 1
+			D, [2018-08-01T19:33:30.356438 #18827] DEBUG -- :   User Load (0.5ms)  SELECT  "users".* FROM "users" WHERE "users"."id" = 1 LIMIT 1
+			D, [2018-08-01T19:33:30.357873 #18827] DEBUG -- :    (0.2ms)  SELECT "groups"."id" FROM "groups"
+			D, [2018-08-01T19:33:30.360016 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:55.360335 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:56.352810 #18827] DEBUG -- :   
+			UserAuthToken Load (0.2ms)  SELECT  "user_auth_tokens"."id", "user_auth_tokens"."user_id", "user_auth_tokens"."auth_token", 
+			"user_auth_tokens"."prev_auth_token", "user_auth_tokens"."user_agent", "user_auth_tokens"."auth_token_seen", 
+			"user_auth_tokens"."client_ip", "user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+		</div>
+		<div id="tab-fragment" class="tab-view-sub" style="width:100%; height:450px; overflow:auto; padding: 10px; box-sizing: border-box; display:none;">
+			<b>fragment</b><br><br>
+
+			tab-coder_agent", "user_auth_tokens"."auth_token_seen", "user_auth_tokens"."client_ip", 
+			"user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+			  prev_auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=') AND rotated_at > '2018-06-02 10:33:30.353172') LIMIT 1
+			D, [2018-08-01T19:33:30.356438 #18827] DEBUG -- :   User Load (0.5ms)  SELECT  "users".* FROM "users" WHERE "users"."id" = 1 LIMIT 1
+			D, [2018-08-01T19:33:30.357873 #18827] DEBUG -- :    (0.2ms)  SELECT "groups"."id" FROM "groups"
+			D, [2018-08-01T19:33:30.360016 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:55.360335 #18827] DEBUG -- : Delivering messages [] to client 81b0d8b76dd7474b8d3c7aeef41bbf5f for user 1 (chunked)
+			D, [2018-08-01T19:33:56.352810 #18827] DEBUG -- :   
+			UserAuthToken Load (0.2ms)  SELECT  "user_auth_tokens"."id", "user_auth_tokens"."user_id", "user_auth_tokens"."auth_token", 
+			"user_auth_tokens"."prev_auth_token", "user_auth_tokens"."user_agent", "user_auth_tokens"."auth_token_seen", 
+			"user_auth_tokens"."client_ip", "user_auth_tokens"."rotated_at", "user_auth_tokens"."created_at", "user_auth_tokens"."updated_at", 
+			"user_auth_tokens"."seen_at" FROM "user_auth_tokens" WHERE ((auth_token = 'WDXKfO7nlmDDXz2zBq3iuA+2GZk=' OR
+		</div>
+	</div>
+	<div id="shader-notice" style="width:100%;">
+		<div style="padding:5px 10px;"><h1 style="width:auto; display: inline-block; margin-right:10px;">WaterShader</h1><h3 style="width:auto; display: inline-block;"><em>by.abc</em></h3>
+				<button class="widget-button btn-flat toggle-like like no-text btn-icon" aria-label="이 글을 좋아합니다." title="이 글을 좋아합니다.">
+					<i class="fa fa-heart-o d-icon d-icon-d-unliked d-hover" aria-hidden="true"></i>
+				</button>
+				<button class="widget-button btn-flat bookmark no-text btn-icon" aria-label=" 즐겨찾기에 추가하려면 클릭하세요." title=" 즐겨찾기에 추가하려면 클릭하세요.">
+					<i class="fa fa-bookmark d-icon d-icon-bookmark d-hover" aria-hidden="true"></i>
+				</button>
+		</div>
+		<div style="padding:5px 10px;">			
+			짧은 쉐이더 소개글<br/>	이 물 쉐이더는 어디에 이용 되었으며 솰라솰라			
+		</div>
+	</div>
+	<div id="reply-list" style="width:97%; height:25%; padding: 5px 10px; overflow-y:auto;">
+		<div id="reply-raw" style="width:95%; height:auto; padding:5px 5px 10px 5px; border-bottom: 1px solid lightgrey; display:inline-block; border-top: 1px solid lightgrey;">
+			<div id="avatar-div" style="width:50px; margin-right:10px; float:left;">
+				<a class="trigger-user-card main-avatar" href="/u/bluefallsky" data-user-card="bluefallsky">
+					<img alt="" width="45" height="45" src="/letter_avatar_proxy/v2/letter/t/abc32d/90.png" title="username" class="avatar">
+				</a>
+			</div>
+			<div id="username">
+				<b>TempCom2us</b>
+			</div>
+			<div id="reply-text">
+				마침 이런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+			</div>
+		</div>
+		<div id="reply-raw" style="width:95%; height:auto; padding:5px 5px 10px 5px; border-bottom: 1px solid lightgrey; display:inline-block;">
+			<div id="avatar-div" style="width:50px; margin-right:10px; float:left;">
+				<a class="trigger-user-card main-avatar" href="/u/bluefallsky" data-user-card="bluefallsky">
+					<img alt="" width="45" height="45" src="/letter_avatar_proxy/v2/letter/e/ffge2d/90.png" title="username" class="avatar">
+				</a>
+			</div>
+			<div id="username">
+				<b>ECO_TS</b>
+			</div>
+			<div id="reply-text">
+				베이스가 된 쉐이더의 링크는 여기입니다. http://echoshader.com
+			</div>
+		</div>
+		<div id="reply-raw" style="width:95%; height:auto; padding:5px 5px 10px 5px; border-bottom: 1px solid lightgrey; display:inline-block;">
+			<div id="avatar-div" style="width:50px; margin-right:10px; float:left;">
+				<a class="trigger-user-card main-avatar" href="/u/bluefallsky" data-user-card="bluefallsky">
+					<img alt="" width="45" height="45" src="/letter_avatar_proxy/v2/letter/r/fbca2d/90.png" title="username" class="avatar">
+				</a>
+			</div>
+			<div style="width:85%; float:left;">
+				<div id="username" style="height:auto;">
+					<b>Regex</b>
+				</div>
+				<div id="reply-text" style="height:auto;">
+					마침 이런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+					마침 이	런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+					마침 이런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+					마침 이런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+					마침 이런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+					마침 이런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+				</div>
+			</div>
+		</div>
+		<div id="reply-raw" style="width:95%; height:auto; padding:5px 5px 10px 5px; border-bottom: 1px solid lightgrey; display:inline-block;">
+			<div id="avatar-div" style="width:50px; margin-right:10px; float:left;">
+				<a class="trigger-user-card main-avatar" href="/u/bluefallsky" data-user-card="bluefallsky">
+					<img alt="" width="45" height="45" src="/letter_avatar_proxy/v2/letter/r/acaa2d/90.png" title="username" class="avatar">
+				</a>
+			</div>
+			<div id="username">
+				<b>ABC</b>
+			</div>
+			<div id="reply-text">
+				마침 이런 쉐이더가 필요 했는데 정말 유용한 것 같아요!
+			</div>
+		</div>
+	</div>
+</div>
+<div style="width:35%; height:760px; float:left; padding: 30px 10px 10px 10px;">	
+	<div style="width:100%; height:100%; float:right; background-color:black; color:white;">
+		<img src="/images/K-250.png" style="width:100%; height:100%;"></img>
+	</div>
+</div>
+
+<%= render 'shaders/bktree' %>
