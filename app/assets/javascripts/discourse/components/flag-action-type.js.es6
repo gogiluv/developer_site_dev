@@ -13,7 +13,7 @@ export default Ember.Component.extend({
   formattedName(name, nameKey, isCustomFlag, username) {
     
     if(this.anonymous_chk){
-      username="unknown";
+      username="anonymous";
     }
 
     if (isCustomFlag) {

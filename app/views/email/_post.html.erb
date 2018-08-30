@@ -1,6 +1,7 @@
 <div class='post-wrapper <%= post.whisper? ? "whisper" : "" %> <%= use_excerpt ? "excerpt" : ""%>'>
   <table>
     <tr>
+      <% if !post.anonymous_chk %>
       <td class='user-avatar'>
         <img src="<%= post.user.small_avatar_url %>" title="<%= post.user.username%>">
       </td>
@@ -17,6 +18,18 @@
         <br>
         <span class='notification-date'><%= l post.created_at, format: :short_no_year %></span>
       </td>
+      <% else %>
+        <td class='user-avatar'>
+          <img src="<%= '/images/anonymous_icon.png' %>" title="anonymous">
+        </td>
+        <td>
+          <%- if show_username_on_post(post) || show_name_on_post(post) %>
+            anonymous
+          <% end %>
+          <br>
+          <span class='notification-date'><%= l post.created_at, format: :short_no_year %></span>
+        </td>
+      <% end %>
     </tr>
   </table>
   <div class='body'><%= format_for_email(post, use_excerpt) %></div>

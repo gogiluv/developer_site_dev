@@ -212,7 +212,7 @@ module Oneboxer
         topic_id: topic.id,
         post_number: post.post_number,
         #avatar: PrettyText.avatar_img(post.user.avatar_template, "tiny"),
-        avatar: PrettyText.avatar_img(post.anonymous_chk ? "/letter_avatar_proxy/v2/letter/u/000000/{size}.png" : post.user.avatar_template, "tiny"),
+        avatar: PrettyText.avatar_img(post.anonymous_chk ? "/images/anonymous_icon.png" : post.user.avatar_template, "tiny"),
         original_url: url,
         title: PrettyText.unescape_emoji(CGI::escapeHTML(topic.title)),
         category_html: CategoryBadge.html_for(topic.category),

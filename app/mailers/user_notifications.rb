@@ -310,7 +310,7 @@ class UserNotifications < ActionMailer::Base
       show_tags_in_subject: true,
       notification_type: "posted",
       notification_data_hash: {
-        original_username: post.user.username,
+        original_username: post.anonymous_chk ? "anonymous" : post.user.username,
         topic_title: post.topic.title,
       },
     }
@@ -327,7 +327,7 @@ class UserNotifications < ActionMailer::Base
     result = "#{post.raw}\n\n"
     if add_posted_by
       #result << "#{I18n.t('user_notifications.posted_by', username: post.username, post_date: post.created_at.strftime("%m/%d/%Y"))}\n\n"
-      result << "#{I18n.t('user_notifications.posted_by', username: post.anonymous_chk ? "unknown" : post.username, post_date: post.created_at.strftime("%m/%d/%Y"))}\n\n"
+      result << "#{I18n.t('user_notifications.posted_by', username: post.anonymous_chk ? "anonymous" : post.username, post_date: post.created_at.strftime("%m/%d/%Y"))}\n\n"
     end
     result
   end
@@ -384,8 +384,8 @@ class UserNotifications < ActionMailer::Base
     original_username = notification_data[:original_username] || notification_data[:display_username]
 
     if post.anonymous_chk
-      user_name = "unknown"
-      original_username = "unknown"
+      user_name = "anonymous"
+      original_username = "anonymous"
     end
 
     email_options = {

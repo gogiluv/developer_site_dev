@@ -65,7 +65,7 @@
                                 <ul>
                                         <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
                                         {{#if row.anonymous_chk}}
-                                          <li>작성자 : <span class="t3" style="color:black;">unknown</span></li>
+                                          <li>작성자 : <span class="t3" style="color:black;">anonymous</span></li>
                                         {{else}}
                                           <li>작성자 : <a href="/u/{{row.username}}"><span class="t3" style="color:black;">{{row.username}} {{#if row.u_name}} ({{row.u_name}}) {{/if}}</span></a></li>
                                         {{/if}}
@@ -98,7 +98,7 @@
                                 <ul>
                                         <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
                                         {{#if row.anonymous_chk}}
-                                          <li>작성자 : <span class="t3" style="color:black;">unknown</span></li>
+                                          <li>작성자 : <span class="t3" style="color:black;">anonymous</span></li>
                                         {{else}}
                                           <li>작성자 : <a href="/u/{{row.username}}"><span class="t3" style="color:black;">{{row.username}} {{#if row.u_name}} ({{row.u_name}}) {{/if}}</span></a></li>
                                         {{/if}}
