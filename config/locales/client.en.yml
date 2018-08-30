@@ -229,6 +229,7 @@ en:
     privacy_policy: "Privacy Policy"
     privacy: "Privacy"
     tos: "Terms of Service"
+    rules: "Rules"
     mobile_view: "Mobile View"
     desktop_view: "Desktop View"
     you: "You"
@@ -597,6 +598,7 @@ en:
       post_count: "# posts"
       confirm_delete_other_accounts: "Are you sure you want to delete these accounts?"
       powered_by: "powered by <a href='https://ipinfo.io'>ipinfo.io</a>"
+      copied: "copied"
 
     user_fields:
       none: "(select an option)"
@@ -1127,7 +1129,8 @@ en:
 
     private_message_info:
       title: "Message"
-      invite: "Invite Others..."
+      invite: "Invite Others ..."
+      edit: "Add or Remove ..."
       leave_message: "Do you really want to leave this message?"
       remove_allowed_user: "Do you really want to remove {{name}} from this message?"
       remove_allowed_group: "Do you really want to remove {{name}} from this message?"
