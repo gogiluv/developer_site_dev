@@ -81,9 +81,17 @@
 
 		</table>
 		<div class="submit-form" style="width:100%; height:30px;">
-			<button id="btn-fragment" class="btn btn-default btn btn-icon-text ember-view" style="width:150px; float:right; margin-right:7px;" onclick="Shader.shader_submit_confirm()">
+			<% if @board_state == 'new' %>
+			<button id="btn-fragment" class="btn btn-default btn btn-icon-text ember-view" style="width:150px; float:right; margin-right:7px;" 
+				onclick="Shader.shader_submit_confirm('new')">
                         	<span class="d-button-label">Submit</span>
                 	</button>
+			<% elsif @board_state == 'edit' %>
+			<button id="btn-fragment" class="btn btn-default btn btn-icon-text ember-view" style="width:150px; float:right; margin-right:7px;" 
+				onclick="Shader.shader_submit_confirm('edit')">
+                        	<span class="d-button-label">modify</span>
+                	</button>
+			<% end %>
 			<div id="compile_message" style="display:inline-block; height:100%; float:right; padding:5px 20px; 0 0; color:red;">
 				*변경점이 있습니다 컴파일을 해주세요
 			</div>
@@ -97,65 +105,53 @@
 	</div>
 </div>
 
-
-<div class="noshow">
-<%= form_with(model: shader, local: true, id: :shader_form) do |form| %>
-  <% if shader.errors.any? %>
-    <div id="error_explanation">
-      <h2><%= pluralize(shader.errors.count, "error") %> prohibited this shader from being saved:</h2>
-
-      <ul>
-      <% shader.errors.full_messages.each do |message| %>
-        <li><%= message %></li>
-      <% end %>
-      </ul>
-    </div>
-  <% end %>
-
-  <div class="field">
-    <%= form.label :user_id %>
-    <%= form.text_field :user_id, value: current_user.id %>
-  </div>
-
-  <div class="field">
-    <%= form.label :fbx_text %>
-    <%= form.text_area :fbx_text %>
-  </div>
-
-  <div class="field">
-    <%= form.label :vertex_text %>
-    <%= form.text_area :vertex_text %>
-  </div>
-
-  <div class="field">
-    <%= form.label :fragment_text %>
-    <%= form.text_area :fragment_text %>
-  </div>
-
-  <div class="field">
-    <%= form.label :dat_gui_text %>
-    <%= form.text_area :dat_gui_text %>
-  </div>
-
-  <div class="field">
-    <%= form.label :img_url %>
-    <%= form.text_field :img_url %>
-  </div>
-
-  <div class="field">
-    <%= form.label :title %>
-    <%= form.text_field :title %>
-  </div>
-
-  <div class="field">
-    <%= form.label :content %>
-    <%= form.text_area :content %>
-  </div>
-
-  <div class="actions">
-    <%= form.submit %>
-  </div>
-<% end %>
-</div>
-
 <%= render 'shaders/bktree' %>
+
+<script type="text/javascript">
+
+	$(function(){				
+		Shader.onLoading();//로딩창on
+
+		var shader_id = <%= @shader.id.nil? ? false : @shader.id %>;
+		var board_state = '<%= @board_state %>';
+		console.log(board_state);
+		if(shader_id){
+			$.ajax({
+	                        url:'/shaders/bktree',
+				type: 'POST',
+        	                beforeSend: function(xhr) {xhr.setRequestHeader('X-CSRF-Token', $('meta[name="csrf-token"]').attr('content'))},
+              			        dataType:'json',
+                        	data: {
+					id: shader_id,
+	                        },
+               		        success:function(data){
+						if(data.error){
+							console.log(data.error);
+							SetBoardState(StateEnum.ERROR);
+						}else{
+							Shader.set_shader_params(data);
+							SetDBData(data.shader.fbx_text, data.shader.vertex_text,
+                		                        data.shader.fragment_text, decodeURI(data.shader.dat_gui_text));
+						}
+
+						if(board_state=='show'){	
+							SetBoardState(StateEnum.VIEW);
+						}else if(board_state=='edit'){
+							SetBoardState(StateEnum.MODIFY);
+						}
+						Init();
+						Animate();
+				}
+			});
+		}else{
+			if(localStorage.is_set=='yes'){
+				SetBoardState(StateEnum.QUICK);
+				SetDBData(localStorage.fbx, localStorage.vertex, localStorage.fragment, '');
+			}else{
+      		                SetBoardState(StateEnum.WRITE);
+			}
+			Init();
+			Animate();
+		}
+	});
+</script>

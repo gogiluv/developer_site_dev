@@ -76,18 +76,19 @@ var Shader = {
 		Shader.shader_params.dat_gui_text=data.shader.dat_gui_text;
 	},
 	
-	shader_submit_confirm: function(){
+	shader_submit_confirm: function(submit_type){
 		//유효성 체크
 		var error_code = GetSubmitErrorCode();
-		var msg = GetErrorMessage(error_code);		
-
+		var msg = GetErrorMessage(error_code);
+		var func = null;
+		
 		//쉐이더 파일 누락, 컴파일 여부 체크
 		if(msg!=null &&  msg!= ''){Shader.msg_pop('warning', msg); return;}
 		//제목, 글 내용 등 체크
 		Shader.set_params();
 		if(!Shader.validate_params()){console.log('valid fail'); return;}
-		console.log('pass')
-			
+		
+		
 		Shader.confirm_pop('confirm' ,'쉐이더를 업로드 하시겠습니까?', Shader.shader_submit);
 	},
 
@@ -133,6 +134,10 @@ var Shader = {
 
 	shader_pop_close: function(){
 		$('.shader-pop').remove();
+	},
+	
+	shader_submit_callback(submit_type){
+
 	},
 
 	shader_submit: function(){
@@ -358,19 +363,18 @@ var Shader = {
 	},
 
         add_fbx: function(){
-		console.log('inshader');
-		$('#fbxFile').click();
 		$('#fbxFile').change(onAddFBX);
+		$('#fbxFile').click();
 	},
 
         add_vertex: function(){
-		$('#vertexFile').click();
 		$('#vertexFile').change(onAddVertexShader);
+		$('#vertexFile').click();
 	},
 
         add_fragment: function(){
-		$('#fragFile').click();
 		$('#fragFile').change(onAddFragShader);
+		$('#fragFile').click();
 	},
 };
 
@@ -416,7 +420,7 @@ var CreateWidget = {
 	},
 
 	on_fbx: function(){
-		console.log('on_fbx1111111111');
+		console.log('on_fbx in widget');
 		$('#widget-fbx').addClass('active');
 		$('#widget-fbx > i').removeClass('fa-plus').addClass('fa-check');
 
@@ -436,7 +440,7 @@ var CreateWidget = {
 	},
 
 	on_vertex: function(){
-		console.log('on_vertex');
+		console.log('on_vertex in widget');
 		$('#widget-vertex').addClass('active');
 		$('#widget-vertex > i').removeClass('fa-plus').addClass('fa-check');
 
@@ -456,7 +460,7 @@ var CreateWidget = {
 	},
 
 	on_fragment: function(){
-		console.log('on_fragment');
+		console.log('on_fragment in widget');
 		$('#widget-fragment').addClass('active');
 		$('#widget-fragment > i').removeClass('fa-plus').addClass('fa-check');
 

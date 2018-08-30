@@ -33,47 +33,6 @@
 
 		<!-- Javascript code that runs our Three.js examples -->
 		<script>
-
-			$(function(){				
-				Shader.onLoading();//로딩창on
-
-				var id = Number($('#show_id').text());
-				if(id){
-					$.ajax({
-			                        url:'/shaders/bktree',
-                			        type: 'POST',
-		        	                beforeSend: function(xhr) {xhr.setRequestHeader('X-CSRF-Token', $('meta[name="csrf-token"]').attr('content'))},
-                			        dataType:'json',
-		                        	data: {
-                		                	id: $('#show_id').text(),
-			                        },
-        	        		        success:function(data){
-								if(data.error){
-									console.log(data.error);
-                					                SetBoardState(StateEnum.ERROR);
-								}else{	
-									Shader.set_shader_params(data);
-
-                					                SetBoardState(StateEnum.VIEW);
-                        		        			SetDBData(data.shader.fbx_text, data.shader.vertex_text,
-		                		                        data.shader.fragment_text, decodeURI(data.shader.dat_gui_text));
-								}
-								Init();
-								Animate();
-                			        }
-			                });
-				}else{
-					if(localStorage.is_set=='yes'){
-						SetBoardState(StateEnum.QUICK);
-						SetDBData(localStorage.fbx, localStorage.vertex, localStorage.fragment, '');
-					}else{
-	      			                SetBoardState(StateEnum.WRITE);
-					}
-					Init();
-					Animate();
-				}
-			});
-
 			var sceneWidth = $('#scene-view').width();
 			var sceneHeight = $('#scene-view').height();
 
@@ -291,17 +250,17 @@
 		  	{
 		  		document.getElementById(id).click();
 			 	document.getElementById(id).onchange = func;		  		
-		  	}
-
-		  	
+		  	}		  	
 
 		  	function onAddFBX(file)
 			{				
 				console.log('onAddFBX!!!!!!!!!!!');
-				var filename = file.target.files[0].name;
-
-				//guiInfo['object'] = filename;
-				guiInfo['fbx'] = filename;
+				if(file.target.files[0])
+				{
+					var filename = file.target.files[0].name;
+					//guiInfo['object'] = filename;
+					guiInfo['fbx'] = filename;	
+				}				
 
 				var reader = new FileReader();
 				reader.addEventListener( 'load', function ( event ) {
@@ -313,8 +272,12 @@
 					CreateFBXObject(FBXArrayBuffer);					
 
 				}, false );
-				reader.readAsArrayBuffer( file.target.files[0] );
-				file.target.value = '';
+
+				if(file.target.files[0])
+				{
+					reader.readAsArrayBuffer( file.target.files[0] );
+					file.target.value = '';
+				}				
 			}		  	
 
 			function CreateFBXObject(arrayBuffer)
@@ -461,8 +424,12 @@
 					SetGuiImage(currentSelectTexture, image);
 					//fileTagBackup[currentSelectTexture]['texture'] = image;		
 				}, false );
-				reader.readAsDataURL( file.target.files[0] );
-				file.target.value = '';
+				if(file.target.files[0])
+				{
+					reader.readAsDataURL( file.target.files[0] );
+					file.target.value = '';	
+				}
+				
 			}
 
 			function SetGuiImage(selectTexturekey, image)
@@ -594,6 +561,42 @@
 				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
 			}
 
+			function GetCurrentGUIValue2(folderKey, array)
+			{
+				
+				var _qual = qualifiers.find(function(element){
+					return element.variableName == folderKey;
+				});
+
+				//console.log("variableName : " + _qual.variableName + " / keyword : " + _qual.keyword);
+				if(_qual.keyword == 'sampler2D')
+				{	
+					var _key = array[0].property;
+					//var _tempValue = array[0].object[_key];		
+					if(typeof _Material.uniforms[_key].value.image != 'undefined')
+					{
+						var _b64Data = _Material.uniforms[_key].value.image.currentSrc;//fileTagBackup[_key]['texture'].src;
+						_qual["name"] = GetGUIValue(folderKey);
+						_qual["value"] = _b64Data;//b64toBlob(_b64Data, _contentType);						
+					}
+					else
+					{
+						_qual["name"] = 'undefined';
+						_qual["value"] = 'undefined';						
+					}
+					//_qual["value"] = GetTexture(_tempValue);
+				}
+				else if(_qual.keyword == 'samplerCube')
+				{
+
+				}
+				else
+				{					
+					_qual["value"] = GetGUIValue(folderKey);
+				}
+				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
+			}
+
 			function b64toByteChars(b64Data)
 			{
 				if(typeof b64Data == 'undefined')
@@ -682,41 +685,29 @@
 						{
 							if(typeof backupQualifiers[k].value != 'undefined')
 							{
+								var _value = GetBackupQualifiersValues(k);
 								if(backupQualifiers[k].keyword == 'sampler2D') 
 				        		{
-				        			var _b64Data =  GetBackupQualifiersValues(i);
-						        	if(_b64Data != 'undefined')
+				        			
+						        	if(_value.join('') != 'undefined')
 				        			{
-							        	var _contentType = 'image/jpeg';
-							        	var _blob = ByteCharstoBlob(_b64Data, _contentType);					        	
-							        	var _blobUrl = URL.createObjectURL(_blob);
-							        	var _img = new Image();//document.createElement('img');
-										_img.src = _blobUrl;
-							        	var _texture = GetTexture(_img);
-
-							        	if(typeof _texture != 'undefined') {
-							        		if(_Material.uniforms[_folderKey].value != _texture) {
-							        			
-							        			var _name = backupQualifiers[k].name;
-							        			SetTextureName(_folderKey, _name);
-							        			_Material.uniforms[_folderKey].value = _texture;
-							        		}
-							        	}
-				        			}	
+							        	qualifiers[i].value = backupQualifiers[k].value;
+							        	qualifiers[i].name = backupQualifiers[k].name;
+							        }
 				        		}
 				     			else
-				     			{
-				     				var _value = GetBackupQualifiersValues(k);
+				     			{				     				
 						        	if(typeof _value != 'undefined' && _value.length > 0)
+						        	{						        		
 							        	SetGUIValue(_folderKey, _value);
+							        	qualifiers[i].value = _value;
+						        	}
 				     			}
+				     			
 						 	}
 						}
 					}
 				}
-
-				updateUniform();
-				_GUI.updateDisplay();
 			}
 
 			function SetDatGuiData()
@@ -984,9 +975,10 @@
 			{
 				var file = this.files[0];				
 				var reader = new FileReader();
-				reader.addEventListener('load', function(event){		
+				reader.addEventListener('load', function(event){	
 
-					guiInfo['vertexShader'] = file.name;			
+
+					guiInfo['vertexShader'] = file.name;				
 					SetVertexSource(event.target.result);
 					_GUI.updateDisplay();
 
@@ -1000,13 +992,12 @@
 				var file = this.files[0];
 				var reader = new FileReader();
 				reader.addEventListener('load', function(event){
-
 					guiInfo['fragmentShader'] = file.name;
 					SetFragShaderSource(event.target.result);
 					_GUI.updateDisplay();
 				}, false);
 				reader.readAsText(event.target.files[0]); 
-				event.target.value = ''; 
+				event.target.value = ''; 	
 			}
 
 			function SetVertexSource(soruce)
@@ -1268,16 +1259,21 @@
 
 				if (_VertexShaderSource != "" && _FragmentShaderSource != "")
 				{			
-					if(qualifiers != backupQualifiers)
+					/*if(qualifiers != backupQualifiers)
 					{
-						GetDatGUIData();
+						GetDatGUIData2();
 	    				backupQualifiers = qualifiers;
-					}
+					}*/
 
 					ReSetting(_VertexShaderSource, _FragmentShaderSource);
 					
 					// todo 
-					SetGenerateBackupData();
+					/*SetGenerateBackupData();
+
+					SetDatGuiData();
+					updateUniform();
+
+					_GUI.updateDisplay();*/
 					
 					/*for(var i = 0; i < qualifiers.length; ++i)
 					{
@@ -1574,6 +1570,14 @@
 		    	Object.keys(_GUI.__folders).forEach(function(object, index){
 					//console.log("key : " + object);
 					GetCurrentGUIValue(object, _GUI.__folders[object].__controllers);
+				});
+		    }
+
+		    function GetDatGUIData2()
+		    {
+		    	Object.keys(_GUI.__folders).forEach(function(object, index){
+					//console.log("key : " + object);
+					GetCurrentGUIValue2(object, _GUI.__folders[object].__controllers);
 				});
 		    }
 

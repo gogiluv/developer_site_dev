@@ -56,17 +56,21 @@ class ShadersController < ApplicationController
   def show
 	@shader_like = ShaderLike.where(shader_id: params[:id], user_id: current_user.id).exists?
 	@shader_bookmark = ShaderBookmark.where(shader_id: params[:id], user_id: current_user.id).exists?
+	@board_state = 'show'
   end
 
   # GET /shaders/new
   def new
     @shader = Shader.new
     @user_id = current_user.id
+    @board_state = "new"
     
   end
 
   # GET /shaders/1/edit
   def edit
+    @user_id = current_user.id
+    @board_state = 'edit'
   end
 
   # POST /shaders

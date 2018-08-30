@@ -53,11 +53,11 @@
 					<% end %>
 				</button>
 				<button class="widget-button btn-flat edit no-text btn-icon" aria-label="이 글 편집." 
-					title="이 글 편집." onclick="Shader.bookmark(this)">
+					title="이 글 편집." onclick="">
 					<i class="fa fa-pencil" aria-hidden="true"></i>
 				</button>
 				<button class="widget-button btn-flat delete no-text btn-icon" aria-label="이 글 삭제." 
-					title="이 글 삭제." onclick="Shader.bookmark(this)">
+					title="이 글 삭제." onclick="">
 					<i class="fa fa-trash" aria-hidden="true"></i>
 				</button>
 		</div>
@@ -142,11 +142,59 @@
 </p>
 
 </div>
-<%= link_to 'Edit', edit_shader_path(@shader) %> |
+<%= link_to '<button>aaaaa</button>', edit_shader_path(@shader) %> |
 <%= link_to 'Back', shaders_path %>
 <script>
 	Shader.shader_params.id = <%= @shader.id %>;
-
 </script>
 
 <%= render 'shaders/bktree' %>
+
+<script type="text/javascript">
+
+	$(function(){				
+		Shader.onLoading();//로딩창on
+
+		var shader_id = <%= @shader.id.nil? ? false : @shader.id %>;
+		var board_state = '<%= @board_state %>';
+		console.log(board_state);
+		if(shader_id){
+			$.ajax({
+	                        url:'/shaders/bktree',
+				type: 'POST',
+        	                beforeSend: function(xhr) {xhr.setRequestHeader('X-CSRF-Token', $('meta[name="csrf-token"]').attr('content'))},
+              			        dataType:'json',
+                        	data: {
+					id: shader_id,
+	                        },
+               		        success:function(data){
+						if(data.error){
+							console.log(data.error);
+							SetBoardState(StateEnum.ERROR);
+						}else{
+							Shader.set_shader_params(data);
+							SetDBData(data.shader.fbx_text, data.shader.vertex_text,
+                		                        data.shader.fragment_text, decodeURI(data.shader.dat_gui_text));
+						}
+
+						if(board_state=='show'){	
+							SetBoardState(StateEnum.VIEW);
+						}else if(board_state=='edit'){
+							SetBoardState(StateEnum.MODIFY);
+						}
+						Init();
+						Animate();
+				}
+			});
+		}else{
+			if(localStorage.is_set=='yes'){
+				SetBoardState(StateEnum.QUICK);
+				SetDBData(localStorage.fbx, localStorage.vertex, localStorage.fragment, '');
+			}else{
+      		                SetBoardState(StateEnum.WRITE);
+			}
+			Init();
+			Animate();
+		}
+	});
+</script>

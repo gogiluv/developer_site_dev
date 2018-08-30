@@ -80,7 +80,7 @@
 				<ul>
 					<li><a href="/shaders/<%= shader.id %>"><div style="width:250px; height:150px; border: 1px solid lightgrey; line-height:150px; text-align:center;">
 						<% if shader.img_data %>
-						<img src="<%= shader.img_data %>" width="250" height="150" alt="Com2uS Developer">
+						<img src="<%= shader.img_data %>" width="250" height="150" alt="Com2uS Developer" style="display:block;">
 						<% else %>
 						이미지가 없습니다.
 						<% end %>
@@ -186,10 +186,14 @@
 								</td>
 							</tr>
 							<tr>
-								<td colspan=5>
+								<td>
+								</td>
+								<td colspan=3>
 									<button id="widget-empty" class="btn widget-empty" onclick="CreateWidget.create_empty()">
 										<span class="d-button-label">빈 프로젝트 만들기</span>
 									</button>
+								</td>
+								<td>
 								</td>
 							</tr>
 						</tbody>
