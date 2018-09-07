@@ -1,39 +1,3 @@
-<div class="noshow">
-<p id="notice"><%= notice %></p>
-
-<h1>Shaders</h1>
-
-<table>
-  <thead>
-    <tr>
-      <th>User</th>
-      <th>Fbx text</th>
-      <th>Vertex text</th>
-      <th>Fragment text</th>
-      <th>Dat gui text</th>
-      <th>Img url</th>
-      <th colspan="3"></th>
-    </tr>
-  </thead>
-
-  <tbody>
-    <% @shaders.each do |shader| %>
-      <tr>
-        <td><%= shader.user_id %></td>
-        <td><%= shader.img_url %></td>
-        <td><%= link_to 'Show', shader %></td>
-        <td><%= link_to 'Edit', edit_shader_path(shader) %></td>
-        <td><%= link_to 'Destroy', shader, method: :delete, data: { confirm: 'Are you sure?' } %></td>
-      </tr>
-    <% end %>
-  </tbody>
-</table>
-
-<br>
-
-<%= link_to 'New Shader', new_shader_path %>
-</div>
-
 <div class="searcharea">
                    <input type="text" id="search_keyword" name="keyword" value="" placeholder="Shader 검색" onkeydown="Shader.keychk()" class="input_search">
                    <input type="button" value="검색" onclick="Shader.search()" class="button red btn_search">
@@ -56,18 +20,27 @@
 			<li title="가장 최근 Shader" id="latest" class="ember-view">
 				<a href="/shaders">최근글</a>
 			</li>
-			<li title="카테고리별로 그룹화 된 모든 주제" id="bookmark" class="ember-view">
-				<a href="/shaders?type=bookmark">즐겨찾기</a>
-			</li>
-			<li title="내가 게시한 글" id="my" class="ember-view">
-				<a href="/shaders?type=my">내 글</a>
-			</li>
-			<li id="ember869" class="ember-view"></li>
+			<% if current_user %>
+				<li title="북마크한 글" id="bookmark" class="ember-view">
+					<a href="/shaders?type=bookmark">즐겨찾기</a>
+				</li>
+				<li title="내가 게시한 글" id="my" class="ember-view">
+					<a href="/shaders?type=my">내 글</a>
+				</li>
+			<% end %>
 		</ul>
-		<button id="create-topic" class="btn btn-default btn btn-icon-text ember-view" onclick="CreateWidget.open()">
-			<i class="fa fa-plus d-icon d-icon-plus"></i>
-			<span class="d-button-label">쉐이더 만들기</span>
-		</button>
+		<% if current_user %>
+			<button id="create-topic" class="btn btn-default btn btn-icon-text ember-view" onclick="CreateWidget.open()">
+				<i class="fa fa-plus d-icon d-icon-plus"></i>
+				<span class="d-button-label">쉐이더 만들기</span>
+			</button>
+			<a href="/shaders/guide">
+				<button id="create-topic" class="btn btn-default btn btn-icon-text ember-view">
+					<i class="fa fa-question d-icon d-icon-plus"></i>
+				<span class="d-button-label">작성 가이드</span>
+				</button>
+			</a>
+		<% end %>
 	</section>
 	</div>
 </div>
@@ -76,17 +49,24 @@
 
         <div class="boxlist">
 		<% @shaders.each do |shader| %>
-			<div class="postbox">
+			<div class="shader-box">
 				<ul>
-					<li><a href="/shaders/<%= shader.id %>"><div style="width:250px; height:150px; border: 1px solid lightgrey; line-height:150px; text-align:center;">
+					<li><a href="/shaders/<%= shader.id %>"><div>
 						<% if shader.img_data %>
-						<img src="<%= shader.img_data %>" width="250" height="150" alt="Com2uS Developer" style="display:block;">
+						<img src="<%= shader.img_data %>" width="100%" height="150" alt="Com2uS Developer" style="display:block;">
 						<% else %>
 						이미지가 없습니다.
 						<% end %>
 						</a></div>
 					</li>
-					<li><a href="/shaders/<%= shader.id %>"><strong> <%= shader.title %>  </strong></a> by.<%= shader.user.username %> ♥ <%= shader.like_count %></li>
+					<li>
+						<div><a href="/shaders/<%= shader.id %>" class="default-hover"><strong title="<%= shader.title %>"> <%= shader.title %>  </strong></a></div>
+						<div>
+							<button class="default-hover btn-flat" onclick="ShaderUser.open(<%= shader.user_id %>)">
+		                                        <span class="shader-box-username">by.<%= shader.user.username%></span>
+                			                </button> ♥ <%= shader.like_count %>
+						</div>
+					</li>
 				</ul>
 			</div>
 		<% end %>
@@ -105,7 +85,7 @@
 			<a href="/shaders?type=<%= @type %>&p=<%= @p+5 %>&keyword=<%= @keyword %>">>></a>
 		</div>
         </div>
-
+<!--
         <div class="rightbox">
                 <div class="noticebox">
                         <h3 class="t-align-c">ShaderRoom 에<br> 오신것을 환영합니다</h3>
@@ -130,9 +110,10 @@
                                 <a href="#" class="tag discourse-tag simple button">summon(2)</a>
                 </div>
         </div>
+-->
 </div>
 
-		<div class="create_widget">
+		<div class="create-widget">
 			<div class="widget-table-box">
 				<center>
 					<table align="center">

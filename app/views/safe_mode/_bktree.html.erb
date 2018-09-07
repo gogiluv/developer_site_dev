@@ -332,12 +332,12 @@
 					else if(qualifiers[i].keyword.startsWith('samplerCube'))
 					{
 						 paramsStruct.push([
-					    { [`${qualifiers[i].variableName}[0]`]: 'undefined' },
-					    { [`${qualifiers[i].variableName}[1]`]: 'undefined' },
-					    { [`${qualifiers[i].variableName}[2]`]: 'undefined' },
-					    { [`${qualifiers[i].variableName}[3]`]: 'undefined' },
-					    { [`${qualifiers[i].variableName}[4]`]: 'undefined' },
-					    { [`${qualifiers[i].variableName}[5]`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_0`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_1`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_2`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_3`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_4`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_5`]: 'undefined' },
 					    ]);
 					}
 			 	}
@@ -438,20 +438,38 @@
 				{
 					for(var i = 0; i < qualifiers.length; ++i)
 					{
-						var key = qualifiers[i].variableName;
-				        if(qualifiers[i].keyword == 'sampler2D') {
-				        	var _tempKey = _GUI.__folders[key].__controllers[0].property;
+						var _folderKey = qualifiers[i].variableName;						
+				        if(qualifiers[i].keyword == 'sampler2D') 
+				        {		
+				        	var _tempKey = _GUI.__folders[_folderKey].__controllers[0].property;		        	
 				        	if(_tempKey == selectTexturekey)
 				        	{
 				        		var _texture =  GetTexture(image);
-					        	if(typeof _texture != 'undefined') {
-					        		if(_Material.uniforms[key].value != _texture) 
-					        			_Material.uniforms[key].value = _texture;					        			
+					        	if(typeof _texture != 'undefined') 
+					        	{
+					        		if(_Material.uniforms[_folderKey].value != _texture)
+					        			_Material.uniforms[_folderKey].value = _texture;
 					        	}
 				        	}
 				        }
+				        else if(qualifiers[i].keyword == 'samplerCube')
+			        	{	
+			        		var _tempKey = _GUI.__folders[_folderKey].__controllers[0].property;
+			        		if(_tempKey == selectTexturekey)
+			        		{
+			        			var _numCount = parseInt(selectTexturekey.replace(_folderKey+'_', ''));
+
+			        			var _texture = GetCubeTexture(_numCount, image, _folderKey);
+				        		if(typeof _texture != 'undefined') 
+				        		{
+					        		if(_Material.uniforms[_folderKey].value != _texture)
+					        			_Material.uniforms[_folderKey].value = _texture;
+					        	}
+			        		}
+			        	}
 				    }
 				}
+
 				_Object.traverse(function(child){
 		    		if(child instanceof THREE.Mesh)
 		    		{
@@ -462,6 +480,14 @@
 
 		    	_Object.needsUpdate = true;
 			}
+
+			/*function GetControllerImageUrl(key, index)
+			{
+				var _tempKey = _GUI.__folders[key].__controllers[index].property;
+
+	        	var _url =  fileTagBackup[_tempKey]['texture'].src;
+	        	return _url;
+			}*/
 
 			//dat.GUI 로 변경되는 내용을 materail에 실시간으로 갱신시켜준다. 
 			function updateUniform()
@@ -561,7 +587,7 @@
 				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
 			}
 
-			function GetCurrentGUIValue2(folderKey, array)
+			/*function GetCurrentGUIValue2(folderKey, array)
 			{
 				
 				var _qual = qualifiers.find(function(element){
@@ -595,7 +621,7 @@
 					_qual["value"] = GetGUIValue(folderKey);
 				}
 				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
-			}
+			}*/
 
 			function b64toByteChars(b64Data)
 			{
@@ -1174,8 +1200,40 @@
 	    		return  new THREE.ImageUtils.loadTexture( url );		    	
 		    }
 
+		    function GetCubeTexture(index, image, folderKey)
+		    {
+		    	//https://threejs.org/docs/#api/textures/CubeTexture
+		    	console.log('cube empty!');
+		    	var _cube = new THREE.CubeTexture();
 
-		    function GetCubeTexture(path0, path1, path2, path3, path4, path5)
+		    	for(var i = 0; i < 6; ++i)
+		    	{
+		    		if( i == index)
+		    		{
+		    			_cube.images[i] = image;	
+		    		}
+		    		else
+		    		{
+		    			if(typeof _Material.uniforms[folderKey].value != 'undefined' && typeof _Material.uniforms[folderKey].value.image != 'undefined')
+		    			{
+		    				if(_Material.uniforms[folderKey].value.image.length > i)
+		    					_cube.images[i] = _Material.uniforms[folderKey].value.image[i];
+		    				else
+		    					_cube.images[i] = 'undefined'		    					
+		    			}
+		    			else
+		    				_cube.images[i] = 'undefined'
+		    		}		    		
+		    	}
+		    	
+		    	
+				/*var urls = [];
+				urls[index] = url;	    	
+		    	var textureCube = _loader.load(urls);*/
+		    	return _cube;
+		    }
+
+		    function GetCubeTextures(path0, path1, path2, path3, path4, path5)
 		    {
 		    	//https://threejs.org/docs/#api/textures/CubeTexture
 		    	console.log('cube empty!');
@@ -1322,13 +1380,7 @@
 				//SetJsonData();
 			}
 
-			/*function GetControllerImageUrl(key, index)
-			{
-				var _tempKey = _GUI.__folders[key].__controllers[index].property;
-
-	        	var _url =  fileTagBackup[_tempKey]['texture'].src;
-	        	return _url;
-			}*/
+			
 
 
 			 // once everything is loaded, we run our Three.js stuff.
@@ -1402,9 +1454,6 @@
 		       		break;
 					
 		       	}
-			
-			
-			Shader.offLoading();
 		    }
 
 
@@ -1573,13 +1622,13 @@
 				});
 		    }
 
-		    function GetDatGUIData2()
+		    /*function GetDatGUIData2()
 		    {
 		    	Object.keys(_GUI.__folders).forEach(function(object, index){
 					//console.log("key : " + object);
 					GetCurrentGUIValue2(object, _GUI.__folders[object].__controllers);
 				});
-		    }
+		    }*/
 
 		    function SetDBData(fbx, vertex, frag, datgui)
 			{

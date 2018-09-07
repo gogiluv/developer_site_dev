@@ -10,8 +10,16 @@ USERNAME_ROUTE_FORMAT = /[\w.\-]+?/ unless defined? USERNAME_ROUTE_FORMAT
 BACKUP_ROUTE_FORMAT = /.+\.(sql\.gz|tar\.gz|tgz)/i unless defined? BACKUP_ROUTE_FORMAT
 
 Discourse::Application.routes.draw do
+  get "shaders/guide" => "shaders#guide"
+  get "shaders/user/:id" => "shaders#get_user_info"
+  delete "shaders/:id/comment/:comment_id" => "shaders#destroy_comment"
+  patch  "shaders/:id/comment/:comment_id" => "shaders#update_comment"
+  put  "shaders/:id/comment/:comment_id" => "shaders#update_comment"
+  get "shaders/:id/comment/:comment_id" => "shaders#get_one_comment"
+  post "shaders/:id/comment" => "shaders#create_comment"
+  get "shaders/:id/comment" => "shaders#get_list_comment"
   post "shaders/user_action" => "shaders#user_action"
-  post "shaders/bktree" => "shaders#bktree"
+  get "shaders/bktree" => "shaders#bktree"
   post "shaders/new" => "shaders#quick"
   resources :shaders
   relative_url_root = (defined?(Rails.configuration.relative_url_root) && Rails.configuration.relative_url_root) ? Rails.configuration.relative_url_root + '/' : '/'

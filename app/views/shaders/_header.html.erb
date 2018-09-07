@@ -6,17 +6,27 @@
           <div class="title span13">
             <a href="<%= path "/shaders" %>">
               <%- if application_logo_url.present? %>
-                <img src="/uploads/default/original/1X/e6049c990dfe2799bb69c9e93003ad8fb4379e83.png" alt="<%= SiteSetting.title %>" id="site-logo">
+                <img src="/images/shader_room/shader_room_logo.png" alt="<%= SiteSetting.title %>" id="site-logo">
               <%- else %>
                 <h2 id='site-text-logo'><%= SiteSetting.title %></h2>
               <%- end %>
             </a>
           </div>
-          <% unless current_user %>
               <div class='panel clearfix'>
-                <a href="<%= path "/login"%>" class='btn btn-primary btn-small login-button'><i class="fa fa-user"></i> <%= I18n.t('log_in') %></a>
+                <a href="<%= path "/"%>" class='btn btn-primary'><i class="fa fa-home"></i>개발자 사이트 가기</a>
+              <% unless current_user %>
+                <a href="<%= path "#"%>" class='btn btn-primary btn-small login-button'><i class="fa fa-user"></i> <%= I18n.t('log_in') %></a>
+              <% else %>
+		<ul role="navigation" class="icons d-header-icons clearfix">
+		<li id="current-user" class="">
+			<a href="#" data-auto-route="true" class="icon" onclick="ShaderUser.open(<%= current_user.id %>)">
+				<div><img alt="" width="32" height="32" src="<%= current_user.avatar_template.gsub('{size}','64') %>" title="biokim" class="avatar">
+				</div>
+			</a>
+		</li>
+		</ul>
+	      <% end %>
               </div>
-          <% end %>
         </div>
       </div>
     </div>

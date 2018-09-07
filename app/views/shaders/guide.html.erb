@@ -1,0 +1,105 @@
+<div style="width:100%; height:auto; padding: 20px;">
+<div style="float:right; height:100%; width:100px;">
+	<div class="shader-guide-widget">
+		<div onclick="Shader.go_to_top()">TOP</div>
+		<div onclick="Shader.go_to_main()">MAIN</div>
+	</div>
+</div>
+	<h1>Shader Room 게시물 작성 가이드</h1>
+	<hr/>
+	<h1>기본 작성 순서</h1>
+	<hr/>
+	<p dir="auto"><img src="/images/shader_room/guide/untitled.png" alt="alt text"></p>
+	<h1>세부 설명</h1>
+	<hr/>
+
+	<h2>생성 위젯</h2>
+	<hr/>
+
+	<p dir="auto"><img src="/images/shader_room/guide/Widget01.png" alt="alt text"></p>
+
+	<ul dir="auto" style="padding-left: 20px;">
+		<li><p><b>빈 프로젝트 만들기</b><br>
+		빈 프로젝트 만들기를 누르면 아무것도 셋팅되지 않은 빈 씬으로 넘어갑니다.<br>
+		빈 씬에서 FBX, Vertex, Fragment 소스를 로드 할 수 있습니다.  </p></li>
+		<li><p><b>퀵 프로젝트 만들기</b><br>
+		기본적으로 필요한 FBX, Vertex, Fragment 파일을 로드한 채로 넘어갑니다.<br>
+		씬에 정보가 로드 및 컴파일 된 상태로 셋팅하여 넘어갑니다.<br>
+		(프로젝트 로드한 상태에서도 FBX, Vertex, Fragment 파일은 바꿀 수 있습니다.)  </p></li>
+	</ul>
+
+	<h2>작성</h2>
+	<hr/>
+
+	<h3>FBX</h3>
+
+	<p dir="auto"><img src="/images/shader_room/guide/FBX01.png" alt="alt text"></p>
+	<p dir="auto"><img src="/images/shader_room/guide/FBX02.png" alt="alt text"></p>
+
+	<p dir="auto">빈 씬으로 들어왔거나 FBX파일을 바꾸고 싶을때 Scene 탭의 FBX 탭 옆의 "+"버튼을 누르면<br>
+	.fbx파일만 로드할 수 있는 창이 뜹니다. 해당 창에서 원하는 파일을 클릭하면 아래와 같이 FBX파일이 로드됩니다.  </p>
+
+	<h3>Shader</h3>
+
+	<p dir="auto"><img src="/images/shader_room/guide/addShader01.png" alt="alt text"></p>
+
+	<p dir="auto">세이더 파일도 마찬가지로 추가 할 수 있습니다.<br>
+	Code 탭의 Vertex와 Frag 탭 버튼 옆의 "+"를 누르면 텍스트 파일만 불러올 수 있는 파일 창이 뜹니다.<br>
+	불러온 파일은 각각 아래의 코드창에 표시 됩니다.  </p>
+
+	<p dir="auto">FBX, Vertex, Fragment 파일을 다 불러놓은 상태에서 우측상단의 Compile버튼을 누르면<br>
+	해당 세이더가 FBX에 적용되며 컨트롤 할 수 있는 GUI파일이 생성됩니다.  </p>
+
+	<p dir="auto"><img src="/images/shader_room/guide/CodeError01.png" alt="alt text"></p>
+
+	<p dir="auto"><strong>컴파일 에러가 났을 시</strong><br>
+	컴파일 에러가 났을 시 Code 탭 하단에 에러 내용이 표시 됩니다.<br>
+	어느 파일에서 에러가 났는지 알려주고 에러내용을 출력합니다.<br>
+	에러내용을 고치고 재 컴파일시 정상적으로 고쳐졌다면 에러 내용이 사라집니다.  </p>
+
+	<h3>GUI</h3>
+
+	<p dir="auto"><img src="/images/shader_room/guide/datgui01.png" alt="alt text"></p>
+
+	<p dir="auto">Vertex와 Fragment 세이더에 있는 uniform 변수들이 dat.gui에 표시됩니다.<br>
+	Unity에서 사용하던 설정과 동일하게 맞춰주시면 됩니다.  </p>
+
+	<p dir="auto">Sampler2D 타입의 Uniform 변수 GUI는 텍스쳐를 불러올 수 있게 FileLoad 형식을 가진 버튼입니다.<br>
+	누르면 텍스쳐를 로드할 수 있는 창이 뜹니다.<br>
+	<strong>(이미지 파일이 평균 이상으로 클 시에 로드가 느려지니 용량을 줄이는것을 권장합니다. 1MB이하)</strong>  </p>
+
+	<p dir="auto">숫자를 가지고있는 Silder 영역 같은 경우   </p>
+
+	<ol dir="auto">
+		<li>클릭하여 숫자를 입력하고 Enter 혹은 Tab을 눌러서 다음 값으로 넘어가거나,<br>
+		</li>
+		<li>마우스로 클릭한채로 왼쪽, 오른쪽으로 슬라이드하면서 값을 조정할 수 있습니다.<br>
+		</li>
+	</ol>
+
+	<p dir="auto">가리고 싶은 Uniform값은 폴더를 클릭하여 줄여놓을 수 있습니다.  </p>
+
+	<h2>게시물</h2>
+	<hr/>
+
+<p dir="auto"><img src="/images/shader_room/guide/ViewSecne01.png" alt="alt text"></p>
+
+	<p dir="auto">타인이나 본인이 작성해둔 세이더 게시물을 클릭해서 볼 수있는 뷰 페이지 입니다.<br>
+	GUI에 있는 값을 조정하면서 어떤식으로 동작하는 세이더인지 확인 가능합니다.<br>
+	이것 저것 바꾸다가 원래 설정으로 돌리고 싶을땐 "최초 설정으로 돌리기" 버튼을 사용하면<br>
+	최초에 게시물이 작성된 설정으로 돌아갑니다.  </p>
+
+	<h2 dir="auto">주의 사항</h2>
+	<hr/>
+
+	<ol dir="auto">
+		<li>GLES버전상 적용되지 않는 효과가 있을 수 있습니다.<strong>(GLES1.0)</strong><br>
+		</li>
+		<li>기본적으로 attribute에 들어가는 변수 타입들은 uniform에서 받지 않게 되어있습니다.<br>
+		문제가 있을시 관리자에게 문의해주세요.(yuiena@com2us.com)<br>
+		</li>
+		<li>큰 이미지들을 올릴시 로딩이 오래 걸릴 수 있습니다.<br>
+		</li>
+	</ol>
+</div>
+

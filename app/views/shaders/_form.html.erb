@@ -118,9 +118,7 @@
 		if(shader_id){
 			$.ajax({
 	                        url:'/shaders/bktree',
-				type: 'POST',
-        	                beforeSend: function(xhr) {xhr.setRequestHeader('X-CSRF-Token', $('meta[name="csrf-token"]').attr('content'))},
-              			        dataType:'json',
+				type: 'GET',
                         	data: {
 					id: shader_id,
 	                        },
@@ -139,8 +137,7 @@
 						}else if(board_state=='edit'){
 							SetBoardState(StateEnum.MODIFY);
 						}
-						Init();
-						Animate();
+						Shader.shader_render();
 				}
 			});
 		}else{
@@ -150,8 +147,7 @@
 			}else{
       		                SetBoardState(StateEnum.WRITE);
 			}
-			Init();
-			Animate();
+			Shader.shader_render();
 		}
 	});
 </script>

@@ -12,13 +12,48 @@
   <%= theme_lookup("head_tag") %>
   <style>
     .list-controls .container {
-	width: 73%;
+	width: 100%;
+    }
+    .boxlist {
+	width: 100%;
     }
     #create-topic {
-	margin-right: 24px;
+	margin-right: 12px;
     }
-    .postbox {
-      height: 200px;
+    .shader-box ul li{
+    }
+    .shader-box{
+        float: left;
+        width: 25%;
+        height: 200px;
+    }
+    .shader-box li{
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    .shader-box li:nth-child(1) div {
+	width: 99%;
+	height: 150px;
+	border: 1px solid lightgrey;
+	line-height:150px;
+	text-align:center;
+    }
+    .shader-box li:nth-child(1) img {
+	width: 100%;
+	height: 100%;
+    }
+   
+    .shader-box li:nth-child(2) div {
+	max-width: 50%;
+	float: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+	padding-left: 5px;
+    }
+    .shader-box li:nth-child(2) div:nth-child(2) a{
+	color: inherit;
     }
     .noshow {
       display: none;
@@ -47,7 +82,7 @@
 	width: 95%;
 	border: 1px solid lightgrey;	
     }
-    .widget-button:hover {
+    .widget-button:hover, .default-hover:hover {
 	background: #e9e9e9;
     }
     .fa.fa-heart.liked{
@@ -136,7 +171,7 @@
     .shader-pop-close > i,.shader-pop-check > i{
 	margin-right: 0px !important;
     }
-    .create_widget {
+    .create-widget {
 	width: 400px;
 	height: 300px;
 	border: 1px solid lightgray;
@@ -148,19 +183,19 @@
 	top: 30%;
         margin: -75px auto 0 auto;
     }
-    .create_widget table{
+    .create-widget table{
       border-collapse: separate;
       border-spacing: 8px 0px;
     }
-    .create_widget table th {
+    .create-widget table th {
 	font-size: 15px;
 	margin-bottom: 5px;
 	width: 100px;
     }
-    .create_widget table tr {
+    .create-widget table tr {
 	text-align: center;
     }
-    .create_widget  i{
+    .create-widget  i{
 	margin-right: 0px !important;
     }
     .widget-table-box {
@@ -229,6 +264,174 @@
 	font-weight:bold;
 	text-align:center;
 	line-height:50px;
+    }
+    .comment-box{
+	height: 40%;
+	padding: 5px 10px;
+	border-top: 1px solid lightgrey;
+    }
+    .comment-write {
+	width:95%;
+	height:auto;
+	padding:5px 5px 5px 15px;
+	display:inline-block;
+	border-bottom: 1px solid lightgrey;
+	margin-bottom: 5px;
+    }
+    .comment-write textarea, .comment-edit {
+	border: 1px solid lightgrey;
+    }
+    .comment-submit {
+	width: 50px;
+	font-size: 20px !important;
+	padding: 12px 0px 12px 0px;
+	margin: 0px 5px !important;
+	float: none !important;
+	border-radius: 5px;
+	position: absolute;
+    }
+    
+    .comment-submit i {
+	margin: 0px !important;
+    }
+
+    .comment-raw {
+	width:95%;
+	height:auto;
+	padding:5px 5px 10px 5px;
+	border-bottom: 1px solid lightgrey;
+	display:inline-block;
+    }
+    .comment-view {
+	width:85%;
+	resize:none;
+	height:auto;
+	margin:0px;
+	border:0px;
+	background-color:white !important;
+	cursor:default !important;
+    }
+
+    .comment-view:focus {
+	box-shadow: none;
+    }
+    
+    .comment-edit {
+	width:85%;
+	resize:none;
+	height:auto;
+	max-height:150px;
+	margin:0px;
+    }
+
+    .avatar-div {
+	width:50px;
+	margin-right:10px;
+	float:left;
+    }
+    .user-info-widget {
+	display:none;
+	width: 550px;
+	height: auto;
+	border: 1px solid lightgray;
+	border-radius: 25px;
+	position: relative;
+	background-color:white;
+	box-shadow:0 -1px 40px rgba(0,0,0,0.12);	
+	top: 30%;
+        margin: -75px auto 0 auto;
+	padding-bottom: 10px;
+    }
+    .user-info-widget table{
+      border-collapse: separate;
+      border-spacing: 8px 0px;
+    }
+    .user-info-widget table th {
+	font-size: 15px;
+	margin-bottom: 5px;
+	width: 100px;
+    }
+    .user-info-widget table .user-info-summary span span:nth-child(1) {
+	font-size: 20px;
+    }
+    .user-info-widget table .user-info-summary span span:nth-child(2) {
+	color: darkgray;
+	font: small-caption;
+	margin: 0px 5px;
+    }
+    .user-info-widget  i{
+	margin-right: 0px !important;
+    }
+    .user-info-widget table tbody{
+	text-align: left;
+    }
+    .user-info-widget table tbody tr td span:nth-child(1) {
+	font-weight: bold;
+	font-size: 15px;
+	padding-left: 20px;
+	margin-right: 10px;
+    }
+    .user-info-widget table tbody tr td span:nth-child(2) {
+	color: darkgray;
+	font: small-caption;
+    }
+    .user-info-widget table tbody tr td div:nth-child(1) {
+	display: inline-block;
+	font-weight: bold;
+	font-size: 15px;
+	padding-left: 10px;
+	margin-right: 10px;
+	max-width: 150px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow: hidden;
+	vertical-align: middle;
+    }
+    .user-info-widget table thead tr:nth-child(3){
+	height:70px;
+    }
+    .user-info-widget table thead tr:nth-child(3) th:nth-child(2){
+	text-align:left;
+	font-size:30px;
+    }
+    .shader-guide-widget {
+	width:100px;
+	height:100px;
+	position:fixed;
+	border-radius: 25px;
+    }
+    .shader-guide-widget div{
+	height: 50%;
+	text-align: center;
+	line-height: 50px;
+	cursor: pointer;
+    }
+    .shader-guide-widget div:nth-child(1){
+	border-radius: 25px 25px 0px 0px;
+	background-color: #e9e9e9;
+	margin-bottom: 2px;
+    }
+    .shader-guide-widget div:nth-child(2){
+	border-radius: 0px 0px 25px 25px;
+	background-color: #e9e9e9;
+    }
+    .shader-guide-widget div:nth-child(1):hover {
+	background-color: #919191;
+	color: white;
+    }
+    .shader-guide-widget div:nth-child(2):hover {
+	background-color: #919191;
+	color: white;
+    }
+    .shader-notice-title {
+	word-break: break-all;
+	font-size: 25px;
+    }
+
+    .shader-notice-username {
+	cursor: pointer;
+	font-size: 17px;
+	font-style: italic;
     }
 
   </style>
