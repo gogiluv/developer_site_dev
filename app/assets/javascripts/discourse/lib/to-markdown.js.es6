@@ -9,7 +9,7 @@ const msoListClasses = [
   "MsoListParagraphCxSpLast"
 ];
 
-class Tag {
+export class Tag {
   constructor(name, prefix = "", suffix = "", inline = false) {
     this.name = name;
     this.prefix = prefix;
@@ -162,6 +162,24 @@ class Tag {
     };
   }
 
+  static span() {
+    return class extends Tag {
+      constructor() {
+        super("span");
+      }
+
+      decorate(text) {
+        const attr = this.element.attributes;
+
+        if (attr.class === "badge badge-notification clicks") {
+          return "";
+        }
+
+        return super.decorate(text);
+      }
+    };
+  }
+
   static link() {
     return class extends Tag {
       constructor() {
@@ -200,6 +218,11 @@ class Tag {
         const attr = e.attributes;
         const pAttr = (e.parent && e.parent.attributes) || {};
         const src = attr.src || pAttr.src;
+        const cssClass = attr.class || pAttr.class;
+
+        if (cssClass === "emoji") {
+          return attr.title || pAttr.title;
+        }
 
         if (src) {
           let alt = attr.alt || pAttr.alt || "";
@@ -419,31 +442,34 @@ class Tag {
   }
 }
 
-const tags = [
-  ...Tag.blocks().map(b => Tag.block(b)),
-  ...Tag.headings().map((h, i) => Tag.heading(h, i + 1)),
-  ...Tag.slices().map(s => Tag.slice(s, "\n")),
-  ...Tag.emphases().map(e => Tag.emphasis(e[0], e[1])),
-  Tag.cell("td"),
-  Tag.cell("th"),
-  Tag.replace("br", "\n"),
-  Tag.replace("hr", "\n---\n"),
-  Tag.replace("head", ""),
-  Tag.keep("ins"),
-  Tag.keep("del"),
-  Tag.keep("small"),
-  Tag.keep("big"),
-  Tag.keep("kbd"),
-  Tag.li(),
-  Tag.link(),
-  Tag.image(),
-  Tag.code(),
-  Tag.blockquote(),
-  Tag.table(),
-  Tag.tr(),
-  Tag.ol(),
-  Tag.list("ul")
-];
+function tags() {
+  return [
+    ...Tag.blocks().map(b => Tag.block(b)),
+    ...Tag.headings().map((h, i) => Tag.heading(h, i + 1)),
+    ...Tag.slices().map(s => Tag.slice(s, "\n")),
+    ...Tag.emphases().map(e => Tag.emphasis(e[0], e[1])),
+    Tag.cell("td"),
+    Tag.cell("th"),
+    Tag.replace("br", "\n"),
+    Tag.replace("hr", "\n---\n"),
+    Tag.replace("head", ""),
+    Tag.keep("ins"),
+    Tag.keep("del"),
+    Tag.keep("small"),
+    Tag.keep("big"),
+    Tag.keep("kbd"),
+    Tag.li(),
+    Tag.link(),
+    Tag.image(),
+    Tag.code(),
+    Tag.blockquote(),
+    Tag.table(),
+    Tag.tr(),
+    Tag.ol(),
+    Tag.list("ul"),
+    Tag.span()
+  ];
+}
 
 class Element {
   constructor(element, parent, previous, next) {
@@ -472,7 +498,8 @@ class Element {
   }
 
   tag() {
-    const tag = new (tags.filter(t => new t().name === this.name)[0] || Tag)();
+    const tag = new (tags().filter(t => new t().name === this.name)[0] ||
+      Tag)();
     tag.element = this;
     return tag;
   }

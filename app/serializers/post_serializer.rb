@@ -203,8 +203,8 @@ class PostSerializer < BasicPostSerializer
     if !object.reply_to_post.nil?
     if object.reply_to_post.anonymous_chk
     {
-      username: 'unknown',
-      avatar_template: '/letter_avatar_proxy/v2/letter/u/000000/{size}.png'
+      username: 'anonymous',
+      avatar_template: '/images/anonymous_icon.png'
     }
     else
     {

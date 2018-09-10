@@ -1,4 +1,6 @@
 import { acceptance } from "helpers/qunit-helpers";
+import { IMAGE_VERSION as v } from "pretty-text/emoji";
+
 acceptance("Topic", {
   loggedIn: true,
   pretend(server, helper) {
@@ -54,8 +56,8 @@ QUnit.test("Updating the topic title and category", async assert => {
 
   await click("#topic-title .d-icon-pencil");
   await fillIn("#edit-title", "this is the new title");
-  await categoryChooser.expandAwait();
-  await categoryChooser.selectRowByValueAwait(4);
+  await categoryChooser.expand();
+  await categoryChooser.selectRowByValue(4);
   await click("#topic-title .submit-edit");
 
   assert.equal(
@@ -181,7 +183,7 @@ QUnit.test("Updating the topic title with emojis", async assert => {
     find(".fancy-title")
       .html()
       .trim(),
-    'emojis title <img src="/images/emoji/emoji_one/bike.png?v=5" title="bike" alt="bike" class="emoji"> <img src="/images/emoji/emoji_one/blonde_woman/6.png?v=5" title="blonde_woman:t6" alt="blonde_woman:t6" class="emoji">',
+    `emojis title <img src="/images/emoji/emoji_one/bike.png?v=${v}" title="bike" alt="bike" class="emoji"> <img src="/images/emoji/emoji_one/blonde_woman/6.png?v=${v}" title="blonde_woman:t6" alt="blonde_woman:t6" class="emoji">`,
     "it displays the new title with emojis"
   );
 });

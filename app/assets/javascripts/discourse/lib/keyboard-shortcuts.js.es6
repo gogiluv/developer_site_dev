@@ -31,6 +31,7 @@ const bindings = {
   "g b": { path: "/bookmarks" },
   "g p": { path: "/my/activity" },
   "g m": { path: "/my/messages" },
+  "g d": { path: "/my/activity/drafts" },
   home: { handler: "goToFirstPost", anonymous: true },
   "command+up": { handler: "goToFirstPost", anonymous: true },
   j: { handler: "selectDown", anonymous: true },
@@ -296,10 +297,14 @@ export default {
   sendToSelectedPost(action) {
     const container = this.container;
     // TODO: We should keep track of the post without a CSS class
-    const selectedPostId = parseInt(
+    let selectedPostId = parseInt(
       $(".topic-post.selected article.boxed").data("post-id"),
       10
     );
+    if (!selectedPostId) {
+      // If no post was selected, automatically select the hovered post.
+      selectedPostId = parseInt($("article.boxed:hover").data("post-id"), 10);
+    }
     if (selectedPostId) {
       const topicController = container.lookup("controller:topic");
       const post = topicController

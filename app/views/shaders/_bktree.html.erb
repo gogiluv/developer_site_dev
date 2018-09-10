@@ -1,0 +1,1738 @@
+		<input id="fbxFile" type="file" accept=".fbx">
+		<input id="vertexFile" type="file" accept="text/*">
+		<input id="fragFile" type="file" accept="text/*">
+		<input id="textureFile0" type="file" accept=".jpg">
+		<input id="textureFile1" type="file" accept=".jpg">
+		<input id="textureFile2" type="file" accept=".jpg">
+		<input id="textureFile3" type="file" accept=".jpg">
+		<input id="textureFile4" type="file" accept=".jpg">
+		<input id="textureFile5" type="file" accept=".jpg">
+		<input id="textureFile6" type="file" accept=".jpg">
+		<input id="textureFile7" type="file" accept=".jpg">
+		<input id="textureFile8" type="file" accept=".jpg">
+		<input id="textureFile9" type="file" accept=".jpg">
+		<input id="textureFile10" type="file" accept=".jpg">
+		<input id="textureFile11" type="file" accept=".jpg">
+		<input id="textureFile12" type="file" accept=".jpg">
+		<input id="textureFile13" type="file" accept=".jpg">
+		<input id="textureFile14" type="file" accept=".jpg">
+		<input id="textureFile15" type="file" accept=".jpg">
+		<input id="textureFile16" type="file" accept=".jpg">
+		<input id="textureFile17" type="file" accept=".jpg">
+		<input id="textureFile18" type="file" accept=".jpg">
+		<input id="textureFile19" type="file" accept=".jpg">
+		<input id="textureFile20" type="file" accept=".jpg">
+
+		<!-- Texture LOAD>> <input id="uvFile" type="file" accept=".jpg"> -->
+		<!--<input type="button" value='VERTEX' onclick="TabVertex(true)"> <input type="button" value='FRAGMENT' onclick="TabFrag(true)">-->
+ 		</div>
+
+
+		<script id="vertex_shh" type="x-shader/x-vertex"></script>
+		<script id="fragment_shh" type="x-shader/x-fragment"></script>		
+
+		<!-- Javascript code that runs our Three.js examples -->
+		<script>
+			var sceneWidth = $('#scene-view').width();
+			var sceneHeight = $('#scene-view').height();
+
+			//렌더러 초기화 전에 추가 : http://gupuru.hatenablog.jp/entry/2014/01/05/224813
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var _Container, _Stats, _Controls;
+			var _Camera, _Scene, _Render, _Light;
+			var _Material;
+			var _CodeEditor;
+			var clock = new THREE.Clock();	
+		 	var _ObjectBox;		
+	 	 	var _Object;
+	 	 	var _VertexShaderSource, _FragmentShaderSource, BackupVertexShader, BackupFragShader, VertexCompileSrc, FragmentCompileSrc = "";
+
+	 	 	//var _uvTexutre;
+	 	 	var isVertexTab, isFragTab = false;
+	 	 	var qualifiers = [];
+	 	 	var backupQualifiers = [];
+
+	 	 	var guiInfo = { fbx:"empty", vertexShader:"empty", fragmentShader:"empty"};
+	 	 	var backupGuiUnfo = { fbx:"empty", vertexShader:"empty", fragmentShader:"empty"};
+			var datInfo;
+			var _GUI = new dat.GUI( { width: $('#dat-view').width() } )
+
+		  	var fileTagNames= [];
+		  	//var fileTagBackup = [];
+		  	var currentSelectTexture = '';
+
+		  	var fileIndex = 0;	
+		  	var FBXArrayBuffer;
+		  	var jsonData;
+
+		  	var CompileCheckEnum = { NONE : 1, OBJECT_EMPTY : 2, SHADER_EMPTY : 3, NOT_MODIFY : 4  }
+		  	var ErrorMsgEnum = { NONE : 1, NOT_COMPILE : 2, SHADER_ERROR : 3, RESOURCE_EMPTY : 4 }
+		  	var StateEnum = { WRITE : 1, VIEW : 2, QUICK : 3, MODIFY : 4, ERROR : 5 }
+		  	var NowState = StateEnum.WRITE; //defalt : write 
+	
+			$('#dat-view').append($('.dg:not(.main)'));
+
+			//Init();
+			//Animate();		
+
+
+			//vertex, fragment Shader를 불러와서 tokenize후 qualifiers를 셋팅한다. - shader내용이 바뀔때마다 불려야한다.
+			function setQualifiers(vertexShaderSource, fragmentShaderSource)
+			{
+				var tokenController = new Tokenization();		    	
+		    	console.log("tokenController : " + tokenController);
+
+		    	var vertex = tokenController.tokenize(vertexShaderSource);
+		    	var frag = tokenController.tokenize(fragmentShaderSource);
+
+		    	var tokens = vertex.concat(frag);
+		    	console.log("tokens : " + tokens.length);
+		    	if(typeof tokens != 'undefined')
+		    	{
+		    		//for(var i = 0; i < tokens.length; ++i)
+		    		//	console.log("i (data) : " + tokens[i].data + "(" + tokens[i].type + ")");
+
+	    			
+	    			//var _initQualifiers = qualifiers.length <= 0;	
+		    		
+		    		qualifiers = getQualifierTokenize(tokens);
+		    		
+		    		//if(_initQualifiers)
+		    		//{
+		    		//	if(qualifiers != backupQualifiers)
+		    		//		backupQualifiers = qualifiers;
+		    		//}
+		    		//console.log("------------------------------------------------------------qualifiers : " + qualifiers.length);
+
+		    		/*var qualifierStr = "";
+		    		for(var i = 0; i < qualifiers.length; ++i)
+		    		{
+		    			qualifierStr = qualifiers[i].qualifier;
+	    				qualifierStr += " " + qualifiers[i].keyword;
+		    			qualifierStr += " " + qualifiers[i].variableName;
+		    			console.log("i : " + qualifierStr);
+		    		}*/
+		    	}  	
+			}			   
+
+			//ShaderSource에서 Uniform을 꺼내서 셋팅하여 배열로 리턴한다.
+		    function getQualifierTokenize(tokens) 
+			{
+				var arry = [];
+				
+				var temp_qualifier = ''; //한정자
+				var temp_keyword = ''; //변수 타입
+				var temp_variableName = ''; //변수 이름
+
+				var isQualifier = false;
+				for(var i = 0; i < tokens.length; ++i) {
+					if(isQualifier == false) {
+						if(tokens[i].data == "uniform" && tokens[i].type == "keyword")
+					  	{
+					  		isQualifier = true;
+					  		temp_qualifier = tokens[i].data; 
+					  	}
+					}
+					else {
+						switch(tokens[i].type) {
+							case "keyword":								
+								temp_keyword = tokens[i].data;
+								break;
+							case "ident":
+								temp_variableName = tokens[i].data;
+								break;
+							case "operator":
+								if(tokens[i].data == ";") {
+									isQualifier = false;
+									arry.push({
+										qualifier : temp_qualifier,
+										keyword : temp_keyword,
+										variableName : temp_variableName,
+									});
+
+									temp_qualifier = '';
+									temp_keyword = '';
+									temp_variableName = '';
+								}
+								break;
+						}
+					}
+				}
+			  return arry;
+			}
+
+			/*function getQualifiers()
+		    {		    	
+		    	var temp = [];
+		    	for(var i = 0; i < qualifiers.length; ++i)
+		    	{
+		    		temp.push({
+		    			key: qualifiers[i].variableName, 
+		    			type: qualifiers[i].temp_keyword,
+		    		});
+		    	}
+		    	return temp;
+		    }*/
+
+		  	function InitGUI()
+		  	{	
+		  		datInfo = function() {
+
+		  			this.AddSphere = function(){
+
+		  				var geometry = new THREE.SphereGeometry( 5, 5, 5 );//new THREE.PlaneGeometry(30, 30, 32);//new THREE.BoxGeometry(10, 10, 10);
+						var obj = new THREE.Mesh(geometry, _Material);
+
+						AddSceneObject(obj);
+						_Object = obj;
+
+		  			}		  			
+		  		}	  		
+
+		  		var info = new datInfo();
+		  		_GUI.add(info, 'AddSphere');
+		  		/*datInfo = function() {
+
+					//this.objectName = guiInfo['object'];
+					//this.uv = guiInfo['texture'];
+
+					//this.vertexShader = guiInfo['vertexShaderName'];
+					//this.fragmentShader = guiInfo['fragmentShaderName'];
+
+					this.ShaderCompile = function() { 
+					  	onCompile();
+					};
+
+					this.Save = function(){
+						SetJsonData();
+					};
+
+					this.Load = function() {
+						LoadJsonData();
+					};
+
+					this.ALLReset = function(){
+						console.log('ALLReset');
+						Reset();
+						
+						//SetGUIFolderValue('positionX', 0);						
+					};
+					//this.tempFunc = fbxFunc;
+				  // Define render logic ...
+				};	
+
+				var info = new datInfo();
+
+				GUISetting(info);*/
+		  	}
+
+		  	function Reset()
+		  	{
+		  		RemoveSceneObject();
+				_Object = undefined;					
+
+				guiInfo = { fbx:"empty", vertexShader:"empty", fragmentShader:"empty"};
+
+				//Codemirror 관련
+				_VertexShaderSource = "";
+				_FragmentShaderSource = "";
+				_CodeEditor.setValue(_VertexShaderSource);
+				
+				_reset();
+				//Dat.GUI
+				ResetDatGUI();
+		  	}
+
+		  	function _reset()
+		  	{
+		  		//tokenizer 관련
+				qualifiers = [];
+				//Texture 관련
+				fileTagNames = [];
+				//fileTagBackup = [];
+				fileIndex = 0;
+		  	}  
+
+		  	let outParams;	
+
+		  	function fbxFunc() { FileCallback('fbxFile', onAddFBX); }
+		  	function vertexFunc() { FileCallback('vertexFile', onAddVertexShader); }
+		  	function fragFunc() { FileCallback('fragFile', onAddFragShader); }
+
+		  	function FileCallback(id, func)
+		  	{
+		  		document.getElementById(id).click();
+			 	document.getElementById(id).onchange = func;		  		
+		  	}		  	
+
+		  	function onAddFBX(file)
+			{				
+				console.log('onAddFBX!!!!!!!!!!!');
+				if(file.target.files[0])
+				{
+					var filename = file.target.files[0].name;
+					//guiInfo['object'] = filename;
+					guiInfo['fbx'] = filename;	
+				}				
+
+				var reader = new FileReader();
+				reader.addEventListener( 'load', function ( event ) {
+
+					_GUI.updateDisplay();
+					//_GUI.updateDisplayCustom(filename);
+
+					FBXArrayBuffer = event.target.result;								
+					CreateFBXObject(FBXArrayBuffer);					
+
+				}, false );
+
+				if(file.target.files[0])
+				{
+					reader.readAsArrayBuffer( file.target.files[0] );
+					file.target.value = '';
+				}				
+			}		  	
+
+			function CreateFBXObject(arrayBuffer)
+			{
+				var loader = new THREE.FBXLoader();
+				var object = loader.parse( arrayBuffer );					
+
+				object.traverse( function ( child ) {					
+				} );
+				AddSceneObject(object);
+			}
+        	
+		    function GUISetting(info)
+			{			
+				//_GUI.remember(guiInfo);
+				_GUI.addCustom(guiInfo, 'fbx', fbxFunc);
+
+				_GUI.addCustom(guiInfo, 'vertexShader', vertexFunc);
+				_GUI.addCustom(guiInfo, 'fragmentShader', fragFunc);
+				
+		        _GUI.add(info, 'ShaderCompile');
+		        _GUI.add(info, 'Save');
+		        _GUI.add(info, 'Load');
+		        _GUI.add(info, 'ALLReset');		        
+			}			
+
+			//qualifiers을 바탕으로 Dat.GUI에 변수들을 타입에 맞게 Floader를 초기화하고 add해준다.
+			function generateUI()//, shader)
+		    {
+			  	var paramsStruct = []; //qualifiers의 정보들로   
+				for(var i = 0; i < qualifiers.length; ++i)
+				{			  	
+			  		//console.log("key : " + qualifiers[i].variableName + " / type : " + qualifiers[i].keyword);
+			  		if (qualifiers[i].keyword === 'float') //float
+			  		{
+					    paramsStruct.push({ [qualifiers[i].variableName]: 1.0 });
+					}
+					else if (qualifiers[i].keyword.startsWith('vec')) //vec2~4
+					{ 
+					   paramsStruct.push([
+					    { [`${qualifiers[i].variableName}.x`]: 0.0 },
+					    { [`${qualifiers[i].variableName}.y`]: 0.0 },
+					    { [`${qualifiers[i].variableName}.z`]: 0.0 },
+					    { [`${qualifiers[i].variableName}.w`]: 1.0 }
+					  ].slice(0, parseInt(qualifiers[i].keyword.replace('vec', '')))
+					  );
+					}
+					else if(qualifiers[i].keyword.startsWith('sampler2D'))
+					{
+						paramsStruct.push({ [qualifiers[i].variableName]: 'undefined' });
+					}
+					else if(qualifiers[i].keyword.startsWith('samplerCube'))
+					{
+						 paramsStruct.push([
+					    { [`${qualifiers[i].variableName}_0`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_1`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_2`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_3`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_4`]: 'undefined' },
+					    { [`${qualifiers[i].variableName}_5`]: 'undefined' },
+					    ]);
+					}
+			 	}
+				// output params
+				var _flattenArray = flattenDeep(paramsStruct);
+				outParams = _flattenArray.reduce((memo, value) => Object.assign(memo, value), {});
+				
+			    paramsStruct.forEach((params, i) => 
+			    {
+			    	var folder = _GUI.addFolder(qualifiers[i].variableName); //변수명으로 폴더 생성.
+			    	if(typeof params.length == 'undefined')	//단일 변수
+			    	{
+			    		if(qualifiers[i].keyword.startsWith('sampler2D')) {
+			    			setTextureArray(params, folder, false);
+			    		}		    	
+			    		else {	    			
+			    			folder.addCustom(outParams, Object.keys(params)[0]).step(0.01).onChange( updateUniform );			    			
+			    		}		    		
+			    	}
+			    	else //
+			    	{	
+			    		if(qualifiers[i].keyword.startsWith('samplerCube'))
+			    		{
+			    			params.forEach(params =>  {
+			    				setTextureArray(params, folder, true);
+			    			});
+			    		}
+			    		else
+			    		{
+			    			params.forEach(params =>  {
+						      folder.add(outParams, Object.keys(params)[0]).step(0.01).onChange( updateUniform );
+						    });	
+			    		}		    						    
+			    	}
+				   	folder.open();			   
+			  	});			  		 
+			  	return outParams;
+			}
+
+			function setTextureArray(params, folder, isCube)
+			{
+				var _id;
+    			var _key = Object.keys(params)[0];
+
+    			if(fileTagNames[_key] == undefined) {
+    				_id = "textureFile" + fileIndex;
+    				fileIndex++;
+    				var _tempTag = {[`${_key}`]: 'empty'};
+    				//var _tempData = {[`${_key}`]: {id:id, texture:'undefined'}};
+    				Object.assign(fileTagNames, _tempTag); //fileTagNames로 tempTag를 복사.
+    				//Object.assign(fileTagBackup, _tempData);
+				}
+				else {
+					_id = fileTagNames[_key];
+				}
+				
+				folder.add(fileTagNames, _key, function(){
+    				currentSelectTexture = _key;
+    				FileCallback(_id, onAddTexture);//(fileTagBackup[currentSelectTexture]['_id'], onAddTexture)
+				});		  			
+			}
+
+			function SetTextureName(textureKey, fileName)
+			{
+				fileTagNames[textureKey] = fileName;
+			}
+			
+		  	function onAddTexture(file)
+			{
+				console.log('onAddTexture!!!!!!!!!!!');
+				if(typeof file.target.files[0] != 'undefined')
+				{
+					var filename = file.target.files[0].name;
+					console.log('currentSelectTexture ' + currentSelectTexture);
+					//fileTagNames[currentSelectTexture] = filename;
+					SetTextureName(currentSelectTexture, filename);
+				}				
+				
+				var image = new Image();
+				var reader = new FileReader();
+				reader.addEventListener( 'load', function ( event ) {
+					_GUI.updateDisplay();					
+					image.src = event.target.result;					
+					SetGuiImage(currentSelectTexture, image);
+					//fileTagBackup[currentSelectTexture]['texture'] = image;		
+				}, false );
+				if(file.target.files[0])
+				{
+					reader.readAsDataURL( file.target.files[0] );
+					file.target.value = '';	
+				}
+				
+			}
+
+			var SkyBox;
+
+			function SetGuiImage(selectTexturekey, image)
+			{
+				var reflectionMaterial;
+
+				if (_VertexShaderSource != "" && _FragmentShaderSource != "")
+				{
+					for(var i = 0; i < qualifiers.length; ++i)
+					{
+						var _folderKey = qualifiers[i].variableName;						
+				        if(qualifiers[i].keyword == 'sampler2D') 
+				        {		
+				        	var _tempKey = _GUI.__folders[_folderKey].__controllers[0].property;		        	
+				        	if(_tempKey == selectTexturekey)
+				        	{
+				        		var _texture =  GetTexture(image);
+					        	if(typeof _texture != 'undefined') 
+					        	{
+					        		if(_Material.uniforms[_folderKey].value != _texture)
+					        			_Material.uniforms[_folderKey].value = _texture;
+					        	}
+				        	}
+				        }
+				        else if(qualifiers[i].keyword == 'samplerCube')
+			        	{	
+			        		
+			        		if(selectTexturekey.includes(_folderKey) == true)
+			        		{
+			        			var _numCount = parseInt(selectTexturekey.replace(_folderKey+'_', ''));	
+				        		var _tempKey = _GUI.__folders[_folderKey].__controllers[_numCount].property;
+				        		if(_tempKey == selectTexturekey)
+				        		{
+				        			
+
+				        			var _CubeTexture = GetCubeTexture(_numCount, image, _folderKey);
+					        		if(typeof _CubeTexture != 'undefined') 
+					        		{
+
+				        				if(_Material.uniforms[_folderKey].value != _CubeTexture)
+				        				{
+				        					_Material.map = true;
+					        				_Material.uniforms[_folderKey].value = _CubeTexture;
+				        				}
+
+
+				        				if(_folderKey == 'unity_SpecCube0')
+					        			{
+					        				var skyGeometry = new THREE.CubeGeometry( 4000, 4000, 4000 ); 
+											var materialArray = [];
+											for (var i = 0; i < 6; i++)
+											{								
+												var _temp;
+												if(typeof _CubeTexture.image[i].image == 'undefined')
+												{
+													materialArray.push( new THREE.MeshBasicMaterial({												 	
+											        map:  THREE.ImageUtils.loadTexture( 'undefined'),
+											        side: THREE.BackSide
+											    	}));
+													console.log("[ " + i + " ] image is undefined!!!!");
+												}
+												else
+												{
+
+													materialArray.push( new THREE.MeshBasicMaterial({												 	
+											        map:  THREE.ImageUtils.loadTexture( _CubeTexture.image[i].image.src),
+											        side: THREE.BackSide
+											    	}));
+													
+												}
+
+												 												
+											}
+											   
+											var skyMaterial = new THREE.MeshFaceMaterial( materialArray );											
+											if(typeof SkyBox != 'undefined')
+												_Scene.remove(SkyBox);
+
+											SkyBox = new THREE.Mesh( skyGeometry, skyMaterial );											
+											_Scene.add( SkyBox );
+					        			}
+					        			else
+					        			{
+					        				 reflectionMaterial = new THREE.MeshBasicMaterial({
+						                      color: 0xcccccc,
+						                      envMap: _CubeTexture
+						                    });
+						                   
+					        			}		   					
+						        	}
+				        		}
+			        		}
+			        	}
+				    }
+				}
+
+				_Object.traverse(function(child){
+		    		if(child instanceof THREE.Mesh)
+		    		{
+		    			child.material.needsUpdate = true;
+		    			child.material = _Material;
+		    			if(typeof reflectionMaterial != 'undefined')
+		    				child.material.map = reflectionMaterial;    			
+		    		}
+		    	});
+
+		    	_Object.needsUpdate = true;
+			}
+
+			/*function GetControllerImageUrl(key, index)
+			{
+				var _tempKey = _GUI.__folders[key].__controllers[index].property;
+
+	        	var _url =  fileTagBackup[_tempKey]['texture'].src;
+
+			}*/
+
+			//dat.GUI 로 변경되는 내용을 materail에 실시간으로 갱신시켜준다. 
+			function updateUniform()
+			{							
+				_Material.uniforms.needsUpdate = true;
+				
+				for(var i = 0; i < qualifiers.length; ++i)
+				{
+					var _folderKey = qualifiers[i].variableName;			        
+			        if(qualifiers[i].keyword == 'sampler2D') 
+			        {
+			        	//var _key = _GUI.__folders[key].__controllers[0].property;
+			        	//console.log('sampler2D : ' + _key);
+			        	//_GUI.__folders[key].__controllers[0].object[_key];
+			        }
+			        else//vec값의 경우 dat.GUI 값이 변하면 실시간으로 수정하여 준다.
+			        {
+			        	_Material.uniforms[_folderKey].value = GetGUIValue(_folderKey);			        	
+			        }
+				}
+
+				_Object.traverse(function(child){
+		    		if(child instanceof THREE.Mesh)
+		    		{
+		    			child.material.needsUpdate = true;
+		    			child.material = _Material;
+		    		}
+		    	});
+			}
+
+			
+			//--------------------------------------------------------------------------------------------- ** SaveJson
+
+			function SetJsonData()
+			{
+				FBXArrayBuffer = str2ab(GetFbxArrayBufferData());
+				BackupVertexShader = GetVertexStringData();
+				BackupFragShader = GetFragmentStringData();
+				jsonData = GetDatGUIStringData();
+			}
+
+			function ab2str(bytes) {
+	          var uintArray = new Uint16Array(bytes);
+		  /*
+	          var converted = [];
+	          uintArray.forEach(function(byte) {converted.push(String.fromCharCode(byte))});
+	          return converted.join("");
+		  */
+		  return String(uintArray);
+	        }
+
+	        function str2ab(str) {
+		  /*
+	          var buf = new ArrayBuffer(str.length*2); // 2 bytes for each char
+	          var bufView = new Uint16Array(buf);
+	          for (var i=0, strLen=str.length; i < strLen; i++) {
+	            bufView[i] = str.charCodeAt(i);
+	          }
+	          return buf;
+		  */
+		  return new Uint16Array(Array.from(str.split(','), x => Number(x))).buffer;
+	        }
+
+			function GetCurrentGUIValue(folderKey, array)
+			{
+				
+				var _qual = qualifiers.find(function(element){
+					return element.variableName == folderKey;
+				});
+
+				//console.log("variableName : " + _qual.variableName + " / keyword : " + _qual.keyword);
+				if(_qual.keyword == 'sampler2D')
+				{	
+					var _key = array[0].property;
+					//var _tempValue = array[0].object[_key];		
+					if(typeof _Material.uniforms[_key].value.image != 'undefined')
+					{
+						var _b64Data = _Material.uniforms[_key].value.image.currentSrc;//fileTagBackup[_key]['texture'].src;
+						_qual["name"] = GetGUIValue(folderKey);
+						_qual["value"] = b64toByteChars(_b64Data);//b64toBlob(_b64Data, _contentType);						
+					}
+					else
+					{
+						_qual["name"] = 'undefined';
+						_qual["value"] = 'undefined';						
+					}
+					//_qual["value"] = GetTexture(_tempValue);
+				}
+				else if(_qual.keyword == 'samplerCube')
+				{
+
+				}
+				else
+				{					
+					_qual["value"] = GetGUIValue(folderKey);
+				}
+				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
+			}
+
+			/*function GetCurrentGUIValue2(folderKey, array)
+			{
+				
+				var _qual = qualifiers.find(function(element){
+					return element.variableName == folderKey;
+				});
+
+				//console.log("variableName : " + _qual.variableName + " / keyword : " + _qual.keyword);
+				if(_qual.keyword == 'sampler2D')
+				{	
+					var _key = array[0].property;
+					//var _tempValue = array[0].object[_key];		
+					if(typeof _Material.uniforms[_key].value.image != 'undefined')
+					{
+						var _b64Data = _Material.uniforms[_key].value.image.currentSrc;//fileTagBackup[_key]['texture'].src;
+						_qual["name"] = GetGUIValue(folderKey);
+						_qual["value"] = _b64Data;//b64toBlob(_b64Data, _contentType);						
+					}
+					else
+					{
+						_qual["name"] = 'undefined';
+						_qual["value"] = 'undefined';						
+					}
+					//_qual["value"] = GetTexture(_tempValue);
+				}
+				else if(_qual.keyword == 'samplerCube')
+				{
+
+				}
+				else
+				{					
+					_qual["value"] = GetGUIValue(folderKey);
+				}
+				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
+			}*/
+
+			function b64toByteChars(b64Data)
+			{
+				if(typeof b64Data == 'undefined')
+					return 'undefined';
+				var dataStr = b64Data.toString();
+				var byteCharacters = atob(dataStr.replace(/^data:image\/(png|jpeg|jpg);base64,/, ''));
+				return byteCharacters;
+			}
+
+
+			function ByteCharstoBlob(ByteChars, contentType, sliceSize) 
+			{
+				if(typeof ByteChars == 'undefined')
+					return 'undefined';
+				contentType = contentType || '';
+				sliceSize = sliceSize || 512;
+
+				var byteCharacters = ByteChars.join('');//b64Data.toString();
+				
+				//window.atob(b64Data);
+				var byteArrays = [];
+
+				for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+					var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+					var byteNumbers = new Array(slice.length);
+					for (var i = 0; i < slice.length; i++) {
+					  byteNumbers[i] = slice.charCodeAt(i);
+					}
+
+					var byteArray = new Uint8Array(byteNumbers);
+					byteArrays.push(byteArray);
+				}
+				  
+				var blob = new Blob(byteArrays, {type: contentType});
+				return blob;
+			}
+
+			//--------------------------------------------------------------------------------------------- ** Load Json
+
+			function LoadJsonData()
+			{
+				/*guiInfo = backupGuiUnfo;*/
+
+				_VertexShaderSource = BackupVertexShader;
+				_FragmentShaderSource = BackupFragShader;
+
+				VertexCompileSrc = _VertexShaderSource;
+				FragmentCompileSrc = _FragmentShaderSource;
+
+				SetVertexSource(_VertexShaderSource);
+
+				CreateFBXObject(FBXArrayBuffer);
+
+				ReSetting(_VertexShaderSource, _FragmentShaderSource);
+
+				if(jsonData != '')
+				{
+					qualifiers = JSON.parse(jsonData);
+					SetDatGuiData();
+					updateUniform();
+
+					_GUI.updateDisplay();
+				}
+				else
+				{
+					console.log('LoadJsonData:: dat.gui json data is NULL!');
+				}
+			}
+
+			function SetGenerateBackupData()
+			{
+				if(backupQualifiers.length <= 0)
+				{
+					console.log("SetGenerateBackupData length : " + backupQualifiers.length);
+					return;
+				}
+
+				for(var i = 0; i < qualifiers.length; ++i)
+				{
+					var _folderKey = qualifiers[i].variableName;
+					for(var k = 0; k < backupQualifiers.length; ++k)
+					{
+						var _compareKey = backupQualifiers[k].variableName;
+						if(_folderKey == _compareKey)
+						{
+							if(typeof backupQualifiers[k].value != 'undefined')
+							{
+								var _value = GetBackupQualifiersValues(k);
+								if(backupQualifiers[k].keyword == 'sampler2D') 
+				        		{
+				        			
+						        	if(_value.join('') != 'undefined')
+				        			{
+							        	qualifiers[i].value = backupQualifiers[k].value;
+							        	qualifiers[i].name = backupQualifiers[k].name;
+							        }
+				        		}
+				     			else
+				     			{				     				
+						        	if(typeof _value != 'undefined' && _value.length > 0)
+						        	{						        		
+							        	SetGUIValue(_folderKey, _value);
+							        	qualifiers[i].value = _value;
+						        	}
+				     			}
+				     			
+						 	}
+						}
+					}
+				}
+			}
+
+			function SetDatGuiData()
+			{
+				for(var i = 0; i < qualifiers.length; ++i)
+				{
+					var _folderKey = qualifiers[i].variableName;	
+					if(typeof qualifiers[i].value != 'undefined')					
+					{
+						if(qualifiers[i].keyword == 'sampler2D') 
+				        {				        	
+				        	var _b64Data =  GetQualifiersValues(i);
+				        	if(_b64Data != 'undefined')
+		        			{
+					        	var _contentType = 'image/jpeg';
+					        	var _blob = ByteCharstoBlob(_b64Data, _contentType);					        	
+					        	var _blobUrl = URL.createObjectURL(_blob);
+					        	var _img = new Image();//document.createElement('img');
+								_img.src = _blobUrl;
+					        	var _texture = GetTexture(_img);
+
+					        	if(typeof _texture != 'undefined') {
+					        		if(_Material.uniforms[_folderKey].value != _texture) {
+					        			
+					        			var _name = GetQualifiersName(i);
+					        			SetTextureName(_folderKey, _name);
+					        			_Material.uniforms[_folderKey].value = _texture;
+					        		}
+					        	}
+		        			}					        	
+				        }
+				        else//vec값의 경우 dat.GUI 값이 변하면 실시간으로 수정하여 준다.
+				        {
+				        	var _value = GetQualifiersValues(i);
+				        	if(typeof _value != 'undefined' && _value.length > 0)
+					        	SetGUIValue(_folderKey, _value);
+					        
+				        }
+					}			        
+				}
+			}
+
+
+			function CreateTexture()
+			{
+
+			}
+
+			function GetBackupQualifiersValues (index)
+			{
+				var _values = [];
+				if(Object.keys(backupQualifiers[index].value).length > 1)
+				{
+					Object.keys(backupQualifiers[index].value).forEach(function(key){
+					_values.push(backupQualifiers[index].value[key]);
+					});	
+				}
+				else
+					_values.push(backupQualifiers[index].value);
+				return _values;
+			}
+
+			function GetQualifiersValues (index)
+			{
+				var _values = [];
+				if(Object.keys(qualifiers[index].value).length > 1)
+				{
+					Object.keys(qualifiers[index].value).forEach(function(key){
+					_values.push(qualifiers[index].value[key]);
+					});	
+				}
+				else
+					_values.push(qualifiers[index].value);
+				return _values;
+			}
+
+			function GetQualifiersName (index)
+			{
+				/*var _values = '';
+				Object.keys(qualifiers[index].value).forEach(function(key){
+					_values.push(qualifiers[index].value[key]);
+				});*/
+				return qualifiers[index].name;//_values;
+			}
+
+			function GetGUIValue(folderKey)
+			{
+				var _keys = GetGUIControllersKeys(folderKey);				
+
+				var _value;
+				switch(_GUI.__folders[folderKey].__controllers.length)
+				{
+					case 1:
+					_value = _GUI.__folders[folderKey].__controllers[0].object[_keys[0]];
+					break;
+					case 2:
+					_value = new THREE.Vector2( 					
+		        	 	_GUI.__folders[folderKey].__controllers[0].object[_keys[0]], 
+		        	 	_GUI.__folders[folderKey].__controllers[1].object[_keys[1]]	        	 	
+		        	 	);	
+					break;
+					case 3:
+					_value = new THREE.Vector3( 					
+		        	 	_GUI.__folders[folderKey].__controllers[0].object[_keys[0]], 
+		        	 	_GUI.__folders[folderKey].__controllers[1].object[_keys[1]],
+		        	 	_GUI.__folders[folderKey].__controllers[2].object[_keys[2]]		        	 	
+		        	 	);	
+					break;
+					case 4:
+					_value = new THREE.Vector4( 					
+		        	 	_GUI.__folders[folderKey].__controllers[0].object[_keys[0]], 
+		        	 	_GUI.__folders[folderKey].__controllers[1].object[_keys[1]],
+		        	 	_GUI.__folders[folderKey].__controllers[2].object[_keys[2]],
+		        	 	_GUI.__folders[folderKey].__controllers[3].object[_keys[3]] 
+		        	 	);		
+					break;
+				}
+				return _value;	
+			}
+
+			function SetGUIValue(folderKey, values)
+			{
+				var _keys = GetGUIControllersKeys(folderKey);
+				
+				_SetGUIVec(folderKey, _keys, values);
+			}
+
+			function _SetGUIVec(folderKey, keys, values)
+			{
+				var _count = _GUI.__folders[folderKey].__controllers.length;
+				for(var i = 0; i < _count; ++i)
+				{
+					_GUI.__folders[folderKey].__controllers[i].object[keys[i]] = values[i];
+				}
+			}
+
+			function GetGUIControllersKeys(folderKey)
+			{
+				var _keys = [];
+				var _count = _GUI.__folders[folderKey].__controllers.length;
+				for(var i = 0; i < _count; ++i)
+					_keys[i] = _GUI.__folders[folderKey].__controllers[i].property;
+				return _keys;
+			}
+
+
+			//qualifiers에 있는 uniform변수들의 값을 초기화해서 내보낸다.
+			function getUniforms()
+		    {
+		    	var uniforms = [];
+				for(var i = 0; i < qualifiers.length; ++i) {
+					uniforms.push(
+				  		{ [`${qualifiers[i].variableName}`]: {  value: getTypeValue(qualifiers[i].keyword)}},
+				  		);
+				}
+
+				uniforms = flattenDeep(uniforms);
+				let objectList = uniforms.reduce((memo, value) => Object.assign(memo, value), {});
+				return objectList;
+		    }
+		  
+		  	//해당 타입별로 초기화값을 불러낸다.
+		    function getTypeValue(type)
+		    {
+		    	var value;
+		    	switch(type)
+		    	{
+		    		case 'float': value = 0.1; break;
+		    		case 'vec2': value = new THREE.Vector2(0.1, 0.1); break;
+		    		case 'vec3': value = new THREE.Vector3(0.1, 0.1, 0.1); break;
+		    		case 'vec4': value = new THREE.Vector4(0.1, 0.1, 0.1, 0.1); break;
+		    		case 'mat3': value = new THREE.Matrix3();
+		    		case 'mat4': value = new THREE.Matrix4();
+					case 'sampler2D': value = 'undefined'; break;// new Image();
+		    		case 'samplerCube': value = 'undefined'; break;
+		    		default: console.log("type is default! : " + type); break;
+		    	}
+		    	return value;
+		    }
+
+		    //배열 납작하게 만들기.
+			function flattenDeep(arr1) { return arr1.reduce((acc, val) => Array.isArray(val) ? acc.concat(flattenDeep(val)) : acc.concat(val), []);	}
+
+		    function CreateCodeMirror()
+		    {
+		    	//var _Editor = document.getElementById("editor");
+			var _Editor = document.getElementById("code-view");
+
+		       	if(_Editor)
+		       	{
+					_CodeEditor = CodeMirror(_Editor ,
+					{
+						//value: fragShader,
+						lineNumbers: true,
+						matchBrackets: true,
+						mode: "x-shader/x-fragment",
+						keyMap: "sublime",
+						autoCloseBrackets: true,
+						foldgutter: true,
+						gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+						extraKeys: {"Ctrl-Space": "autocomplete"},
+						showCursorWhenSelecting: true,
+						theme: "monokai",
+						indentUnit: 4
+					});
+					//codeEditor.setSize("100%", "100%");
+				}
+		    }
+
+		    function TabVertex(isInit)
+		    {
+		    	console.log('TabVertex');
+		    	if(isVertexTab == false)
+		    	{ 	
+		    	
+			    	var codemirrorText = _CodeEditor.getValue();
+			    	//console.log('직전 코드에디터 내용 fag : ' + codemirrorText);
+			    	if(codemirrorText != "")
+			    		_FragmentShaderSource = codemirrorText;
+			    }
+			    //else
+			    	//console.log('이미 버텍스 탭 선택 중.');
+
+		    	_CodeEditor.setValue(_VertexShaderSource); //저장되있던 쉐이더 값을 넣어준다.
+
+		    	if(isInit == true)
+		    	{
+			    	isVertexTab = true;
+			    	isFragTab = false;
+			}
+			//버튼 색 변경			
+			$('#btn-vertex').addClass('active');
+			$('#btn-fragment').removeClass('active');
+		    }
+
+		    function TabFrag(isInit)
+		    {
+		    	console.log('TabFrag');
+		    	if(isFragTab == false)
+		    	{
+		    		var codemirrorText = _CodeEditor.getValue();
+			    	//console.log('직전 코드에디터 내용 vertex : ' + codemirrorText);
+			    	if(codemirrorText != "")
+			    	{
+			    		_VertexShaderSource = codemirrorText;
+			    	}
+		    	}
+		    	//else
+			    	//console.log('이미 프레그 탭 선택 중.');
+
+				_CodeEditor.setValue(_FragmentShaderSource);		
+
+				if(isInit == true)
+		    	{
+			    	isVertexTab = false;
+			    	isFragTab = true;
+			}
+			//버튼색 변경
+			$('#btn-vertex').removeClass('active');
+			$('#btn-fragment').addClass('active');
+
+		    }			
+
+			function onAddVertexShader(file)
+			{
+				var file = this.files[0];				
+				var reader = new FileReader();
+				reader.addEventListener('load', function(event){	
+
+
+					guiInfo['vertexShader'] = file.name;				
+					SetVertexSource(event.target.result);
+					_GUI.updateDisplay();
+
+				}, false);
+				reader.readAsText(event.target.files[0]); 
+				event.target.value = '';
+			}
+
+			function onAddFragShader(file)
+			{
+				var file = this.files[0];
+				var reader = new FileReader();
+				reader.addEventListener('load', function(event){
+					guiInfo['fragmentShader'] = file.name;
+					SetFragShaderSource(event.target.result);
+					_GUI.updateDisplay();
+				}, false);
+				reader.readAsText(event.target.files[0]); 
+				event.target.value = ''; 	
+			}
+
+			function SetVertexSource(soruce)
+			{				
+				_VertexShaderSource = soruce;					
+				TabVertex(true); 	
+			}
+
+			function SetFragShaderSource(soruce)
+			{				
+				_FragmentShaderSource = soruce;					
+				TabFrag(true);	
+			}
+
+		    function LightSetting()
+		    {
+		    	//_Light = new THREE.HemisphereLight( 0xffffff, 0x444444 );
+				//_Light.position.set( 0, 100, 0 );
+				//_Scene.add( _Light );
+
+				_Light = new THREE.DirectionalLight( 0xFFFFFF );
+				_Light.position.set( 30, 210, -50 );
+				//_Light.castShadow = true;
+				//_Light.shadow.camera.top = 180;
+				//_Light.shadow.camera.bottom = -100;
+				//_Light.shadow.camera.left = -120;
+				//_Light.shadow.camera.right = 120;
+				_Scene.add( _Light );
+
+				//var helper = new THREE.RectAreaLightHelper( _Light );
+				//_Scene.add( helper );
+				
+				//_Light = new THREE.AmbientLight(0xffffff);//0xff0000
+				//_Light.position.set( 0, 10, 10 );
+				//_Scene.add( _Light );
+
+				var ambient = new THREE.AmbientLight( 0xffffff );
+				_Scene.add( ambient );
+
+				var pointLight = new THREE.PointLight( 0xffffff, 2 );
+				_Scene.add( pointLight );
+		    }
+
+		    function GroundSetting()
+		    {
+		    	var mesh = new THREE.Mesh( new THREE.PlaneGeometry( 2000, 2000 ), new THREE.MeshPhongMaterial( { color: 0x999999, depthWrite: false } ) );
+				mesh.rotation.x = - Math.PI / 2;
+				mesh.receiveShadow = true;
+				_Scene.add( mesh );
+
+				var grid = new THREE.GridHelper( 2000, 20, 0x000000, 0x000000 );
+				grid.material.opacity = 0.2;
+				grid.material.transparent = true;
+				_Scene.add( grid );
+
+		    }
+
+		    function OrbitInit()
+		    {
+		    	//https://threejs.org/docs/#examples/controls/OrbitControls
+		    	_Controls = new THREE.OrbitControls( _Camera, _Render.domElement );
+		        _Controls.target.set(0, 100, 0);
+		        _Controls.update();
+		    }		    
+
+		    function RenderInit()
+		    {
+		    	_Render = new THREE.WebGLRenderer();
+		    	_Render.setPixelRatio( window.devicePixelRatio );
+		    	_Render.setSize( sceneWidth, sceneHeight );//windopw.innerWidth, window.innerHeight );
+		    	_Render.shadowMap.enabled = true;
+		    	_Container.appendChild( _Render.domElement);		    	
+		    }				   
+
+		    /*function LoadFBX()
+		    {
+		    	console.log("LoadFBX function!");
+		    	
+		    	var fbxLoader = new THREE.FBXLoader();
+		    	var tempName = 'assets/dona-teodora.fbx';
+
+				fbxLoader.load( tempName, function ( object ) {		
+
+					guiInfo['object'] = tempName;
+
+					var vertexShaderSource = document.getElementById('vertex_shh').textContent;
+					var fragmentShaderSource = document.getElementById('fragment_shh').textContent;
+					var uniforms = getUniforms(); 			
+					
+					_GUI.updateDisplay();
+
+					CreateShaderMaterail(uniforms, vertexShaderSource, fragmentShaderSource);
+
+					// FBX loader returns a group containing a multiple sub-objects. Traverse and apply texture to all. 
+					object.traverse( function ( child ) {	
+						if(child.isMesh)
+						{
+							//child.castShadow = true;
+							//child.receiveShadow = true;
+						}
+						
+						if(child instanceof THREE.Mesh)
+						{							
+							child.material = _Material;//new THREE.MeshPhongMaterial( { color: Math.random() * 0xffffff } );//_Material;							
+							// new THREE.MeshPhongMaterial( { color: Math.random() * 0xffffff } );//
+							// THREE.MeshToonMaterial({ color: gray });
+						}						
+					} );						
+					AddSceneObject(object);
+				} );
+		    }*/	   
+
+		    function AddSceneObject(object)
+		    {
+		    	RemoveSceneObject();
+		    	_ObjectBox = new THREE.BoxHelper(object, 0xffff00);					
+				var box3 = new THREE.Box3();
+				var size = new THREE.Vector3();
+
+				box3.setFromObject(_ObjectBox);
+				box3.getSize(size);
+
+				var fixedHeight = _Camera.position.y / size.y;
+				console.log('fixedHeight : ' + fixedHeight);
+
+				var vecScale = new THREE.Vector3( fixedHeight, fixedHeight, fixedHeight );//new THREE.Vector3( 950, 950, 950 );
+				object.scale.copy(vecScale);
+				object.updateMatrixWorld(true);
+
+				_ObjectBox = new THREE.BoxHelper(object, 0xFF0000);
+
+				_Scene.add(_ObjectBox);
+				_Scene.add( object );
+				_Object = object;		
+		    }
+
+		    function RemoveSceneObject()
+		    {
+		    	if (typeof _Object != "undefined")
+		    		_Scene.remove(_Object);
+
+		    	if (typeof _ObjectBox != "undefined")
+		    		_Scene.remove(_ObjectBox);
+		    }
+
+		    function RfreshMaterial(uniforms, vertexShaderSource, fragmentShaderSource)
+		    {		    	
+		    	CreateShaderMaterail(uniforms, vertexShaderSource, fragmentShaderSource);		    	
+		    	_Object.traverse(function(child){
+		    		if(child instanceof THREE.Mesh)
+		    		{
+		    			child.material = _Material;
+		    			child.material.needsUpdate = true;
+		    		}
+		    	});		    	
+		    	//_Object.materialNeedUpdate= true;
+		    	//_Object.uvsNeedUpdate = true;
+		    	_Object.needsUpdate = true;
+		    	_Object.verticesNeedUpdate = true;
+		    	_Object.buffersNeedUpdate = true;
+
+		    	 _Render.render( _Scene, _Camera );		    	
+		    }
+		    
+		    function CreateShaderMaterail(uniforms, vertexShaderSource, fragmentShaderSource)
+		    {
+		    	
+				_Material = new THREE.ShaderMaterial({
+				  uniforms: uniforms,				  
+				  vertexShader: vertexShaderSource,
+				  fragmentShader: fragmentShaderSource,
+				  transparent: false,		
+				  alphaTest: 0.5,
+				  side: THREE.DoubleSide,		
+				});		
+		    }
+
+		    function GetTexture(image) {		    	
+	    		return  new THREE.ImageUtils.loadTexture( image.src );		    	
+		    }
+
+		     function GetTextureURL(url) {		    	
+	    		return  new THREE.ImageUtils.loadTexture( url );		    	
+		    }
+
+		    function GetCubeTexture(index, image, folderKey)
+		    {
+		    	//https://threejs.org/docs/#api/textures/CubeTexture
+		    	console.log('cube empty!');
+		    	var _cube = new THREE.CubeTexture();
+		    	//var _urls = [];
+		    	for(var i = 0; i < 6; ++i)
+		    	{
+		    		if( i == index)
+		    		{
+		    			//_cube.images[i] = image;	
+		    			_cube.image[i] = THREE.ImageUtils.loadTexture( image.src );
+		    			_cube.image[i].image = image;
+		    		}
+		    		else
+		    		{
+		    			if(typeof _Material.uniforms[folderKey].value != 'undefined' && typeof _Material.uniforms[folderKey].value.image != 'undefined')
+		    			{
+		    				if(_Material.uniforms[folderKey].value.image.length > i)
+		    				{
+		    					if(typeof _Material.uniforms[folderKey].value.image[i] != 'undefined')
+		    					{
+		    						_cube.image[i] = _Material.uniforms[folderKey].value.image[i];//_Material.uniforms[folderKey].value.image[i];
+		    						_cube.image[i].image = _Material.uniforms[folderKey].value.image[i].image;
+		    					}
+		    					else
+		    						_cube.image[i] = 'undefined';
+		    				}
+		    				else
+		    					_cube.image[i] = 'undefined';
+		    			}
+		    			else
+		    				_cube.image[i] = 'undefined';
+	    			}		    		
+		    	}
+		    	
+		    	//var _cube = THREE.ImageUtils.loadTextureCube(_urls);
+		    	//if(folderKey == 'unity_SpecCube0')
+		    	//	_cube.format = THREE.CubeRefractionMapping;
+		    	//else
+		    		_cube.format = THREE.RGBFormat;
+				/*var urls = [];
+				urls[index] = url;	    	
+		    	var textureCube = _loader.load(urls);*/
+		    	return _cube;
+		    }
+
+		    function GetCubeTextures(path0, path1, path2, path3, path4, path5)
+		    {
+		    	//https://threejs.org/docs/#api/textures/CubeTexture
+		    	console.log('cube empty!');
+		    	var _loader = new THREE.CubeTextureLoader();
+				var urls = [ path0, path1, path2, path3, path4, path5 ];	    	
+		    	var textureCube = _loader.load(urls);
+		    	return textureCube;
+		    }
+
+		   function onWindowResize() 
+		   {
+				_Camera.aspect = sceneWidth / sceneHeight; //window.innerWidth / window.innerHeight;
+				_Camera.updateProjectionMatrix();
+
+				_Render.setSize( sceneWidth, sceneHeight );//( window.innerWidth, window.innerHeight );
+			}			
+
+			//Update 같은 개념. 재귀로 속 render해주며 프레임을 그려준다.
+			function Animate() 
+			{
+		        _Render.render( _Scene, _Camera );
+				_Stats.update();
+				
+				requestAnimationFrame( Animate );
+			}
+
+			function ResetShaderCompileError()
+			{
+				document.getElementById("code_vert_error").innerHTML = "";
+       			document.getElementById("code_frag_error").innerHTML = "";
+			}
+
+			function ResetDatGUI()
+			{
+				_GUI.destroy();
+				_GUI = new dat.GUI( { width: 370 });//, load: JSON.parse(json) } );
+				InitGUI();
+			}
+
+			function ReSetting(vertexShaderSource, fragmentShaderSource)
+			{			
+				_reset();
+
+				setQualifiers(vertexShaderSource, fragmentShaderSource);
+				var uniforms = getUniforms();
+				RfreshMaterial(uniforms, vertexShaderSource, fragmentShaderSource);
+				
+				ResetDatGUI();
+				generateUI();
+
+				/*if( IsCompileError() == true)
+					return false;
+				else
+					return true;*/
+			}
+
+			//쉐어더 컴파일
+			function onCompile()
+			{
+
+				ResetShaderCompileError();
+				
+
+				//shaderCanvas.setAttribute("data-fragment", codeEditor.getValue());
+				//loadShaders();
+				if(typeof _Object == 'undefined')
+				{
+					//alert('_Object is Empty!');
+					return;
+					//--------------------------------------------------------------------------------------- TempPlane
+					//var geometry = new THREE.SphereGeometry( 5, 32, 32 );//new THREE.PlaneGeometry(30, 30, 32);//new THREE.BoxGeometry(10, 10, 10);
+					//var obj = new THREE.Mesh(geometry, _Material);
+					//AddSceneObject(obj);
+					//---------------------------------------------------------------------------------------
+				}
+
+				console.log("Click compile Button");				 
+
+				//var vertexShaderSource = _VertexShaderSource;
+				//var fragmentShaderSource = _FragmentShaderSource;
+
+				if (_VertexShaderSource != "" && _FragmentShaderSource != "")
+				{			
+					/*if(qualifiers != backupQualifiers)
+					{
+						GetDatGUIData2();
+	    				backupQualifiers = qualifiers;
+					}*/
+
+					ReSetting(_VertexShaderSource, _FragmentShaderSource);
+					
+					// todo 
+					/*SetGenerateBackupData();
+
+					SetDatGuiData();
+					updateUniform();
+
+					_GUI.updateDisplay();*/
+					
+					/*for(var i = 0; i < qualifiers.length; ++i)
+					{
+						var key = qualifiers[i].variableName;	
+
+				        if(qualifiers[i].keyword == 'sampler2D') {
+				        	var _tempKey = _GUI.__folders[key].__controllers[0].property;
+				        	var _texture =  GetTexture(fileTagBackup[_tempKey]['texture']);
+				        	if(typeof _texture != 'undefined') {
+				        		if(_Material.uniforms[key].value != _texture) {
+				        			_Material.uniforms[key].value = _texture;			        			
+				        		}
+				        	}
+			        	}
+			        	else if(qualifiers[i].keyword == 'samplerCube')
+			        	{
+			        		var _temp0 = GetControllerImageUrl(key, 0);
+			        		var _temp1 = GetControllerImageUrl(key, 1);
+			        		var _temp2 = GetControllerImageUrl(key, 2);
+			        		var _temp3 = GetControllerImageUrl(key, 3);
+			        		var _temp4 = GetControllerImageUrl(key, 4);
+			        		var _temp5 = GetControllerImageUrl(key, 5);			        		
+
+			        		var _texture = GetCubeTexture(_temp0, _temp1, _temp2, _temp3, _temp4, _temp5);
+			        		if(typeof _texture != 'undefined') {
+				        		if(_Material.uniforms[key].value != _texture) {
+				        			_Material.uniforms[key].value = _texture;			        			
+				        		}
+				        	}
+			        	}
+			        }*/
+				}
+				//else
+					//alert('Add Shader File First');
+
+				VertexCompileSrc = _VertexShaderSource;
+				FragmentCompileSrc = _FragmentShaderSource;
+
+
+				console.log('Compile is Compelete! : ' + IsCompileError());
+
+				return IsCompileError();//true : error / false : not error
+				alert('Compile Compelete');
+				//_CompileBtn.setAttribute("disabled", "disabled");
+
+				//SetJsonData();
+			}
+
+			
+
+
+			 // once everything is loaded, we run our Three.js stuff.
+		    function Init() 
+		    {   
+		    	console.log("init function!");
+				var inputUvFile = document.getElementById("textureFile0");
+				inputUvFile.addEventListener("change", onAddTexture);
+
+	    		_Container = document.createElement('div');
+	    		//document.body.appendChild( _Container);
+
+				$('#scene-view').append(_Container);
+
+	    		  // create a scene, that will hold all our elements such as objects, cameras and lights.
+		        _Scene = new THREE.Scene();
+		        _Scene.background = new THREE.Color( 0xa0a0a0 );
+				//_Scene.fog = new THREE.Fog( 0xa0a0a0, 200, 1000 );
+
+		        // create a camera, which defines where we're looking at.
+		        _Camera = new THREE.PerspectiveCamera(45, sceneWidth/sceneHeight, 1, 10000);//(45, window.innerWidth / window.innerHeight, 1, 2000);
+		        _Camera.position.set(100, 200, 300);		       
+
+				//--------------------Light
+				LightSetting();
+				GroundSetting();
+
+				InitGUI();
+				//$('#dat-view').append($('.dg')).appendChild($('.dg .main'));
+				//$('#dat-view').append($('.dg .main'));
+
+				//LoadFBX();					
+
+				RenderInit();				
+
+				OrbitInit();
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				// stats
+				_Stats = new Stats();
+				_Container.appendChild( _Stats.dom );
+
+ 				// render the scene
+		       	//_Render.render( _Scene, _Camera );
+		       	_VertexShaderSource = "";
+		       	_FragmentShaderSource = "";
+
+		       	CreateCodeMirror();
+		       	TabVertex();
+
+		       	switch(NowState)
+		       	{
+		       		case StateEnum.VIEW:
+		       		case StateEnum.MODIFY:
+		       		{
+		       			console.log("lStateEnum.VIEW");
+		       			LoadJsonData();	
+		       		}
+		       		break;	
+		       		case StateEnum.WRITE:
+		       			console.log("StateEnum.WRITE");
+		       		break;
+		       		case StateEnum.QUICK:
+		       		{
+		       			console.log("StateEnum.QUICK");
+		       			LoadJsonData();	
+		       		}
+		       		break;		       		
+		       		case StateEnum.ERROR:
+		       		break;
+					
+		       	}
+		    }
+
+
+		    function GetCompileMessage(errorCode)
+		    {
+		    	var _message = "";
+		    	switch(errorCode)
+		    	{
+		    		case CompileCheckEnum.OBJECT_EMPTY:
+		    		_message = "FBX가 추가되지 않았습니다.";
+		    		break;
+		    		case CompileCheckEnum.SHADER_EMPTY:
+		    		_message = "추가되지 않은 쉐이더 파일이 있습니다.";
+		    		break;
+		    		case CompileCheckEnum.NOT_MODIFY:
+		    		_message = "수정된 부분이 없습니다.";
+		    		break;
+		    		default:
+		    		console.log('GetCompileMessage value Default!');
+		    		break;
+		    	}
+
+		    	return _message;
+		    }
+
+		    function GetCompileErrorCode()
+		    {
+		    	//var _error = ErrorMsgEnum.NONE;
+		    	if(typeof _Object == 'undefined')
+		    		return CompileCheckEnum.OBJECT_EMPTY;
+		    	else if(IsShaderSrcEmpty())
+		    		return CompileCheckEnum.SHADER_EMPTY;
+		    	else if(IsModifyShader() == false)
+		    		return CompileCheckEnum.NOT_MODIFY;
+		    	else
+		    		return CompileCheckEnum.NONE;
+		    }
+
+		    function GetErrorMessage(errorCode)
+		    {
+		    	var _message = "";
+		    	switch(errorCode)
+		    	{
+		    		case ErrorMsgEnum.RESOURCE_EMPTY:
+		    		_message = "리소스가 전부 채워지지 않았습니다.\n빈 리소스가 있는지 확인해주세요.";
+		    		break;
+		    		case ErrorMsgEnum.NOT_COMPILE:
+		    		_message = "변경점이 컴파일 되지 않았습니다.\n컴파일 버튼을 눌러주세요.";
+		    		break;
+		    		case ErrorMsgEnum.SHADER_ERROR:
+		    		_message = "컴파일 에러가 있어 업로드 할 수 없습니다.\n컴파일 에러 해결 후 업로드 가능합니다.";
+		    		break;
+		    		default:
+		    		console.log('GetErrorMessage value Default!');
+		    		break;
+		    	}
+
+		    	return _message;
+		    }
+
+		    function GetSubmitErrorCode()
+		    {
+		    	//var _error = ErrorMsgEnum.NONE;
+		    	if(typeof _Object == 'undefined')
+		    		return ErrorMsgEnum.RESOURCE_EMPTY;
+		    	else if(IsShaderSrcEmpty())
+		    		return ErrorMsgEnum.RESOURCE_EMPTY;
+		    	else if(IsModifyShader())
+		    		return ErrorMsgEnum.NOT_COMPILE;
+		    	else if(IsCompileError())
+		    		return ErrorMsgEnum.SHADER_ERROR;
+		    	else
+		    		return ErrorMsgEnum.NONE;
+		    }
+
+		    //컴파일 에러 부분이 있는가?
+		    function IsCompileError()
+		    {
+		    	var _isVertexError = document.getElementById("code_vert_error").innerHTML == "";
+       			var _isFragError = document.getElementById("code_frag_error").innerHTML == "";
+       			if(_isVertexError == true && _isFragError == true)
+       				return false;
+       			else
+       				return true;
+		    }
+
+		    //쉐이더 에디터의 변경점이 제대로 반영이 되었는가??
+		    function IsModifyShader()
+		    {
+		    	if(IsVertexModify() == false && IsFragmentModify() == false)
+		    		return false;
+		    	else
+		    		return true;
+		    }
+
+		    function IsVertexModify()
+		    {
+		    	if(isVertexTab == true) {
+					_VertexShaderSource = _CodeEditor.getValue();
+				}
+		    	return _VertexShaderSource != VertexCompileSrc;
+		    }
+
+		    function IsFragmentModify()
+		    {	
+		    	if(isFragTab == true) {
+					_FragmentShaderSource = _CodeEditor.getValue();
+				}	    	
+				return _FragmentShaderSource != FragmentCompileSrc;
+		    }
+
+		     function IsShaderSrcEmpty()
+		    {
+		    	return _VertexShaderSource == "" || _FragmentShaderSource == "" || _CodeEditor.getValue() == "" ? true : false;
+		    }
+
+		    //var isBoardView = false;
+		    function SetBoardState(value)
+		    {
+		    	NowState = value;
+		    }
+
+		    /*function IsViewState()
+	    	{
+	    		return isBoardView;
+	    	}*/
+
+		    function GetFbxArrayBufferData()
+		    {
+		    	var _abStr = ab2str(FBXArrayBuffer);
+		    	return _abStr;
+		    }
+
+		    function GetVertexStringData()
+		    {
+		    	return VertexCompileSrc;
+		    }
+
+		    function GetFragmentStringData()
+		    {
+		    	return FragmentCompileSrc;
+		    }
+
+		    function GetImgData()
+		    {                	
+				_Render.render( _Scene, _Camera );
+            	return document.querySelector('#scene-view > div > canvas').toDataURL("image/png");		    	
+		    }
+
+		    function GetDatGUIStringData()
+		    {
+		    	GetDatGUIData();
+
+		    	//backupGuiUnfo = guiInfo;
+		    	
+		    	var _data = JSON.stringify(qualifiers);
+				console.log("_json : " + _data);
+				return _data;
+		    }
+
+		    function GetDatGUIData()
+		    {
+		    	Object.keys(_GUI.__folders).forEach(function(object, index){
+					//console.log("key : " + object);
+					GetCurrentGUIValue(object, _GUI.__folders[object].__controllers);
+				});
+		    }
+
+		    /*function GetDatGUIData2()
+		    {
+		    	Object.keys(_GUI.__folders).forEach(function(object, index){
+					//console.log("key : " + object);
+					GetCurrentGUIValue2(object, _GUI.__folders[object].__controllers);
+				});
+		    }*/
+
+		    function SetDBData(fbx, vertex, frag, datgui)
+			{
+				FBXArrayBuffer = str2ab(fbx);
+				BackupVertexShader = vertex;
+				BackupFragShader = frag;
+				jsonData = datgui;
+			}
+
+		</script>

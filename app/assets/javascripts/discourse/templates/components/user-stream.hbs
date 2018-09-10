@@ -1,5 +1,10 @@
 {{#each stream.content as |item|}}
   {{#unless item.post_anonymous_chk}}
-    {{user-stream-item item=item removeBookmark=(action "removeBookmark")}}
+	  {{user-stream-item
+	      item=item
+	      removeBookmark=(action "removeBookmark")
+	      resumeDraft=(action "resumeDraft")
+	      removeDraft=(action "removeDraft")
+	  }}
   {{/unless}}
 {{/each}}

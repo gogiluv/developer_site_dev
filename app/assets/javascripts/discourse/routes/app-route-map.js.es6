@@ -112,6 +112,7 @@ export default function() {
           this.route("likesGiven", { path: "likes-given" });
           this.route("bookmarks");
           this.route("pending");
+          this.route("drafts");
         }
       );
 
@@ -178,6 +179,7 @@ export default function() {
   this.route("tos", { path: "/tos" });
   this.route("privacy", { path: "/privacy" });
   this.route("guidelines", { path: "/guidelines" });
+  this.route("rules", { path: "/rules" });
 
   this.route("new-topic", { path: "/new-topic" });
   this.route("new-message", { path: "/new-message" });

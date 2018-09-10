@@ -29,6 +29,17 @@ export function handleLogoff(xhr) {
   }
 }
 
+function handleRedirect(data) {
+  if (
+    data &&
+    data.getResponseHeader &&
+    data.getResponseHeader("Discourse-Xhr-Redirect")
+  ) {
+    window.location.replace(data.responseText);
+    window.location.reload();
+  }
+}
+
 /**
   Our own $.ajax method. Makes sure the .then method executes in an Ember runloop
   for performance reasons. Also automatically adjusts the URL to support installs
@@ -79,6 +90,8 @@ export function ajax() {
       if(xhr==null){
 	return location.reload();
       }
+
+      handleRedirect(data);
       handleLogoff(xhr);
 
       Ember.run(() => {

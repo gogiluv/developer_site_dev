@@ -47,7 +47,7 @@ export default createWidget("poster-name", {
   },
 
   userLink(attrs, text) {
-    if(attrs.anonymous_chk) return "unknown";
+    if(attrs.anonymous_chk) return "anonymous";
     return h(
       "a",
       {

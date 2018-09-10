@@ -543,7 +543,6 @@ da:
       long_form: 'like dette'
   user_activity:
     no_bookmarks:
-      self: "Du har ingen bogmærkede indlæg - bogmærkede indlæg lader dig tilgå dem nemt på et senere tidspunkt."
       others: "Ingen bogmærker"
     no_likes_given:
       self: "Du har ikke liket nogen indlæg."
@@ -839,7 +838,6 @@ da:
     post_menu: "Angiv hvilke elementer der skal vises i indlægsmenuen, og i hvilken rækkefølge. Eksempel: like|edit|flag|delete|share|bookmark|reply."
     post_menu_hidden_items: "Menuen vil automatisk gemme disse elementer i indlægs menuen, med mindre en udvidelse  er tilvalgt."
     share_links: "Angiv hvilke elementer der skal vises i “del“-dialogboksen og i hvilken rækkefølge."
-    track_external_right_clicks: "Spor højreklik på eksterne links (f.eks.: åbn i ny tab); deaktiveret som standard fordi den omskriver URLer"
     send_welcome_message: "Send alle nye brugere en velkomstbesked, med en hurtig start guide."
     topics_per_period_in_top_summary: "Antallet af top emner der vises som standard i top emner"
     topics_per_period_in_top_page: "Antallet af top emner der vises når 'Vis Mere' er aktiveret."
@@ -965,8 +963,6 @@ da:
   frequent_poster: "Hyppig forfatter"
   redirected_to_top_reasons:
     new_user: "Velkommen til fællesskabet! Dette er de seneste mest populære emner."
-  change_owner:
-    deleted_user: "en slettet bruger"
   topic_statuses:
     archived_enabled: "Dette emne er nu arkiveret. Det er frosset fast og kan ikke ændres på nogen måde."
     archived_disabled: "Dette emne er nu ikke længere arkiveret. Det er ikke længere frosset fast, og kan ændres."
@@ -1369,7 +1365,6 @@ da:
     recent_topics: "Nye"
     see_more: "Flere"
     search_title: "Søg på denne side"
-    search_google: "Google"
   terms_of_service:
     title: "Vilkår"
     signup_form_message: 'Jeg har læst og accepterer  <a href="/tos" target="_blank">vilkårene</a>.'

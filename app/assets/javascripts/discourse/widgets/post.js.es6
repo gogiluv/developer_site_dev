@@ -135,11 +135,11 @@ createWidget("reply-to-tab", {
         iconNode("mail-forward"),
         " ",
         avatarImg("small", {
-          template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
-          username: "unknown"
+          template: "/images/anonymous_icon.png",
+          username: "anonymous"
         }),
         " ",
-        h("span", formatUsername("unknown"))
+        h("span", formatUsername("anonymous"))
       ];
     }*/
   },
@@ -174,8 +174,8 @@ createWidget("post-avatar", {
       body = iconNode("trash-o", { class: "deleted-user-avatar" });      
     } else if(attrs.anonymous_chk){
       body = avatarImg(this.settings.size, {
-        template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
-        username: "unknown",
+        template: "/images/anonymous_icon.png",
+        username: "anonymous",
         className: "main-avatar"
       });
     } else {

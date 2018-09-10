@@ -25,9 +25,11 @@ export default Ember.Controller.extend(ModalFunctionality, {
   remote: Ember.computed.equal("selection", "remote"),
   selection: "local",
 
-  @computed() uploadIcon: () => uploadIcon(),
+  @computed()
+  uploadIcon: () => uploadIcon(),
 
-  @computed() title: () => uploadTranslate("title"),
+  @computed()
+  title: () => uploadTranslate("title"),
 
   @computed("selection")
   tip(selection) {
@@ -59,6 +61,8 @@ export default Ember.Controller.extend(ModalFunctionality, {
 
         if (this.get("showMore") && imageLink.length > 3) {
           toolbarEvent.addText(`[![](${imageUrl})](${imageLink})`);
+        } else if (imageUrl.match(/\.(jpg|jpeg|png|gif)$/)) {
+          toolbarEvent.addText(`![](${imageUrl})`);
         } else {
           toolbarEvent.addText(imageUrl);
         }

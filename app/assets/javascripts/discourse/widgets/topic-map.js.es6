@@ -104,8 +104,8 @@ createWidget("topic-map-summary", {
           h("h4", I18n.t("created_lowercase")),
           h("div.topic-map-post.created-at", [
               avatarImg("tiny", {
-              template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
-              username: "unknown",
+              template: "/images/anonymous_icon.png",
+              username: "anonymous",
               name: attrs.name
             }),
             dateNode(attrs.topicCreatedAt)
@@ -140,8 +140,8 @@ createWidget("topic-map-summary", {
           h("h4", I18n.t("last_reply_lowercase")),
           h("div.topic-map-post.last-reply", [
             avatarImg("tiny", {
-              template: "/letter_avatar_proxy/v2/letter/U/000000/{size}.png",
-              username: "unknown",
+              template: "/images/anonymous_icon.png",
+              username: "anonymous",
               name: attrs.name
             }),
             dateNode(attrs.lastPostAt)

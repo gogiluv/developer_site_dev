@@ -132,11 +132,14 @@ class Search
     @valid = true
     @page = @opts[:page]
 
+    term = term.to_s.dup
+
     # Removes any zero-width characters from search terms
-    term.to_s.gsub!(/[\u200B-\u200D\uFEFF]/, '')
+    term.gsub!(/[\u200B-\u200D\uFEFF]/, '')
     # Replace curly quotes to regular quotes
-    term.to_s.gsub!(/[\u201c\u201d]/, '"')
-    @clean_term = term.to_s.dup
+    term.gsub!(/[\u201c\u201d]/, '"')
+
+    @clean_term = term
 
     term = process_advanced_search!(term)
 
@@ -369,7 +372,7 @@ class Search
     end
   end
 
-  advanced_filter(/^\#([a-zA-Z0-9\-:=]+)/) do |posts, match|
+  advanced_filter(/^\#([\p{L}0-9\-:=]+)/) do |posts, match|
 
     exact = true
 
@@ -466,24 +469,28 @@ class Search
     end
   end
 
-  advanced_filter(/^tags?:([a-zA-Z0-9,\-_+]+)/) do |posts, match|
+  advanced_filter(/^tags?:([\p{L}0-9,\-_+]+)/) do |posts, match|
     search_tags(posts, match, positive: true)
   end
 
-  advanced_filter(/\-tags?:([a-zA-Z0-9,\-_+]+)/) do |posts, match|
+  advanced_filter(/\-tags?:([\p{L}0-9,\-_+]+)/) do |posts, match|
     search_tags(posts, match, positive: false)
   end
 
   advanced_filter(/filetypes?:([a-zA-Z0-9,\-_]+)/) do |posts, match|
     file_extensions = match.split(",").map(&:downcase)
     posts.where("posts.id IN (
-      SELECT post_id FROM topic_links
-      WHERE extension IN (:file_extensions)
+      SELECT post_id
+        FROM topic_links
+       WHERE extension IN (:file_extensions)
+
       UNION
-      SELECT post_uploads.post_id FROM uploads
-      JOIN post_uploads ON post_uploads.upload_id = uploads.id
-      WHERE lower(uploads.extension) IN (:file_extensions)
-      )", file_extensions: file_extensions)
+
+      SELECT post_uploads.post_id
+        FROM uploads
+        JOIN post_uploads ON post_uploads.upload_id = uploads.id
+       WHERE lower(uploads.extension) IN (:file_extensions)
+    )", file_extensions: file_extensions)
   end
 
   private
@@ -822,9 +829,10 @@ class Search
   end
 
   def ts_query(ts_config = nil, weight_filter: nil)
+    # we must strip diacritics otherwise we will get no matches
     @ts_query_cache ||= {}
     @ts_query_cache["#{ts_config || default_ts_config} #{@term} #{weight_filter}"] ||=
-      Search.ts_query(term: @term, ts_config: ts_config, weight_filter: weight_filter)
+      Search.ts_query(term: SearchIndexer::HtmlScrubber.strip_diacritics(@term), ts_config: ts_config, weight_filter: weight_filter)
   end
 
   def wrap_rows(query)

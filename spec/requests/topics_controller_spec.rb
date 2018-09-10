@@ -1218,48 +1218,6 @@ RSpec.describe TopicsController do
       expect(response.headers['X-Robots-Tag']).to eq(nil)
     end
 
-    describe "themes" do
-      let(:theme) { Theme.create!(user_id: -1, name: 'bob', user_selectable: true) }
-      let(:theme2) { Theme.create!(user_id: -1, name: 'bobbob', user_selectable: true) }
-
-      before do
-        sign_in(user)
-      end
-
-      it "selects the theme the user has selected" do
-        user.user_option.update_columns(theme_ids: [theme.id])
-
-        get "/t/#{topic.id}"
-        expect(response).to be_redirect
-        expect(controller.theme_id).to eq(theme.id)
-
-        theme.update_attribute(:user_selectable, false)
-
-        get "/t/#{topic.id}"
-        expect(response).to be_redirect
-        expect(controller.theme_id).not_to eq(theme.id)
-      end
-
-      it "can be overridden with a cookie" do
-        user.user_option.update_columns(theme_ids: [theme.id])
-
-        cookies['theme_ids'] = "#{theme2.id}|#{user.user_option.theme_key_seq}"
-
-        get "/t/#{topic.id}"
-        expect(response).to be_redirect
-        expect(controller.theme_id).to eq(theme2.id)
-      end
-
-      it "cookie can fail back to user if out of sync" do
-        user.user_option.update_columns(theme_ids: [theme.id])
-        cookies['theme_ids'] = "#{theme2.id}|#{user.user_option.theme_key_seq - 1}"
-
-        get "/t/#{topic.id}"
-        expect(response).to be_redirect
-        expect(controller.theme_id).to eq(theme.id)
-      end
-    end
-
     it "doesn't store an incoming link when there's no referer" do
       expect {
         get "/t/#{topic.id}.json"
@@ -1581,6 +1539,15 @@ RSpec.describe TopicsController do
       get "/t/foo/#{topic.id}.rss"
       expect(response.status).to eq(200)
       expect(response.content_type).to eq('application/rss+xml')
+    end
+
+    it 'renders rss of the topic correctly with subfolder' do
+      GlobalSetting.stubs(:relative_url_root).returns('/forum')
+      Discourse.stubs(:base_uri).returns("/forum")
+      get "/t/foo/#{topic.id}.rss"
+      expect(response.status).to eq(200)
+      expect(response.body).to_not include("/forum/forum")
+      expect(response.body).to include("http://test.localhost/forum/t/#{topic.slug}")
     end
   end
 
@@ -2068,6 +2035,37 @@ RSpec.describe TopicsController do
         expect(response.status).to eq(400)
       end
 
+      describe "when PM has reached maximum allowed numbers of recipients" do
+        let(:user2) { Fabricate(:user) }
+        let(:pm) { Fabricate(:private_message_topic, user: user) }
+
+        let(:moderator) { Fabricate(:moderator) }
+        let(:moderator_pm) { Fabricate(:private_message_topic, user: moderator) }
+
+        before do
+          SiteSetting.max_allowed_message_recipients = 2
+        end
+
+        it "doesn't allow normal users to invite" do
+          post "/t/#{pm.id}/invite.json", params: {
+            user: user2.username
+          }
+          expect(response.status).to eq(422)
+          expect(JSON.parse(response.body)["errors"]).to contain_exactly(
+            I18n.t("pm_reached_recipients_limit", recipients_limit: SiteSetting.max_allowed_message_recipients)
+          )
+        end
+
+        it "allows staff to bypass limits" do
+          sign_in(moderator)
+          post "/t/#{moderator_pm.id}/invite.json", params: {
+            user: user2.username
+          }
+          expect(response.status).to eq(200)
+          expect(moderator_pm.reload.topic_allowed_users.count).to eq(3)
+        end
+      end
+
       describe 'when user does not have permission to invite to the topic' do
         let(:topic) { Fabricate(:private_message_topic) }
 
@@ -2155,6 +2153,37 @@ RSpec.describe TopicsController do
       it "allows inviting a group to a PM" do
         invite_group(pm, 200)
         expect(pm.allowed_groups.first.id).to eq(admins.id)
+      end
+    end
+
+    context "when PM has reached maximum allowed numbers of recipients" do
+      let(:group) { Fabricate(:group, messageable_level: 99) }
+      let(:pm) { Fabricate(:private_message_topic, user: user) }
+
+      let(:moderator) { Fabricate(:moderator) }
+      let(:moderator_pm) { Fabricate(:private_message_topic, user: moderator) }
+
+      before do
+        SiteSetting.max_allowed_message_recipients = 2
+      end
+
+      it "doesn't allow normal users to invite" do
+        post "/t/#{pm.id}/invite-group.json", params: {
+          group: group.name
+        }
+        expect(response.status).to eq(422)
+        expect(JSON.parse(response.body)["errors"]).to contain_exactly(
+          I18n.t("pm_reached_recipients_limit", recipients_limit: SiteSetting.max_allowed_message_recipients)
+        )
+      end
+
+      it "allows staff to bypass limits" do
+        sign_in(moderator)
+        post "/t/#{moderator_pm.id}/invite-group.json", params: {
+          group: group.name
+        }
+        expect(response.status).to eq(200)
+        expect(moderator_pm.reload.topic_allowed_users.count + moderator_pm.topic_allowed_groups.count).to eq(3)
       end
     end
   end
@@ -2308,4 +2337,41 @@ RSpec.describe TopicsController do
 
   end
 
+  describe "#reset_bump_date" do
+    context "errors" do
+      let(:topic) { Fabricate(:topic) }
+
+      it "needs you to be logged in" do
+        put "/t/#{topic.id}/reset-bump-date.json"
+        expect(response.status).to eq(403)
+      end
+
+      [:user, :trust_level_4].each do |user|
+        it "denies access for #{user}" do
+          sign_in(Fabricate(user))
+          put "/t/#{topic.id}/reset-bump-date.json"
+          expect(response.status).to eq(403)
+        end
+      end
+
+      it "should fail for non-existend topic" do
+        sign_in(Fabricate(:admin))
+        put "/t/1/reset-bump-date.json"
+        expect(response.status).to eq(404)
+      end
+    end
+
+    [:admin, :moderator].each do |user|
+      it "should reset bumped_at as #{user}" do
+        sign_in(Fabricate(user))
+        topic = Fabricate(:topic, bumped_at: 1.hour.ago)
+        timestamp = 1.day.ago
+        Fabricate(:post, topic: topic, created_at: timestamp)
+
+        put "/t/#{topic.id}/reset-bump-date.json"
+        expect(response.status).to eq(200)
+        expect(topic.reload.bumped_at).to be_within_one_second_of(timestamp)
+      end
+    end
+  end
 end

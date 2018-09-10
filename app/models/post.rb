@@ -106,7 +106,7 @@ class Post < ActiveRecord::Base
     when 'string'
       where('raw ILIKE ?', "%#{pattern}%")
     when 'regex'
-      where('raw ~ ?', "(?n)#{pattern}")
+      where('raw ~* ?', "(?n)#{pattern}")
     end
   }
 
@@ -437,8 +437,12 @@ class Post < ActiveRecord::Base
     post_actions.where(post_action_type_id: PostActionType.flag_types_without_custom.values, deleted_at: nil).count != 0
   end
 
+  def active_flags
+    post_actions.active.where(post_action_type_id: PostActionType.flag_types_without_custom.values)
+  end
+
   def has_active_flag?
-    post_actions.active.where(post_action_type_id: PostActionType.flag_types_without_custom.values).count != 0
+    active_flags.count != 0
   end
 
   def unhide!
@@ -543,13 +547,7 @@ class Post < ActiveRecord::Base
   def set_owner(new_user, actor, skip_revision = false)
     return if user_id == new_user.id
 
-    edit_reason = I18n.with_locale(SiteSetting.default_locale) do
-      I18n.t(
-        'change_owner.post_revision_text',
-        old_user: self.user&.username_lower || I18n.t('change_owner.deleted_user'),
-        new_user: new_user.username_lower
-      )
-    end
+    edit_reason = I18n.t('change_owner.post_revision_text', locale: SiteSetting.default_locale)
 
     revise(
       actor,

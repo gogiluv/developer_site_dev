@@ -58,7 +58,7 @@ class PostAlerter
       if post.last_editor_id != post.user_id
         # Mention comes from an edit by someone else, so notification should say who added the mention.
         #mentioned_opts = { user_id: editor.id, original_username: editor.username, display_username: editor.username }
-        mentioned_opts = { user_id: editor.id, original_username: post.anonymous_chk ? "unknown" : editor.username, display_username: epost.anonymous_chk ? "unknown" : editor.username }
+        mentioned_opts = { user_id: editor.id, original_username: post.anonymous_chk ? "anonymous" : editor.username, display_username: epost.anonymous_chk ? "anonymous" : editor.username }
       end
 
       expand_group_mentions(mentioned_groups, post) do |group, users|
@@ -369,8 +369,9 @@ class PostAlerter
     notification_data.merge!(topic_title: topic_title,
                              original_post_id: original_post.id,
                              original_post_type: original_post.post_type,
-                             original_username: post.anonymous_chk ? "unknown" : original_username,
-                             display_username: post.anonymous_chk ? "unknown" : (opts[:display_username] || post.user.username))
+                             original_username: post.anonymous_chk ? "anonymous" : original_username,
+                             revision_number: opts[:revision_number],
+                             display_username: post.anonymous_chk ? "anonymous" : (opts[:display_username] || post.user.username))
 
     if group = opts[:group]
       notification_data[:group_id] = group.id

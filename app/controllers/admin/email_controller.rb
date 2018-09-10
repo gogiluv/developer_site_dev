@@ -11,19 +11,24 @@ class Admin::EmailController < Admin::AdminController
     params.require(:email_address)
     begin
       Jobs::TestEmail.new.execute(to_address: params[:email_address])
-      render body: nil
+      if SiteSetting.disable_emails == "yes"
+        render json: { sent_test_email_message: I18n.t("admin.email.sent_test_disabled") }
+      elsif SiteSetting.disable_emails == "non-staff" && !User.find_by_email(params[:email_address])&.staff?
+        render json: { sent_test_email_message: I18n.t("admin.email.sent_test_disabled_for_non_staff") }
+      else
+        render json: { sent_test_email_message: I18n.t("admin.email.sent_test") }
+      end
     rescue => e
       render json: { errors: [e.message] }, status: 422
     end
   end
 
   def sent
-    email_logs = EmailLog.sent
-      .joins("
-        LEFT JOIN post_reply_keys
-        ON post_reply_keys.post_id = email_logs.post_id
-        AND post_reply_keys.user_id = email_logs.user_id
-      ")
+    email_logs = EmailLog.joins(<<~SQL)
+      LEFT JOIN post_reply_keys
+      ON post_reply_keys.post_id = email_logs.post_id
+      AND post_reply_keys.user_id = email_logs.user_id
+    SQL
 
     email_logs = filter_logs(email_logs, params)
 

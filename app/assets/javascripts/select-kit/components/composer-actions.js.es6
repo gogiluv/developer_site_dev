@@ -192,6 +192,17 @@ export default DropdownSelectBoxComponent.extend({
       });
     }
 
+    const currentUser = Discourse.User.current();
+
+    if (action === REPLY && currentUser && currentUser.get("staff")) {
+      items.push({
+        name: I18n.t("composer.composer_actions.toggle_topic_bump.label"),
+        description: I18n.t("composer.composer_actions.toggle_topic_bump.desc"),
+        icon: "anchor",
+        id: "toggle_topic_bump"
+      });
+    }
+
     return items;
   },
 
@@ -234,6 +245,10 @@ export default DropdownSelectBoxComponent.extend({
     model.toggleProperty("whisper");
   },
 
+  toggleTopicBumpSelected(options, model) {
+    model.toggleProperty("noBump");
+  },
+
   replyToTopicSelected(options) {
     options.action = REPLY;
     options.topic = _topicSnapshot;
@@ -259,6 +274,15 @@ export default DropdownSelectBoxComponent.extend({
       const postUsername = _postSnapshot.get("username");
       if (postUsername) {
         usernames = postUsername;
+      }
+    } else if (this.get("composerModel.topic")) {
+      const stream = this.get("composerModel.topic.postStream");
+
+      if (stream.get("firstPostPresent")) {
+        const post = stream.get("posts.firstObject");
+        if (post && !post.get("yours") && post.get("username")) {
+          usernames = post.get("username");
+        }
       }
     }
 
