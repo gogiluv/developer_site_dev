@@ -51,13 +51,24 @@
 .postbox{
         float: left;
         width: 33%;
-        height: 150px;
+        height: auto;
         //border: 1px solid lightgray;
 }
 .postbox li{
         text-overflow: ellipsis;
         white-space: nowrap;
         overflow: hidden;
+}
+.postbox li:nth-child(2) div{
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+	max-width: 50%;
+	float:left;
+	padding-right: 5px;
+}
+.postbox a:hover {
+	background-color: lightgrey;
 }
 .rightbox{
         float: left;
@@ -85,6 +96,7 @@
         //border: 1px solid lightgray;
         background-color: #f7f7f7;
 }
+
 
 /**button**/
 @charset "utf-8";

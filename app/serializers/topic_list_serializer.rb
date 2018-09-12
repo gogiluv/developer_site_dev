@@ -12,7 +12,8 @@ class TopicListSerializer < ApplicationSerializer
              :shared_drafts,
              :guide_list,
              :qna_list,
-             :popular_tags
+             :popular_tags,
+	     :shader_list
 
   has_many :topics, serializer: TopicListItemSerializer, embed: :objects
   has_many :shared_drafts, serializer: TopicListItemSerializer, embed: :objects

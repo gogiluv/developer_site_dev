@@ -230,7 +230,9 @@ createWidget("header-buttons", {
     }
 
     const buttons = [];
-
+    
+    //ldap 로그인을 사용하고 있어서 회원 가입 버튼이 필요없다
+    /*
     if (attrs.canSignUp && !attrs.topic) {
       buttons.push(
         this.attach("button", {
@@ -240,6 +242,7 @@ createWidget("header-buttons", {
         })
       );
     }
+    */
 
     buttons.push(
       this.attach("button", {

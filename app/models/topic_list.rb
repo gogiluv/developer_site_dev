@@ -42,7 +42,8 @@ class TopicList
     :category,
     :guide_list,
     :qna_list,
-    :popular_tags
+    :popular_tags,
+    :shader_list
   )
 
   def initialize(filter, current_user, topics, opts = nil)

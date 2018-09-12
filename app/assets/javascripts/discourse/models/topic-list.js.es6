@@ -180,7 +180,8 @@ TopicList.reopenClass({
 
     json.guide_list = json.topic_list.guide_list;
     json.qna_list = json.topic_list.qna_list;
-    json.popular_tags = json.topic_list.popular_tags
+    json.popular_tags = json.topic_list.popular_tags;
+    json.shader_list = json.topic_list.shader_list;
 
     if (json.topic_list.shared_drafts) {
       json.sharedDrafts = this.topicsFrom(store, json, {

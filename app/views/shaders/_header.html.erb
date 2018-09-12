@@ -13,9 +13,9 @@
             </a>
           </div>
               <div class='panel clearfix'>
-                <a href="<%= path "/"%>" class='btn btn-primary'><i class="fa fa-home"></i>개발자 사이트 가기</a>
+                <a href="<%= path "/"%>" class='btn btn-primary' style="margin-right:10px;"><i class="fa fa-home"></i>개발자 사이트 가기</a>
               <% unless current_user %>
-                <a href="<%= path "#"%>" class='btn btn-primary btn-small login-button'><i class="fa fa-user"></i> <%= I18n.t('log_in') %></a>
+                <a href="#" onclick="Shader.doLogin()" class='btn btn-primary login-button'><i class="fa fa-user"></i> <%= I18n.t('log_in') %></a>
               <% else %>
 		<ul role="navigation" class="icons d-header-icons clearfix">
 		<li id="current-user" class="">

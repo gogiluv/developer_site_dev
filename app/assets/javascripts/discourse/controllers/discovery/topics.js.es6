@@ -84,6 +84,10 @@ const controllerOpts = {
 
     dismissReadPosts() {
       showModal("dismiss-read", { title: "topics.bulk.dismiss_read" });
+    },
+
+    go_to(url){
+	location.href=url;
     }
   },
 

@@ -31,8 +31,14 @@
          localStorage.setItem('lastAuthResult', JSON.stringify(authResult));
          window.location.href = '<%= Discourse.base_url.html_safe %>?authComplete=true';
        } else {
-         window.opener.Discourse.authenticationComplete(authResult);
-         window.close();
+	 try{
+        	 window.opener.Discourse.authenticationComplete(authResult);
+	 }finally{
+
+		 console.log(authResult.authenticated);
+		 if(authResult.authenticated){ window.opener.location.reload(); }
+	         window.close();
+	 }
        }
     </script>
   </div>

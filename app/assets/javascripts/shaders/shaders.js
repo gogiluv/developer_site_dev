@@ -262,7 +262,11 @@ var Shader = {
 		Shader.shader_params.vertex_text = GetVertexStringData();
 		Shader.shader_params.fragment_text = GetFragmentStringData();
 		Shader.shader_params.dat_gui_text = encodeURI(GetDatGUIStringData());
-		Shader.shader_params.img_data = GetImgData();
+		//img_data는 파일을 업로드 할때 set 된다.
+		//업로드된 이미지가 없으면 GetImgData를 호출해 쉐이더를 캡쳐한다	
+		if(Shader.shader_params.img_data==null || Shader.shader_params.img_data==''){
+			Shader.shader_params.img_data = GetImgData();
+		}
 	},
 
 	//유효성 검사
@@ -462,7 +466,76 @@ var Shader = {
 	
 	go_to_main: function(){
 		location.href="/shaders";
+	},
+
+	doLogin: function(){
+		var name = "ldap"
+		var authUrl = "/auth/"+name
+		var left = 400;
+		var top = 200;
+		var height = 250;
+		var width = 500;
+
+		var w = window.open(
+				authUrl,
+				"_blank",
+				"menubar=no,status=no,height=" +
+				height +
+				",width=" +
+				width +
+				",left=" +
+				left +
+				",top=" +
+				top
+				);
+		//const self = this;
+		const timer = setInterval(function() {
+			if (!w || w.closed) {
+				console.log('close');
+				clearInterval(timer);
+				//self.set("authenticate", null);
+			}
+		}, 1000);
+	},
+
+	add_upload_img: function(){
+		$('.img-upload').click();
+	},
+
+	set_upload_img: function(element){
+		var e = $(element);
+		var file = e[0].files[0];
+		var reader = new FileReader();
+		var max_file_size = 1*1024*1024; //1m 제한
+
+		reader.onload = function(e) {
+			var img_data = e.target.result;
+			Shader.shader_params.img_data = img_data;
+			$('.img-preview').attr('src', img_data);
+			$('.img-preview').show();
+			$('.img-remove-btn').show();
+		}
+		console.log(file);
+
+		if(file.size > max_file_size){
+			alert("파일이 너무 큽니다. 1m 제한");
+			return
+		}
+		console.log(file.type);
+		if(file.type!='image/png' && file.type!='image/jpeg'){
+			Shader.msg_pop('잘못된 형식', 'png, jpg 파일만 업로드 가능합니다.')
+			return
+		}
+
+		reader.readAsDataURL(file);
+	},
+	remove_upload_img: function(){
+		$('.img-preview').attr('src', null);
+		$('.img-preview').hide();
+		$('.img-remove-btn').hide();
+		Shader.shader_params.img_data = null;
 	}
+
 };
 
 var ShaderComment = {
@@ -491,7 +564,7 @@ var ShaderComment = {
 				'shader_comment[content]': content_text
 			},
 			success:function(data){
-				//TODO 덧글 목록 작성
+				// 덧글 목록 작성
 				if(!(data.result===false)){
 					ShaderComment.get_list();
 				}else{
@@ -505,7 +578,7 @@ var ShaderComment = {
 				e.attr('readonly', false);
 				btn.attr('onclick', 'ShaderComment.submit()');
 				btn.children('i').removeClass('fa-spinner').addClass('fa-commenting');
-				}, 000);
+				}, 1000);
 			}
 		});
 	},

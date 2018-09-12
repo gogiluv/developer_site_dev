@@ -148,6 +148,10 @@ class ListController < ApplicationController
 
       #puts "query end---------------------------------------------------------"
 
+      #add shader room list
+      @shader_list = Shader.select(:id, :title, :like_count, :img_data, 'users.username').joins(:user).order(created_at: :desc).limit(3)
+      list.shader_list = @shader_list
+
       respond_with_list(list)
     end
 

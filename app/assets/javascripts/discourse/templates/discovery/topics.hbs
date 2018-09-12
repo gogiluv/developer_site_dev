@@ -122,7 +122,29 @@
                                 </ul>
                         </div>
                 {{/each}}
+<div class="boxlabel"><div style="width:auto; float:left;"><h3 class="mtit">&nbsp; Shader Room</h3></div>
+                                      <div style="width:20%; float:left; margin:4px 0px 0px 20px; text-align:left;"><h5 class="mtit"><a {{action "go_to" '/shaders' }}>더 보기</a></h5></div>
+                </div>
+                {{#each model.shader_list as |row|}}
+                        <div class="postbox">
+                                <ul>
+                                        <li><a {{action "go_to" (concat '/shaders/' row.id) }}>
+					<div style="border: 1px solid lightgrey;"><img src="{{ row.img_data }}" width="100%" height="150" alt="Com2uS Developer" style="display:block;"></div></a></li>
+
+                                        <li>
+						<div>
+							<a {{action "go_to" (concat '/shaders/' row.id) }} ><strong>{{row.title}}</strong></a>
+						</div>
+						<div>
+                                                        <span class="shader-box-username">by.{{ row.username }} ♥ {{ row.like_count  }}</span>
+                                                         
+						</div>
+					</li>
+                                </ul>
+                        </div>
+                {{/each}}
         </div>
+
 
         <div class="rightbox">
                 <div class="noticebox">
