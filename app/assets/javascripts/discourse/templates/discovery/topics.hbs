@@ -55,8 +55,12 @@
         -->
 
         <div class="boxlist">
-                <div class="boxlabel"><div style="width:auto; float:left;"><h3 class="mtit">&nbsp; Answers </h3> </div>
-                                      <div style="width:20%; float:left; margin:4px 0px 0px 20px; text-align:left;"><h5 class="mtit"><a href="/c/qna/">더 보기</a></h5></div>
+                <div class="boxlabel">
+					<span style="font-size:20px; font-weight:bold; padding-left:10px;">Answers</span>
+					<span style="font-size:12px; color:dimgray; padding-left:10px;">개발관련 질의는 물론 잡학한 질문들까지 다양하게 의견을 나누는 공간입니다.</span>
+					<span style="float:right; line-height:30px; padding-right:10px;">
+						<a href="/c/qna/">더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
+					</span>
                 </div>
 
                 {{#each model.qna_list as |row|}}
@@ -64,11 +68,15 @@
 
                                 <ul>
                                         <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
+                                        <li>{{row.excerpt}}</li>
                                         {{#if row.anonymous_chk}}
                                           <li>작성자 : <span class="t3" style="color:black;">anonymous</span></li>
                                         {{else}}
-                                          <li>작성자 : <a href="/u/{{row.username}}"><span class="t3" style="color:black;">{{row.username}} {{#if row.u_name}} ({{row.u_name}}) {{/if}}</span></a></li>
+                                          <li>작성자 : <a href="/u/{{row.username}}">
+								<span class="t3" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</span>
+							</a></li>
                                         {{/if}}
+					<!--
                                         <li>카테고리 :
                                                        {{#if row.c_parent_category_id}}
                                                        <a class="badge-wrapper box" href="/c/qna/{{row.c_slug}}">
@@ -84,24 +92,33 @@
                                                        </a>
                                                        {{/if}}
                                         </li>
+					-->
                                         <li>등록일 : {{row.created_dt}}</li>
                                         <li>조회수 : {{row.views}}</li>
                                 </ul>
                         </div>
                 {{/each}}
-<div class="boxlabel"><div style="width:auto; float:left;"><h3 class="mtit">&nbsp; 개발 가이드</h3></div>
-                                      <div style="width:20%; float:left; margin:4px 0px 0px 20px; text-align:left;"><h5 class="mtit"><a href="/c/dv-guide/">더 보기</a></h5></div>
+		<div class="boxlabel">
+					<span style="font-size:20px; font-weight:bold; padding-left:10px;">개발 가이드</span>
+					<span style="font-size:12px; color:dimgray; padding-left:10px;">나만 알고 있는 노하우, 함께 알아두면 좋은 이슈들을 누구라도 공유하는 공간입니다.</span>
+					<span style="float:right; line-height:30px; padding-right:10px;">
+						<a href="/c/dv-guide/">더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
+					</span>
                 </div>
 
                 {{#each model.guide_list as |row|}}
                         <div class="postbox">
                                 <ul>
                                         <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
+                                        <li>{{row.excerpt}}</li>
                                         {{#if row.anonymous_chk}}
                                           <li>작성자 : <span class="t3" style="color:black;">anonymous</span></li>
                                         {{else}}
-                                          <li>작성자 : <a href="/u/{{row.username}}"><span class="t3" style="color:black;">{{row.username}} {{#if row.u_name}} ({{row.u_name}}) {{/if}}</span></a></li>
+                                          <li>작성자 : <a href="/u/{{row.username}}">
+								<span class="t3" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</span>
+							</a></li>
                                         {{/if}}
+					<!--
                                         <li>카테고리 :
                                                        {{#if row.c_parent_category_id}}
                                                        <a class="badge-wrapper box" href="/c/dv-guide/{{row.c_slug}}">
@@ -117,21 +134,27 @@
                                                        </a>
                                                        {{/if}}
                                         </li>
+					-->
                                         <li>등록일 : {{row.created_dt}}</li>
                                         <li>조회수 : {{row.views}}</li>
                                 </ul>
                         </div>
                 {{/each}}
-<div class="boxlabel"><div style="width:auto; float:left;"><h3 class="mtit">&nbsp; Shader Room</h3></div>
-                                      <div style="width:20%; float:left; margin:4px 0px 0px 20px; text-align:left;"><h5 class="mtit"><a {{action "go_to" '/shaders' }}>더 보기</a></h5></div>
+		<div class="boxlabel">
+					<span style="font-size:20px; font-weight:bold; padding-left:10px;">Shader Room</span>
+					<span style="font-size:12px; color:dimgray; padding-left:10px;">쉽게 쉐이더를 적용해보고 나의 쉐이더를 공유하는 공간입니다.</span>
+					<span style="float:right; line-height:30px; padding-right:10px;">
+						<a {{action "go_to" '/shaders' }}>더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
+					</span>
                 </div>
                 {{#each model.shader_list as |row|}}
                         <div class="postbox">
                                 <ul>
                                         <li><a {{action "go_to" (concat '/shaders/' row.id) }}>
-					<div style="border: 1px solid lightgrey;"><img src="{{ row.img_data }}" width="100%" height="150" alt="Com2uS Developer" style="display:block;"></div></a></li>
+					<div style="border: 1px solid lightgrey;">
+						<img src="{{ row.img_data }}" width="100%" height="150" alt="Com2uS Developer" style="display:block;"></div></a></li>
 
-                                        <li>
+                                        <li style="padding-top:5px;">
 						<div>
 							<a {{action "go_to" (concat '/shaders/' row.id) }} ><strong>{{row.title}}</strong></a>
 						</div>

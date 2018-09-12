@@ -117,8 +117,8 @@ class ListController < ApplicationController
         if filter == :latest
           @guide_c_info = Category.where(parent_category_id: nil, name: "개발 가이드").select(:id, :parent_category_id, :name).limit(1)
           @guide_c_info.each do |raw|
-                  @guide_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD HH24:MI:SS\') as created_dt,
-                                           t.views, t.visible, t.deleted_at,  u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+                  @guide_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD\') as created_dt,
+                                           t.views, t.visible, t.deleted_at, t.excerpt, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
                                            c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk from topics as t
                                            inner join categories as c on t.category_id=c.id
                                            inner join users as u on t.user_id = u.id
@@ -128,8 +128,8 @@ class ListController < ApplicationController
           @qna_c_info = Category.where(parent_category_id: nil, name: "질의 응답").select(:id, :parent_category_id, :name).limit(1)
 
           @qna_c_info.each do |raw|
-                  @qna_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD HH24:MI:SS\') as created_dt,
-                                         t.views, t.visible, t.deleted_at,  u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+                  @qna_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD\') as created_dt,
+                                         t.views, t.visible, t.deleted_at, t.excerpt, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
                                          c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk from topics as t
                                          inner join categories as c on t.category_id=c.id
                                          inner join users as u on t.user_id = u.id

@@ -511,7 +511,7 @@
 								for (var i = 0; i < 6; i++)
 								{								
 									var _temp;
-									if(typeof _CubeTexture.image[i].image == 'undefined')
+									if(typeof _CubeTexture.image[i] == 'undefined')
 									{
 										materialArray.push( new THREE.MeshBasicMaterial({												 	
 								        map:  THREE.ImageUtils.loadTexture( 'undefined'),
@@ -522,7 +522,7 @@
 									else
 									{
 										materialArray.push( new THREE.MeshBasicMaterial({												 	
-									        map:  THREE.ImageUtils.loadTexture( _CubeTexture.image[i].image.src),
+									        map:  THREE.ImageUtils.loadTexture( _CubeTexture.image[i].src),
 									        side: THREE.BackSide
 								    	}));
 										
@@ -539,12 +539,12 @@
 	        				}
 	        				
 	        				
-        					/*if(IsAllTexture(_CubeTexture))
+        					if(IsAllTexture(_CubeTexture))
 							{
 								var _map = null;
-								var urls = [ _CubeTexture.image[0].image.src, _CubeTexture.image[1].image.src,
-											 _CubeTexture.image[2].image.src, _CubeTexture.image[3].image.src,
-											 _CubeTexture.image[4].image.src, _CubeTexture.image[5].image.src ];
+								var urls = [ _CubeTexture.image[0].src, _CubeTexture.image[1].src,
+											 _CubeTexture.image[2].src, _CubeTexture.image[3].src,
+											 _CubeTexture.image[4].src, _CubeTexture.image[5].src ];
 								var _envMap = THREE.ImageUtils.loadTextureCube( urls );
 								_envMap.format = THREE.RGBFormat;
 								//_envMap.mapping = THREE.CubeRefractionMapping;
@@ -578,7 +578,7 @@
 
 							    _Material.map = true;
 	        					_Material.uniforms[_folderKey].value = _envMap;							   
-							}*/
+							}
 			        	}
 	        		}
         		}
@@ -589,7 +589,7 @@
 			{
 				for(var i = 0; i < cubeTexure.image.length; i++)
 				{
-					if(typeof cubeTexure.image[i].image == 'undefined')
+					if(typeof cubeTexure.image[i] == 'string')
 						return false;
 				}					
 				return true;
@@ -680,7 +680,18 @@
 				}
 				else if(_qual.keyword == 'samplerCube')
 				{
-
+					if(_Material.uniforms[_key].value.image.length == 6)
+					{
+						var _dataes = [];
+						for(var i = 0; i < _Material.uniforms[_key].value.image.length; ++i)
+						{
+							var _url = _Material.uniforms[_key].value.image[i].src;
+							var _char = b64toByteChars(_url);
+							_dataes.push(_char);
+						}
+						_qual["name"] = GetGUIValue(folderKey);
+						_qual["value"] = _dataes;
+					}								
 				}
 				else
 				{					
@@ -814,11 +825,7 @@
 				        	var _b64Data =  GetQualifiersValues(i);
 				        	if(_b64Data != 'undefined')
 		        			{
-					        	var _contentType = 'image/jpeg';
-					        	var _blob = ByteCharstoBlob(_b64Data, _contentType);					        	
-					        	var _blobUrl = URL.createObjectURL(_blob);
-					        	var _img = new Image();//document.createElement('img');
-								_img.src = _blobUrl;
+					        	var _img = GetImage(_b64Data);
 					        	var _texture = GetTexture(_img);
 
 					        	if(typeof _texture != 'undefined') {
@@ -830,6 +837,29 @@
 					        		}
 					        	}
 		        			}					        	
+				        }
+				        else if(qualifiers[i].keyword == 'samplerCube')
+				        {
+				        	var _dataes =  GetQualifiersValues(i);
+				        	if(_dataes != 'undefined')
+				        	{
+				        		var _urls = [];
+				        		var _images = [];
+				        		for(var i = 0; i < _dataes.length; ++i)
+				        		{
+				        			var _img = GetImage(_dataes[i]);
+				        			_images.push(_img);
+				        			_urls.push(_img.src);
+				        		}
+
+				        		var _envMap = THREE.ImageUtils.loadTextureCube( _urls );
+								_envMap.format = THREE.RGBFormat;
+
+								_envMap.image = _images;
+
+							    _Material.map = true;
+	        					_Material.uniforms[_folderKey].value = _envMap;	
+				        	}
 				        }
 				        else//vec값의 경우 dat.GUI 값이 변하면 실시간으로 수정하여 준다.
 				        {
@@ -843,9 +873,14 @@
 			}
 
 
-			function CreateTexture()
+			function GetImage(b64Data)
 			{
-
+				var _contentType = 'image/jpeg';
+	        	var _blob = ByteCharstoBlob(b64Data, _contentType);					        	
+	        	var _blobUrl = URL.createObjectURL(_blob);
+	        	var _img = new Image();//document.createElement('img');
+				_img.src = _blobUrl;
+				return _img;
 			}
 
 			function GetBackupQualifiersValues (index)
@@ -915,6 +950,16 @@
 		        	 	_GUI.__folders[folderKey].__controllers[2].object[_keys[2]],
 		        	 	_GUI.__folders[folderKey].__controllers[3].object[_keys[3]] 
 		        	 	);		
+					break;
+					case 6:
+					_value = [
+						_GUI.__folders[folderKey].__controllers[0].object[_keys[0]], 
+		        	 	_GUI.__folders[folderKey].__controllers[1].object[_keys[1]],
+		        	 	_GUI.__folders[folderKey].__controllers[2].object[_keys[2]],
+		        	 	_GUI.__folders[folderKey].__controllers[3].object[_keys[3]],
+		        	 	_GUI.__folders[folderKey].__controllers[4].object[_keys[4]],
+		        	 	_GUI.__folders[folderKey].__controllers[5].object[_keys[5]],
+		        	 	];
 					break;
 				}
 				return _value;	
@@ -1279,43 +1324,15 @@
 		    {
 		    	//https://threejs.org/docs/#api/textures/CubeTexture
 		    	console.log('cube empty!');
-		    	//var _cube = new THREE.CubeTexture();
-		    	var _urls = [];
+		    	var _cube = new THREE.CubeTexture();
 
 		    	for(var i = 0; i < 6; ++i)
 		    	{
 		    		if( i == index)
-		    			_urls.push(THREE.ImageUtils.loadTexture( image.src ));
-		    		else
-		    		{
-		    			if(typeof _Material.uniforms[folderKey].value != 'undefined' && typeof _Material.uniforms[folderKey].value.image != 'undefined')
-		    			{
-		    				if(_Material.uniforms[folderKey].value.image.length > i)
-		    				{
-		    					if(typeof _Material.uniforms[folderKey].value.image[i] != 'undefined')
-			    					_urls.push(_Material.uniforms[folderKey].value.image[i].image.src);
-			    				else
-			    					_urls.push('undefined');
-		    				}
-		    				else
-		    					_urls.push('undefined');
-		    			}
-		    			else
-	    					_urls.push('undefined');
-		    		}
-		    	}
-
-		    	var _envMap = THREE.ImageUtils.loadTextureCube( _urls );
-				_envMap.format = THREE.RGBFormat;
-
-
-		    	/*for(var i = 0; i < 6; ++i)
-		    	{
-		    		if( i == index)
 		    		{
 		    			//_cube.images[i] = image;	
-		    			_cube.image[i] = THREE.ImageUtils.loadTexture( image.src );
-		    			_cube.image[i].image = image;
+		    			_cube.image[i] = image;//THREE.ImageUtils.loadTexture( image.src );
+		    			//_cube.image[i].image = image;
 		    		}
 		    		else
 		    		{
@@ -1326,7 +1343,7 @@
 		    					if(typeof _Material.uniforms[folderKey].value.image[i] != 'undefined')
 		    					{
 		    						_cube.image[i] = _Material.uniforms[folderKey].value.image[i];//_Material.uniforms[folderKey].value.image[i];
-		    						_cube.image[i].image = _Material.uniforms[folderKey].value.image[i].image;
+		    						//_cube.image[i].image = _Material.uniforms[folderKey].value.image[i].image;
 		    					}
 		    					else
 		    						_cube.image[i] = 'undefined';
@@ -1338,26 +1355,10 @@
 		    				_cube.image[i] = 'undefined';
 	    			}		    		
 		    	}
-		    	
-		    	//var _cube = THREE.ImageUtils.loadTextureCube(_urls);
-		    	//if(folderKey == 'unity_SpecCube0')
-		    	//	_cube.format = THREE.CubeRefractionMapping;
-		    	//else
-		    		_cube.format = THREE.RGBFormat;
-		    	return _cube;*/
-
-		    	return _envMap;
+	    		_cube.format = THREE.RGBFormat;
+		    	return _cube;
 		    }
 
-		    function GetCubeTextures(path0, path1, path2, path3, path4, path5)
-		    {
-		    	//https://threejs.org/docs/#api/textures/CubeTexture
-		    	console.log('cube empty!');
-		    	var _loader = new THREE.CubeTextureLoader();
-				var urls = [ path0, path1, path2, path3, path4, path5 ];	    	
-		    	var textureCube = _loader.load(urls);
-		    	return textureCube;
-		    }
 
 		   function onWindowResize() 
 		   {
