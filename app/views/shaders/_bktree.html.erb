@@ -177,21 +177,7 @@
 
 		  	function InitGUI()
 		  	{	
-		  		datInfo = function() {
-
-		  			this.AddSphere = function(){
-
-		  				var geometry = new THREE.SphereGeometry( 5, 5, 5 );//new THREE.PlaneGeometry(30, 30, 32);//new THREE.BoxGeometry(10, 10, 10);
-						var obj = new THREE.Mesh(geometry, _Material);
-
-						AddSceneObject(obj);
-						_Object = obj;
-
-		  			}		  			
-		  		}	  		
-
-		  		var info = new datInfo();
-		  		_GUI.add(info, 'AddSphere');
+		  		
 		  		/*datInfo = function() {
 
 					//this.objectName = guiInfo['object'];
@@ -473,7 +459,7 @@
 				        }
 				        else if(qualifiers[i].keyword == 'samplerCube')
 				        {
-				        	cubemap(selectTexturekey, _folderKey, image);
+				        	SetCubeMap(selectTexturekey, _folderKey, image);
 				        	//ReflectionMaterial = cubemap(selectTexturekey, _folderKey, image);
 				        	//ReflectionMaterial.needsUpdate = true;
 				        }
@@ -496,7 +482,7 @@
 		    	_Object.needsUpdate = true;
 			}
 
-			function cubemap(selectTexturekey, _folderKey, image)
+			function SetCubeMap(selectTexturekey, _folderKey, image)
         	{	
         		
         		if(selectTexturekey.includes(_folderKey) == true)
@@ -553,7 +539,7 @@
 	        				}
 	        				
 	        				
-        					if(IsAllTexture(_CubeTexture))
+        					/*if(IsAllTexture(_CubeTexture))
 							{
 								var _map = null;
 								var urls = [ _CubeTexture.image[0].image.src, _CubeTexture.image[1].image.src,
@@ -561,7 +547,7 @@
 											 _CubeTexture.image[4].image.src, _CubeTexture.image[5].image.src ];
 								var _envMap = THREE.ImageUtils.loadTextureCube( urls );
 								_envMap.format = THREE.RGBFormat;
-								_envMap.mapping = THREE.CubeRefractionMapping;
+								//_envMap.mapping = THREE.CubeRefractionMapping;
 								
 								//var _materials = new THREE.MeshBasicMaterial({ color: 0xffffff});//, envMap : _envMap, map: _map, reflectivity:1.3} );
 								//_materials['envMap'] = _envMap;
@@ -588,14 +574,11 @@
 							       //depthWrite: false,
 							    //   side: THREE.DoubleSide,							       
 							    //});
+							    _envMap.image = _CubeTexture.image;
+
 							    _Material.map = true;
 	        					_Material.uniforms[_folderKey].value = _envMap;							   
-							}
-	        				
-	        				
-
-							
-
+							}*/
 			        	}
 	        		}
         		}
@@ -660,26 +643,14 @@
 				jsonData = GetDatGUIStringData();
 			}
 
-			function ab2str(bytes) {
-	          var uintArray = new Uint16Array(bytes);
-		  /*
-	          var converted = [];
-	          uintArray.forEach(function(byte) {converted.push(String.fromCharCode(byte))});
-	          return converted.join("");
-		  */
-		  return String(uintArray);
+			function ab2str(bytes) 
+			{
+	        	var uintArray = new Uint16Array(bytes);
+	  			return String(uintArray);
 	        }
 
 	        function str2ab(str) {
-		  /*
-	          var buf = new ArrayBuffer(str.length*2); // 2 bytes for each char
-	          var bufView = new Uint16Array(buf);
-	          for (var i=0, strLen=str.length; i < strLen; i++) {
-	            bufView[i] = str.charCodeAt(i);
-	          }
-	          return buf;
-		  */
-		  return new Uint16Array(Array.from(str.split(','), x => Number(x))).buffer;
+		  		return new Uint16Array(Array.from(str.split(','), x => Number(x))).buffer;
 	        }
 
 			function GetCurrentGUIValue(folderKey, array)
@@ -717,42 +688,6 @@
 				}
 				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
 			}
-
-			/*function GetCurrentGUIValue2(folderKey, array)
-			{
-				
-				var _qual = qualifiers.find(function(element){
-					return element.variableName == folderKey;
-				});
-
-				//console.log("variableName : " + _qual.variableName + " / keyword : " + _qual.keyword);
-				if(_qual.keyword == 'sampler2D')
-				{	
-					var _key = array[0].property;
-					//var _tempValue = array[0].object[_key];		
-					if(typeof _Material.uniforms[_key].value.image != 'undefined')
-					{
-						var _b64Data = _Material.uniforms[_key].value.image.currentSrc;//fileTagBackup[_key]['texture'].src;
-						_qual["name"] = GetGUIValue(folderKey);
-						_qual["value"] = _b64Data;//b64toBlob(_b64Data, _contentType);						
-					}
-					else
-					{
-						_qual["name"] = 'undefined';
-						_qual["value"] = 'undefined';						
-					}
-					//_qual["value"] = GetTexture(_tempValue);
-				}
-				else if(_qual.keyword == 'samplerCube')
-				{
-
-				}
-				else
-				{					
-					_qual["value"] = GetGUIValue(folderKey);
-				}
-				//console.log("folderKey : " + folderKey + " / keyword : " + _qual.keyword + " / value : " + _qual["value"]);		
-			}*/
 
 			function b64toByteChars(b64Data)
 			{
@@ -1344,9 +1279,37 @@
 		    {
 		    	//https://threejs.org/docs/#api/textures/CubeTexture
 		    	console.log('cube empty!');
-		    	var _cube = new THREE.CubeTexture();
-		    	//var _urls = [];
+		    	//var _cube = new THREE.CubeTexture();
+		    	var _urls = [];
+
 		    	for(var i = 0; i < 6; ++i)
+		    	{
+		    		if( i == index)
+		    			_urls.push(THREE.ImageUtils.loadTexture( image.src ));
+		    		else
+		    		{
+		    			if(typeof _Material.uniforms[folderKey].value != 'undefined' && typeof _Material.uniforms[folderKey].value.image != 'undefined')
+		    			{
+		    				if(_Material.uniforms[folderKey].value.image.length > i)
+		    				{
+		    					if(typeof _Material.uniforms[folderKey].value.image[i] != 'undefined')
+			    					_urls.push(_Material.uniforms[folderKey].value.image[i].image.src);
+			    				else
+			    					_urls.push('undefined');
+		    				}
+		    				else
+		    					_urls.push('undefined');
+		    			}
+		    			else
+	    					_urls.push('undefined');
+		    		}
+		    	}
+
+		    	var _envMap = THREE.ImageUtils.loadTextureCube( _urls );
+				_envMap.format = THREE.RGBFormat;
+
+
+		    	/*for(var i = 0; i < 6; ++i)
 		    	{
 		    		if( i == index)
 		    		{
@@ -1381,10 +1344,9 @@
 		    	//	_cube.format = THREE.CubeRefractionMapping;
 		    	//else
 		    		_cube.format = THREE.RGBFormat;
-				/*var urls = [];
-				urls[index] = url;	    	
-		    	var textureCube = _loader.load(urls);*/
-		    	return _cube;
+		    	return _cube;*/
+
+		    	return _envMap;
 		    }
 
 		    function GetCubeTextures(path0, path1, path2, path3, path4, path5)
@@ -1775,14 +1737,6 @@
 					GetCurrentGUIValue(object, _GUI.__folders[object].__controllers);
 				});
 		    }
-
-		    /*function GetDatGUIData2()
-		    {
-		    	Object.keys(_GUI.__folders).forEach(function(object, index){
-					//console.log("key : " + object);
-					GetCurrentGUIValue2(object, _GUI.__folders[object].__controllers);
-				});
-		    }*/
 
 		    function SetDBData(fbx, vertex, frag, datgui)
 			{

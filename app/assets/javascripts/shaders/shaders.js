@@ -102,7 +102,7 @@ var Shader = {
 		Shader.confirm_pop('confirm' ,'쉐이더를 업로드 하시겠습니까?', Shader.shader_submit_func(submit_type));
 	},
 
-	msg_pop: function(type, msg, style={}){
+	msg_pop: function(type, msg, style){
 		var html = [];
 		html.push('<div class="shader-pop overlay">');
 		html.push('<div class="overlay-inbox">');
@@ -146,7 +146,7 @@ var Shader = {
 		$('.shader-pop').remove();
 	},
 	
-	shader_submit_func(submit_type){
+	shader_submit_func: function(submit_type){
 		return function(){
 			//로딩창 on
 			Shader.onLoading();

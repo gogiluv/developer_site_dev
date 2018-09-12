@@ -117,6 +117,8 @@ module Discourse
       plugin-third-party.js
       markdown-it-bundle.js
       service-worker.js
+      shaders_manifest.js
+      bktree_manifest.js
     }
 
     # Precompile all available locales

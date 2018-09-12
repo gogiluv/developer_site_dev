@@ -543,9 +543,9 @@
     }
 
 </style>
-  <%= javascript_include_tag "shaders_manifest", media: "all", "data-turbolinks-track" => true %>
-  <%= stylesheet_link_tag "bktree_manifest", media: "all", "data-turbolinks-track" => true %>
-  <%= javascript_include_tag "bktree_manifest", media: "all", "data-turbolinks-track" => true %>
+  <%= preload_script "shaders_manifest" %>
+  <%= discourse_stylesheet_link_tag "bktree_manifest" %>
+  <%= preload_script "bktree_manifest" %>
 </head>
 <body <% if @custom_body_class %>class="<%= @custom_body_class %>"<% end %>>
   <%= theme_lookup("header") %>
