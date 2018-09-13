@@ -15,6 +15,7 @@ var Shader = {
 			Init();
 			Animate();
 		}catch(err){
+			console.log(err);
 			Shader.msg_pop('Error!', '손상된 쉐이더 입니다.\n\r관리자에게 문의 해 주세요');
 		}finally{
 			Shader.offLoading();
@@ -103,6 +104,7 @@ var Shader = {
 	},
 
 	msg_pop: function(type, msg, style){
+		style = typeof style !== 'undefined' ?  style : {};
 		var html = [];
 		html.push('<div class="shader-pop overlay">');
 		html.push('<div class="overlay-inbox">');

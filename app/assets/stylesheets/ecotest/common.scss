@@ -67,6 +67,9 @@
 	float:left;
 	padding-right: 5px;
 }
+.postbox li:nth-child(3), .postbox li:nth-child(4), .postbox li:nth-child(5){
+	font-size: 12px;
+}
 .postbox a:hover, .boxlabel a:hover {
 	background-color: lightgrey;
 }
@@ -74,7 +77,7 @@
         float: left;
         width: auto;
         max-width: 295px;
-        height: 500px;
+        height: 550px;
         //border-left: 1px solid lightgray;
 }
 .boxlabel{
@@ -95,6 +98,39 @@
         margin: 0 5px 5px 5px;
         //border: 1px solid lightgray;
         background-color: #f7f7f7;
+}
+
+/* mixin for multiline */
+@mixin multiLineEllipsis($lineHeight: 1.15em, $lineCount: 1, $bgColor: white){
+  overflow: hidden;
+  position: relative;
+  line-height: 1.3em;//$alineHeight;
+  max-height: $lineHeight * $lineCount; 
+  text-align: justify;
+  margin-right: -1em;
+  margin-bottom: 5px;
+  margin-top: 5px;
+  padding-right: 2em;
+  white-space: normal !important;
+  &:before {
+    content: '...';
+    position: absolute;
+    right: 1em;
+    bottom: 0;
+  }
+  &:after {
+    content: '';
+    position: absolute;
+    right: 1em;
+    width: 1em;
+    height: 1em;
+    margin-top: 0.2em;
+    background: $bgColor;
+  }
+}
+
+.block-with-text {
+  @include multiLineEllipsis($lineHeight: 1.15em, $lineCount: 2, $bgColor: white);  
 }
 
 

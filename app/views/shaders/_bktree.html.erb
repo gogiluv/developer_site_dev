@@ -617,6 +617,10 @@
 			        	//console.log('sampler2D : ' + _key);
 			        	//_GUI.__folders[key].__controllers[0].object[_key];
 			        }
+			        else if(qualifiers[i].keyword == 'samplerCube')
+			        {
+
+			        }
 			        else//vec값의 경우 dat.GUI 값이 변하면 실시간으로 수정하여 준다.
 			        {
 			        	_Material.uniforms[_folderKey].value = GetGUIValue(_folderKey);			        	
@@ -680,18 +684,23 @@
 				}
 				else if(_qual.keyword == 'samplerCube')
 				{
-					if(_Material.uniforms[_key].value.image.length == 6)
+					var _key = _qual.variableName;//array[0].property;
+					if(typeof _Material.uniforms[_key].value != 'undefined' && typeof _Material.uniforms[_key].value.image != 'undefined')
 					{
-						var _dataes = [];
-						for(var i = 0; i < _Material.uniforms[_key].value.image.length; ++i)
+						if(_Material.uniforms[_key].value.image.length == 6)
 						{
-							var _url = _Material.uniforms[_key].value.image[i].src;
-							var _char = b64toByteChars(_url);
-							_dataes.push(_char);
-						}
-						_qual["name"] = GetGUIValue(folderKey);
-						_qual["value"] = _dataes;
-					}								
+							var _dataes = [];
+							for(var i = 0; i < _Material.uniforms[_key].value.image.length; ++i)
+							{
+								var _url = _Material.uniforms[_key].value.image[i].src;
+								var _char = b64toByteChars(_url);
+								_dataes.push(_char);
+							}
+							_qual["name"] = GetGUIValue(folderKey);
+							_qual["value"] = _dataes;
+						}	
+					}
+												
 				}
 				else
 				{					
