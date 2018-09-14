@@ -503,41 +503,9 @@
 	        					_Material.map = true;
 	        					_Material.uniforms[_folderKey].value = _CubeTexture;
 	        				}
-
-	        				if(_folderKey == 'unity_SpecCube0')
-	        				{
-	        					var skyGeometry = new THREE.CubeGeometry( 4000, 4000, 4000 ); 
-								var materialArray = [];
-								for (var i = 0; i < 6; i++)
-								{								
-									var _temp;
-									if(typeof _CubeTexture.image[i] == 'undefined')
-									{
-										materialArray.push( new THREE.MeshBasicMaterial({												 	
-								        map:  THREE.ImageUtils.loadTexture( 'undefined'),
-								        side: THREE.BackSide
-								    	}));
-										console.log("[ " + i + " ] image is undefined!!!!");
-									}
-									else
-									{
-										materialArray.push( new THREE.MeshBasicMaterial({												 	
-									        map:  THREE.ImageUtils.loadTexture( _CubeTexture.image[i].src),
-									        side: THREE.BackSide
-								    	}));
-										
-									}												 												
-								}
-								   
-								var skyMaterial = new THREE.MeshFaceMaterial( materialArray );											
-								if(typeof SkyBox != 'undefined')
-									_Scene.remove(SkyBox);
-
-								SkyBox = new THREE.Mesh( skyGeometry, skyMaterial );																					
-								_Scene.add( SkyBox );
-
-	        				}
 	        				
+	        				if(_folderKey == 'unity_SpecCube0')
+								CreateSkyBox();		
 	        				
         					if(IsAllTexture(_CubeTexture))
 							{
@@ -547,33 +515,6 @@
 											 _CubeTexture.image[4].src, _CubeTexture.image[5].src ];
 								var _envMap = THREE.ImageUtils.loadTextureCube( urls );
 								_envMap.format = THREE.RGBFormat;
-								//_envMap.mapping = THREE.CubeRefractionMapping;
-								
-								//var _materials = new THREE.MeshBasicMaterial({ color: 0xffffff});//, envMap : _envMap, map: _map, reflectivity:1.3} );
-								//_materials['envMap'] = _envMap;
-								//_materials.needsUpdate = true;		
-								//reflectionMaterial = _materials;
-
-
-								//if(typeof SphereEnvMapped != 'undefined')
-								//	_Scene.remove(SphereEnvMapped);
-
-								//SphereEnvMapped = new THREE.Mesh(new THREE.SphereGeometry(200, 200, 200), _materials);
-								//SphereEnvMapped.visible = true;
-								//SphereEnvMapped.material = _materials;	    											    										
-								//_Scene.add(SphereEnvMapped);
-
-							    //create a custom shader
-							    //var shader = THREE.ShaderLib["cube"];
-							    //shader.uniforms["tCube"].value = _envMap;
-
-							    //return new THREE.ShaderMaterial({
-							   //    fragmentShader: shader.fragmentShader,
-							    //   vertexShader: shader.vertexShader,
-							    //   uniforms: shader.uniforms,
-							       //depthWrite: false,
-							    //   side: THREE.DoubleSide,							       
-							    //});
 							    _envMap.image = _CubeTexture.image;
 
 							    _Material.map = true;
@@ -582,6 +523,39 @@
 			        	}
 	        		}
         		}
+        	}
+
+        	function CreateSkyBox(cubeTexture)
+        	{        		
+					var skyGeometry = new THREE.CubeGeometry( 4000, 4000, 4000 ); 
+					var materialArray = [];
+					for (var i = 0; i < 6; i++)
+					{								
+						var _temp;
+						if(typeof cubeTexture.image[i] == 'undefined')
+						{
+							materialArray.push( new THREE.MeshBasicMaterial({												 	
+					        map:  THREE.ImageUtils.loadTexture( 'undefined'),
+					        side: THREE.BackSide
+					    	}));
+							console.log("[ " + i + " ] image is undefined!!!!");
+						}
+						else
+						{
+							materialArray.push( new THREE.MeshBasicMaterial({												 	
+						        map:  THREE.ImageUtils.loadTexture( cubeTexture.image[i].src),
+						        side: THREE.BackSide
+					    	}));
+							
+						}												 												
+					}
+					   
+					var skyMaterial = new THREE.MeshFaceMaterial( materialArray );											
+					if(typeof SkyBox != 'undefined')
+						_Scene.remove(SkyBox);
+
+					SkyBox = new THREE.Mesh( skyGeometry, skyMaterial );																					
+					_Scene.add( SkyBox );
         	}
 
 
@@ -854,20 +828,35 @@
 				        	{
 				        		var _urls = [];
 				        		var _images = [];
-				        		for(var i = 0; i < _dataes.length; ++i)
+				        		for(var k = 0; k < _dataes.length; ++k)
 				        		{
-				        			var _img = GetImage(_dataes[i]);
+				        			var _chars = [];
+				        			Object.keys(_dataes[k]).forEach(function(key){
+										_chars.push(_dataes[k][key]);
+									});
+				        			var _img = GetImage(_chars);
 				        			_images.push(_img);
 				        			_urls.push(_img.src);
 				        		}
 
+				        		for(var k = 0; k < 6; ++k)
+				        		{
+				        			var _name = qualifiers[i].name[k];
+				        			var _key = _folderKey + "_" + k;
+				        			SetTextureName(_key, _name);
+				        		}
+
 				        		var _envMap = THREE.ImageUtils.loadTextureCube( _urls );
 								_envMap.format = THREE.RGBFormat;
-
 								_envMap.image = _images;
 
-							    _Material.map = true;
-	        					_Material.uniforms[_folderKey].value = _envMap;	
+								if(qualifiers[i].variableName == 'unity_SpecCube0')
+									CreateSkyBox(_envMap);
+								else
+								{
+									_Material.map = true;
+	        						_Material.uniforms[_folderKey].value = _envMap;	
+								}							    
 				        	}
 				        }
 				        else//vec값의 경우 dat.GUI 값이 변하면 실시간으로 수정하여 준다.
@@ -1450,45 +1439,6 @@
 					}*/
 
 					ReSetting(_VertexShaderSource, _FragmentShaderSource);
-					
-					// todo 
-					/*SetGenerateBackupData();
-
-					SetDatGuiData();
-					updateUniform();
-
-					_GUI.updateDisplay();*/
-					
-					/*for(var i = 0; i < qualifiers.length; ++i)
-					{
-						var key = qualifiers[i].variableName;	
-
-				        if(qualifiers[i].keyword == 'sampler2D') {
-				        	var _tempKey = _GUI.__folders[key].__controllers[0].property;
-				        	var _texture =  GetTexture(fileTagBackup[_tempKey]['texture']);
-				        	if(typeof _texture != 'undefined') {
-				        		if(_Material.uniforms[key].value != _texture) {
-				        			_Material.uniforms[key].value = _texture;			        			
-				        		}
-				        	}
-			        	}
-			        	else if(qualifiers[i].keyword == 'samplerCube')
-			        	{
-			        		var _temp0 = GetControllerImageUrl(key, 0);
-			        		var _temp1 = GetControllerImageUrl(key, 1);
-			        		var _temp2 = GetControllerImageUrl(key, 2);
-			        		var _temp3 = GetControllerImageUrl(key, 3);
-			        		var _temp4 = GetControllerImageUrl(key, 4);
-			        		var _temp5 = GetControllerImageUrl(key, 5);			        		
-
-			        		var _texture = GetCubeTexture(_temp0, _temp1, _temp2, _temp3, _temp4, _temp5);
-			        		if(typeof _texture != 'undefined') {
-				        		if(_Material.uniforms[key].value != _texture) {
-				        			_Material.uniforms[key].value = _texture;			        			
-				        		}
-				        	}
-			        	}
-			        }*/
 				}
 				//else
 					//alert('Add Shader File First');

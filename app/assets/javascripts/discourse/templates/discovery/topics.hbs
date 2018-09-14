@@ -56,9 +56,12 @@
 
         <div class="boxlist">
                 <div class="boxlabel">
-					<span style="font-size:20px; font-weight:bold; padding-left:10px;">Answers</span>
-					<span style="font-size:12px; color:dimgray; padding-left:10px;">개발관련 질의는 물론 잡학한 질문들까지 다양하게 의견을 나누는 공간입니다.</span>
-					<span style="float:right; line-height:30px; padding-right:10px;">
+					<span>Answers</span>
+					<span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
+						<i class="fa fa-question-circle" aria-hidden="true"></i>
+					</span>
+					<span>개발관련 질의는 물론 잡학한 질문들까지 다양하게 의견을 나누는 공간입니다.	</span>
+					<span>
 						<a href="/c/qna/">더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
 					</span>
                 </div>
@@ -67,15 +70,31 @@
                         <div class="postbox">
 
                                 <ul>
-                                        <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
-                                        <li class="block-with-text">{{row.excerpt}}</li>
+                                        <li>
+						<div class="over-text-dot topic-title" style="width:75%; display:inline-block;">
+							<a href="/t/topic/{{row.id}}">{{row.title}}</a>
+						</div>
+						<div style="font-size:12px; float:right; line-height:25px;"><i class="fa fa-eye" aria-hidden="true"></i> {{row.views}}</div>
+					</li>
+					<li class="over-text-dot">
+					<span class="t3" style="padding-right:10px;"><i class="fa fa-calendar" aria-hidden="true"></i> {{row.created_dt}}</span>
                                         {{#if row.anonymous_chk}}
-                                          <li>작성자 : <span class="t3" style="color:black;">anonymous</span></li>
+                                        <span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> anonymous</span>
                                         {{else}}
-                                          <li>작성자 : <a href="/u/{{row.username}}">
-								<span class="t3" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</span>
-							</a></li>
+					<span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> 
+						<a href="/u/{{row.username}}" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</a>
+					</span>
                                         {{/if}}
+					</li>
+                                        <!--<li class="block-with-text">{{row.excerpt}}</li>-->
+					<li>
+						<div>
+							<div class="aa">
+								<textarea rows="3" readonly>{{row.preview}}</textarea>
+							<div style="position:relative; height:20px; width:30px; background-color:red; display:none;"></div>
+							</div>
+						</div>
+					</li>
 					<!--
                                         <li>카테고리 :
                                                        {{#if row.c_parent_category_id}}
@@ -93,15 +112,16 @@
                                                        {{/if}}
                                         </li>
 					-->
-                                        <li>등록일 : {{row.created_dt}}</li>
-                                        <li>조회수 : {{row.views}}</li>
                                 </ul>
                         </div>
                 {{/each}}
 		<div class="boxlabel">
-					<span style="font-size:20px; font-weight:bold; padding-left:10px;">개발 가이드</span>
-					<span style="font-size:12px; color:dimgray; padding-left:10px;">나만 알고 있는 노하우, 함께 알아두면 좋은 이슈들을 누구라도 공유하는 공간입니다.</span>
-					<span style="float:right; line-height:30px; padding-right:10px;">
+					<span>개발 가이드</span>
+					<span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
+						<i class="fa fa-question-circle" aria-hidden="true"></i>
+					</span>
+					<span>나만 알고 있는 노하우, 함께 알아두면 좋은 이슈들을 누구라도 공유하는 공간입니다.</span>
+					<span>
 						<a href="/c/dv-guide/">더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
 					</span>
                 </div>
@@ -109,15 +129,32 @@
                 {{#each model.guide_list as |row|}}
                         <div class="postbox">
                                 <ul>
-                                        <li><a href="/t/topic/{{row.id}}"><strong> {{row.title}} </strong></a></li>
-                                        <li class="block-with-text">{{row.excerpt}}</li>
+                                        <li>
+						<div class="over-text-dot topic-title" style="width:75%; display:inline-block;">
+							<a href="/t/topic/{{row.id}}">{{row.title}}</a>
+						</div>
+						<div style="font-size:12px; float:right; line-height:25px;"><i class="fa fa-eye" aria-hidden="true"></i> {{row.views}}</div>
+					</li>
+					<li class="over-text-dot">
+					<span class="t3" style="padding-right:10px;"><i class="fa fa-calendar" aria-hidden="true"></i> {{row.created_dt}}</span>
                                         {{#if row.anonymous_chk}}
-                                          <li>작성자 : <span class="t3" style="color:black;">anonymous</span></li>
+                                        <span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> anonymous</span>
                                         {{else}}
-                                          <li>작성자 : <a href="/u/{{row.username}}">
-								<span class="t3" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</span>
-							</a></li>
+					<span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> 
+						<a href="/u/{{row.username}}" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</a>
+					</span>
                                         {{/if}}
+					</li>
+					<li>
+						<div>
+							<div class="aa">
+								<textarea rows="3" readonly>{{row.preview}}</textarea>
+							<div style="position:relative; height:20px; width:30px; background-color:red; display:none;"></div>
+							</div>
+						</div>
+					</li>
+                                        <!--<li class="block-with-text">{{row.excerpt}}</li>-->
+
 					<!--
                                         <li>카테고리 :
                                                        {{#if row.c_parent_category_id}}
@@ -135,15 +172,16 @@
                                                        {{/if}}
                                         </li>
 					-->
-                                        <li>등록일 : {{row.created_dt}}</li>
-                                        <li>조회수 : {{row.views}}</li>
                                 </ul>
                         </div>
                 {{/each}}
 		<div class="boxlabel">
-					<span style="font-size:20px; font-weight:bold; padding-left:10px;">Shader Room</span>
-					<span style="font-size:12px; color:dimgray; padding-left:10px;">쉽게 쉐이더를 적용해보고 나의 쉐이더를 공유하는 공간입니다.</span>
-					<span style="float:right; line-height:30px; padding-right:10px;">
+					<span>Shader Room</span>
+					<span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
+						<i class="fa fa-question-circle" aria-hidden="true"></i>
+					</span>
+					<span>쉽게 쉐이더를 적용해보고 나의 쉐이더를 공유하는 공간입니다.</span>
+					<span>
 						<a {{action "go_to" '/shaders' }}>더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
 					</span>
                 </div>
@@ -155,7 +193,7 @@
 						<img src="{{ row.img_data }}" width="100%" height="150" alt="Com2uS Developer" style="display:block;"></div></a></li>
 
                                         <li style="padding-top:5px;">
-						<div>
+						<div class="over-text-dot">
 							<a {{action "go_to" (concat '/shaders/' row.id) }} ><strong>{{row.title}}</strong></a>
 						</div>
 						<div>
@@ -179,8 +217,8 @@
                                 누구나 쉽게 질문하고 답변을 등록 할 수 있습니다. <br/>
                                 당신의 노하우를 자랑해 주세요~ <br/><br/>
                                 <h3>* 퀵 링크</h3>
-                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140546128">Com2uS Developer 회원 가입 및 사용 가이드</a><br/>
-                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542552">MarkDown 작성 가이드</a><br/>
+                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140546128">사용 가이드</a><br/>
+                                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542552">작성 가이드</a><br/>
                                 <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542565">게시물에 태그를 추가하는 방법</a><br/>
                                 <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140543801">수식 표기법(MathJax)</a><br/>
                         </h5>

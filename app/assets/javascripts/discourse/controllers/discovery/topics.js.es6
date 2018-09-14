@@ -88,7 +88,16 @@ const controllerOpts = {
 
     go_to(url){
 	location.href=url;
+    },
+    
+    show_tip(event){
+	$(event.target.parentNode.children[2]).fadeIn();
+    },
+
+    hide_tip(event){
+	$(event.target.parentNode.children[2]).fadeOut();
     }
+
   },
 
   isFilterPage: function(filter, filterType) {
