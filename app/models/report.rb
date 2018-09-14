@@ -29,8 +29,10 @@ class Report
     @modes = [:table, :chart]
     @prev_data = nil
     @dates_filtering = true
-    @primary_color = rgba_color(ColorScheme.hex_for_name('tertiary'))
-    @secondary_color = rgba_color(ColorScheme.hex_for_name('tertiary'), 0.1)
+
+    tertiary = ColorScheme.hex_for_name('tertiary') || '0088cc'
+    @primary_color = rgba_color(tertiary)
+    @secondary_color = rgba_color(tertiary, 0.1)
   end
 
   def self.cache_key(report)
@@ -174,6 +176,13 @@ class Report
         report.error = :timeout
       end
     rescue Exception => e
+      # ensures that if anything unexpected prevents us from
+      # creating a report object we fail elegantly and log an error
+      if !report
+        Rails.logger.error("Couldn’t create report `#{type}`: <#{e.class} #{e.message}>")
+        return nil
+      end
+
       report.error = :exception
 
       # given reports can be added by plugins we don’t want dashboard failures
