@@ -33,8 +33,8 @@
 
 		<!-- Javascript code that runs our Three.js examples -->
 		<script>
-			var sceneWidth = $('#scene-view').width();
-			var sceneHeight = $('#scene-view').height();
+			var sceneWidth = 666;
+			var sceneHeight = 500;
 
 			//렌더러 초기화 전에 추가 : http://gupuru.hatenablog.jp/entry/2014/01/05/224813
 			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
@@ -81,13 +81,13 @@
 			function setQualifiers(vertexShaderSource, fragmentShaderSource)
 			{
 				var tokenController = new Tokenization();		    	
-		    	console.log("tokenController : " + tokenController);
+		    	//console.log("tokenController : " + tokenController);
 
 		    	var vertex = tokenController.tokenize(vertexShaderSource);
 		    	var frag = tokenController.tokenize(fragmentShaderSource);
 
 		    	var tokens = vertex.concat(frag);
-		    	console.log("tokens : " + tokens.length);
+		    	//console.log("tokens : " + tokens.length);
 		    	if(typeof tokens != 'undefined')
 		    	{
 		    		//for(var i = 0; i < tokens.length; ++i)
@@ -254,7 +254,7 @@
 
 		  	function onAddFBX(file)
 			{				
-				console.log('onAddFBX!!!!!!!!!!!');
+				//console.log('onAddFBX!!!!!!!!!!!');
 				if(file.target.files[0])
 				{
 					var filename = file.target.files[0].name;
@@ -407,11 +407,11 @@
 			
 		  	function onAddTexture(file)
 			{
-				console.log('onAddTexture!!!!!!!!!!!');
+				//console.log('onAddTexture!!!!!!!!!!!');
 				if(typeof file.target.files[0] != 'undefined')
 				{
 					var filename = file.target.files[0].name;
-					console.log('currentSelectTexture ' + currentSelectTexture);
+					//console.log('currentSelectTexture ' + currentSelectTexture);
 					//fileTagNames[currentSelectTexture] = filename;
 					SetTextureName(currentSelectTexture, filename);
 				}				
@@ -465,7 +465,7 @@
 				        }
 				        else
 				        {
-				        	console.log("" + qualifiers[i].keyword);
+				        	//console.log("" + qualifiers[i].keyword);
 				        }
 				        
 				    }
@@ -538,7 +538,7 @@
 					        map:  THREE.ImageUtils.loadTexture( 'undefined'),
 					        side: THREE.BackSide
 					    	}));
-							console.log("[ " + i + " ] image is undefined!!!!");
+							//console.log("[ " + i + " ] image is undefined!!!!");
 						}
 						else
 						{
@@ -1054,7 +1054,7 @@
 
 		    function TabVertex(isInit)
 		    {
-		    	console.log('TabVertex');
+		    	//console.log('TabVertex');
 		    	if(isVertexTab == false)
 		    	{ 	
 		    	
@@ -1080,7 +1080,7 @@
 
 		    function TabFrag(isInit)
 		    {
-		    	console.log('TabFrag');
+		    	//console.log('TabFrag');
 		    	if(isFragTab == false)
 		    	{
 		    		var codemirrorText = _CodeEditor.getValue();
@@ -1256,7 +1256,7 @@
 				box3.getSize(size);
 
 				var fixedHeight = _Camera.position.y / size.y;
-				console.log('fixedHeight : ' + fixedHeight);
+				//console.log('fixedHeight : ' + fixedHeight);
 
 				var vecScale = new THREE.Vector3( fixedHeight, fixedHeight, fixedHeight );//new THREE.Vector3( 950, 950, 950 );
 				object.scale.copy(vecScale);
@@ -1321,7 +1321,7 @@
 		    function GetCubeTexture(index, image, folderKey)
 		    {
 		    	//https://threejs.org/docs/#api/textures/CubeTexture
-		    	console.log('cube empty!');
+		    	//console.log('cube empty!');
 		    	var _cube = new THREE.CubeTexture();
 
 		    	for(var i = 0; i < 6; ++i)
@@ -1425,7 +1425,7 @@
 					//---------------------------------------------------------------------------------------
 				}
 
-				console.log("Click compile Button");				 
+				//console.log("Click compile Button");				 
 
 				//var vertexShaderSource = _VertexShaderSource;
 				//var fragmentShaderSource = _FragmentShaderSource;
@@ -1447,10 +1447,10 @@
 				FragmentCompileSrc = _FragmentShaderSource;
 
 
-				console.log('Compile is Compelete! : ' + IsCompileError());
+				//console.log('Compile is Compelete! : ' + IsCompileError());
 
 				return IsCompileError();//true : error / false : not error
-				alert('Compile Compelete');
+				//alert('Compile Compelete');
 				//_CompileBtn.setAttribute("disabled", "disabled");
 
 				//SetJsonData();
@@ -1462,7 +1462,7 @@
 			 // once everything is loaded, we run our Three.js stuff.
 		    function Init() 
 		    {   
-		    	console.log("init function!");
+		    	//console.log("init function!");
 				var inputUvFile = document.getElementById("textureFile0");
 				inputUvFile.addEventListener("change", onAddTexture);
 
@@ -1513,16 +1513,16 @@
 		       		case StateEnum.VIEW:
 		       		case StateEnum.MODIFY:
 		       		{
-		       			console.log("lStateEnum.VIEW");
+		       			//console.log("lStateEnum.VIEW");
 		       			LoadJsonData();	
 		       		}
 		       		break;	
 		       		case StateEnum.WRITE:
-		       			console.log("StateEnum.WRITE");
+		       			//console.log("StateEnum.WRITE");
 		       		break;
 		       		case StateEnum.QUICK:
 		       		{
-		       			console.log("StateEnum.QUICK");
+		       			//console.log("StateEnum.QUICK");
 		       			LoadJsonData();	
 		       		}
 		       		break;		       		
@@ -1686,7 +1686,7 @@
 		    	//backupGuiUnfo = guiInfo;
 		    	
 		    	var _data = JSON.stringify(qualifiers);
-				console.log("_json : " + _data);
+				//console.log("_json : " + _data);
 				return _data;
 		    }
 

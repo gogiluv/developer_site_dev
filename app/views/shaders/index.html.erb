@@ -32,15 +32,21 @@
 		<% if current_user %>
 			<button id="create-topic" class="btn btn-default btn btn-icon-text ember-view" onclick="CreateWidget.open()">
 				<i class="fa fa-plus d-icon d-icon-plus"></i>
-				<span class="d-button-label">쉐이더 만들기</span>
+				<span class="d-button-label">새로 만들기</span>
 			</button>
-			<a href="/shaders/guide">
-				<button id="create-topic" class="btn btn-default btn btn-icon-text ember-view">
+		<% end %>
+			<a href="http://devgit.com2us.com/JBK/SRinWeb" target="_blank" rel="noopener noreferrer">
+				<button class="btn btn-default btn btn-icon-text ember-view">
+					<i class="fa fa-code-fork d-icon d-icon-plus"></i>
+				<span class="d-button-label">Shader Converter</span>
+				</button>
+			</a>
+			<a href="/shaders/guide" target="_blank" rel="noopener noreferrer">
+				<button class="btn btn-default btn btn-icon-text ember-view">
 					<i class="fa fa-question d-icon d-icon-plus"></i>
 				<span class="d-button-label">작성 가이드</span>
 				</button>
 			</a>
-		<% end %>
 	</section>
 	</div>
 </div>

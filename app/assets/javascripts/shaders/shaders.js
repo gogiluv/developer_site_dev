@@ -16,7 +16,7 @@ var Shader = {
 			Animate();
 		}catch(err){
 			console.log(err);
-			Shader.msg_pop('Error!', '손상된 쉐이더 입니다.\n\r관리자에게 문의 해 주세요');
+			Shader.msg_pop('Error!', '손상된 쉐이더 입니다.<br><br>관리자에게 문의 해 주세요');
 		}finally{
 			Shader.offLoading();
 	       }
@@ -168,7 +168,7 @@ var Shader = {
 				default:
 					msg_pop('warning', '올바르지 않은 접근 입니다.');
 			}
-		
+			console.log('start');
 			$.ajax({
 				url: action,
 				type: method,
@@ -184,15 +184,32 @@ var Shader = {
 					'shader[img_data]': Shader.shader_params.img_data
 	
 				},
-				success:function(data){	
+				success: function(data){	
 					//beforeonload 이벤트 제거
 					$(window).off('beforeunload');
 					if(!(data.result===false)){
 						//작성한 글로 이동
 						location.href = "/shaders/"+data.shader.id;
 					}else{
-						alert('업로드를 실패했습니다.\r\n다시 시도해 주세요.');
+						Shader.msg_pop('error', '업로드를 실패했습니다.<br><br>다시 시도해 주세요');
 					}
+				},
+				fail: function(){
+					Shader.shader_pop_close();
+					Shader.offLoading();
+					Shader.msg_pop('error', '서버 연결에 실패했습니다.');
+				},
+				error: function(xhr, textStatus, errorThrown){
+				        Shader.shader_pop_close();
+					Shader.offLoading();
+				        switch (xhr.status) {
+						case 413:
+							Shader.msg_pop('error', '파일 허용량을 초과했습니다.<br><br>첨부된 파일 사이즈를 조정해 주세요.');
+						        break;
+						default:
+							Shader.msg_pop('error', '업로드를 실패했습니다.<br><br>다시 시도해 주세요');
+						        break;
+				        }
 				}
 			});	
 		}
@@ -224,7 +241,7 @@ var Shader = {
 					//작성한 글로 이동
 					location.href = "/shaders/"+data.shader.id;
 				}else{
-					alert('업로드를 실패했습니다.\r\n다시 시도해 주세요.');
+					Shader.msg_pop('error', '업로드를 실패했습니다.<br><br>다시 시도해 주세요');
 				}
 			}
 		});
@@ -250,7 +267,7 @@ var Shader = {
 					//작성한 글로 이동
 					location.href = "/shaders";
 				}else{
-					alert('삭제를 실패했습니다.\r\n다시 시도해 주세요.');
+					Shader.msg_pop('error', '삭제를 실패했습니다.<br><br>다시 시도해 주세요');
 				}
 			}
 		});
@@ -520,12 +537,12 @@ var Shader = {
 		console.log(file);
 
 		if(file.size > max_file_size){
-			alert("파일이 너무 큽니다. 1m 제한");
+			Shader.msg_pop('초과된 파일 크기', '파일이 너무 큽니다.(1m 제한)');
 			return
 		}
 		console.log(file.type);
 		if(file.type!='image/png' && file.type!='image/jpeg'){
-			Shader.msg_pop('잘못된 형식', 'png, jpg 파일만 업로드 가능합니다.')
+			Shader.msg_pop('잘못된 형식', 'png, jpg 파일만 업로드 가능합니다.');
 			return
 		}
 
@@ -570,7 +587,7 @@ var ShaderComment = {
 				if(!(data.result===false)){
 					ShaderComment.get_list();
 				}else{
-					Shader.msg_pop('작성 실패!','댓글 작성을 실패했습니다.\n\r 다시 시도 해 주세요.');
+					Shader.msg_pop('작성 실패!','댓글 작성을 실패했습니다.<br><br>다시 시도 해 주세요.');
 				}
 
 				//FIXME timeout 삭제 요
@@ -597,7 +614,7 @@ var ShaderComment = {
 					var comments = data.shaders;					
 					ShaderComment.render_list(comments);
 				}else{
-					Shader.msg_pop('불러오기 실패!', '댓글을 불러오는데 실패했습니다.\n\r 페이지를 새로고침 해 주세요.');
+					Shader.msg_pop('불러오기 실패!', '댓글을 불러오는데 실패했습니다.<br><br>페이지를 새로고침 해 주세요.');
 				}
 			}
 		});
@@ -664,7 +681,7 @@ var ShaderComment = {
 						Shader.shader_pop_close();
 						ShaderComment.get_list();
 					}else{
-						Shader.msg_pop('삭제 실패!','댓글을 삭제하는데 실패했습니다.\n\r 다시 시도 해 주세요.');
+						Shader.msg_pop('삭제 실패!','댓글을 삭제하는데 실패했습니다.<br><br>다시 시도 해 주세요.');
 					}
 				}
 			});
@@ -726,7 +743,7 @@ var ShaderComment = {
 						Shader.shader_pop_close();
 						ShaderComment.get_list();
 					}else{
-						alert('댓글을 수정하는데 실패했습니다.\n\r 다시 시도 해 주세요.');
+						Shader.msg_pop('warning', '댓글을 수정하는데 실패했습니다.<br><br>다시 시도 해 주세요.');
 					}
 				}
 			});
@@ -863,7 +880,7 @@ var ShaderUser = {
 				if(!(data==null || data.result==false)){
 					ShaderUser.render_widget(data);
 				}else{
-					Shader.msg_pop('불러오기 실패!', '사용자 정보를 불러오는데 실패했습니다.\n\r 다시 시도 해 주세요.');
+					Shader.msg_pop('불러오기 실패!', '사용자 정보를 불러오는데 실패했습니다.<br><br>다시 시도 해 주세요.');
 				}
 			}
 		});
