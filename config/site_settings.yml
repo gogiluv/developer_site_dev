@@ -964,6 +964,9 @@ files:
     regex: '^https?:\/\/.+[^\/]$'
   s3_force_path_style:
     default: false
+  s3_configure_tombstone_policy:
+    default: true
+    shadowed_by_global: true
   allow_profile_backgrounds:
     client: true
     default: true
@@ -1428,7 +1431,6 @@ search:
       zh_TW: 2
       ko: 2
       ja: 2
-
   search_tokenize_chinese_japanese_korean: false
   search_prefer_recent_posts: false
   search_recent_posts_size:
@@ -1443,6 +1445,22 @@ search:
   search_query_log_max_retention_days:
     default: 365 # 1 year
     max: 1825 # 5 years
+  search_ignore_accents:
+    default: false
+    locale_default:
+      ar: true
+      ca: true
+      cs: true
+      el: true
+      es: true
+      fa_IR: true
+      fr: true
+      hu: true
+      pt: true
+      pt_BR: true
+      ro: true
+      sk: true
+      tr_TR: true
 
 uncategorized:
   version_checks:
