@@ -733,6 +733,7 @@
 				VertexCompileSrc = _VertexShaderSource;
 				FragmentCompileSrc = _FragmentShaderSource;
 
+				isVertexTab = true;
 				SetVertexSource(_VertexShaderSource);
 
 				CreateFBXObject(FBXArrayBuffer);
@@ -1072,10 +1073,10 @@
 		    	{
 			    	isVertexTab = true;
 			    	isFragTab = false;
-			}
-			//버튼 색 변경			
-			$('#btn-vertex').addClass('active');
-			$('#btn-fragment').removeClass('active');
+				}
+				//버튼 색 변경			
+				$('#btn-vertex').addClass('active');
+				$('#btn-fragment').removeClass('active');
 		    }
 
 		    function TabFrag(isInit)
