@@ -162,19 +162,6 @@
 			  return arry;
 			}
 
-			/*function getQualifiers()
-		    {		    	
-		    	var temp = [];
-		    	for(var i = 0; i < qualifiers.length; ++i)
-		    	{
-		    		temp.push({
-		    			key: qualifiers[i].variableName, 
-		    			type: qualifiers[i].temp_keyword,
-		    		});
-		    	}
-		    	return temp;
-		    }*/
-
 		  	function InitGUI()
 		  	{	
 		  		
@@ -324,6 +311,26 @@
 					    { [`${qualifiers[i].variableName}.w`]: 1.0 }
 					  ].slice(0, parseInt(qualifiers[i].keyword.replace('vec', '')))
 					  );
+					}
+					else if (qualifiers[i].keyword.startsWith('mat')) //vec2~4
+					{ 
+						var array = [];
+						var cnt;
+						if(qualifiers[i].keyword == 'mat3')
+							cnt = 9;
+						else if(qualifiers[i].keyword == 'mat4')
+							cnt = 16;
+						else
+						{
+							cnt = 0;
+							console.log(qualifiers[i].keyword  + " is else check it!");
+						}
+
+						for(var k = 0; k < cnt; k++)
+						{
+							array.push( { [`${qualifiers[i].variableName}_`+ k]: 0.0 } );
+						}
+					   paramsStruct.push(array);
 					}
 					else if(qualifiers[i].keyword.startsWith('sampler2D'))
 					{
@@ -902,11 +909,27 @@
 				if(Object.keys(qualifiers[index].value).length > 1)
 				{
 					Object.keys(qualifiers[index].value).forEach(function(key){
-					_values.push(qualifiers[index].value[key]);
+						if(typeof key != 'undefined')
+							_values.push(qualifiers[index].value[key]);
+						else
+						{
+							console.log('qualifiers key is undefined!');
+						}
 					});	
+						
 				}
 				else
-					_values.push(qualifiers[index].value);
+				{
+					if(qualifiers[index].keyword.startsWith('mat'))
+					{
+						for(var i = 0; i < qualifiers[index].value.elements.length; ++i)
+						{
+							_values.push(qualifiers[index].value.elements[i]);
+						}						
+					}
+					else
+						_values.push(qualifiers[index].value);
+				}
 				return _values;
 			}
 
@@ -950,15 +973,23 @@
 		        	 	_GUI.__folders[folderKey].__controllers[3].object[_keys[3]] 
 		        	 	);		
 					break;
-					case 6:
-					_value = [
-						_GUI.__folders[folderKey].__controllers[0].object[_keys[0]], 
-		        	 	_GUI.__folders[folderKey].__controllers[1].object[_keys[1]],
-		        	 	_GUI.__folders[folderKey].__controllers[2].object[_keys[2]],
-		        	 	_GUI.__folders[folderKey].__controllers[3].object[_keys[3]],
-		        	 	_GUI.__folders[folderKey].__controllers[4].object[_keys[4]],
-		        	 	_GUI.__folders[folderKey].__controllers[5].object[_keys[5]],
-		        	 	];
+					case 9:
+					{
+						_value = new THREE.Matrix3();
+						var _array = [];
+						for (var i = 0; i < _GUI.__folders[folderKey].__controllers.length; ++i)
+							_array.push(_GUI.__folders[folderKey].__controllers[i].object[_keys[i]]);
+						_value.elements = _array;
+					}
+					break;
+					case 16:
+					{
+						_value = new THREE.Matrix4();
+						var _array = [];
+						for (var i = 0; i < _GUI.__folders[folderKey].__controllers.length; ++i)
+							_array.push(_GUI.__folders[folderKey].__controllers[i].object[_keys[i]]);
+						_value.elements = _array;
+					}				
 					break;
 				}
 				return _value;	
@@ -1015,8 +1046,8 @@
 		    		case 'vec2': value = new THREE.Vector2(0.1, 0.1); break;
 		    		case 'vec3': value = new THREE.Vector3(0.1, 0.1, 0.1); break;
 		    		case 'vec4': value = new THREE.Vector4(0.1, 0.1, 0.1, 0.1); break;
-		    		case 'mat3': value = new THREE.Matrix3();
-		    		case 'mat4': value = new THREE.Matrix4();
+		    		case 'mat3': value = new THREE.Matrix3(); break;
+		    		case 'mat4': value = new THREE.Matrix4(); break;
 					case 'sampler2D': value = 'undefined'; break;// new Image();
 		    		case 'samplerCube': value = 'undefined'; break;
 		    		default: console.log("type is default! : " + type); break;
