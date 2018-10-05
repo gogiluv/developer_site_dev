@@ -37,8 +37,9 @@ var Shader = {
 
 		//코드텝 처음 선택시 코드창 출력 이벤트 호출
 		if(tab_name == 'tab-code'){
-			if(isVertexTab == true){ TabVertex(true);}
-			if(isFragTab == true){ TabFrag(true);}
+			if(isVertexTab == true){ TabVertex(true); }
+			if(isFragTab == true){ TabFrag(true); }
+			if((isVertexTab == false) && (isFragTab == false)){ TabVertext(true); }			
 		}
 
 		if(tab_name == 'tab-scene'){
