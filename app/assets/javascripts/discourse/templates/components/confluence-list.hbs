@@ -1,0 +1,37 @@
+      <div class="search-info">
+        컨플루언스 검색 결과
+      </div>
+      {{#unless confluence_list}}
+        데이터 없음
+      {{else}}      
+        {{#each confluence_list as |item|}}
+          <ol class="confluence-ol list-style-none" data-query="Hockey">
+            <li>
+              <h3>            
+                <a href="https://jira.gamevilcom2us.com/wiki{{item._links.webui}}" data-type="page">{{item.title}}</a>
+              </h3>
+              <div>
+                {{item.body.storage.value}}                
+              </div>
+              <div>
+                <a class="inline-block" href="https://jira.gamevilcom2us.com/wiki{{item.space._links.webui}}" title="공간">{{item.space.name}}</a>
+                 • <span class="date" title="마지막 변경">{{inline-date item.history.createdDate}}</span>
+              </div>
+            </li>      
+          </ol>          
+        {{/each}}
+        <div class="paginate-dev">
+          <!--            
+          <span><a href="#" {{action "goPage" "before"}}>이전</a></span>
+          <span><a href="#" {{action "goPage" 1}}>1</a></span>
+          <span><a href="#" {{action "goPage" 2}}>2</a></span>
+          <span><a href="#" {{action "goPage" 3}}>3</a></span>
+          <span><a href="#" {{action "goPage" 4}}>4</a></span>
+          <span><a href="#" {{action "goPage" 5}}>5</a></span>
+          <span><a href="#" {{action "goPage" "next"}}>다음</a></span>
+          -->
+          {{#each confluence_paginate as |item|}}
+            <span class="{{item.class_name}}"><a href="#" {{action "goPage" item.num}}>{{item.num}}</a></span>
+          {{/each}}
+        </div>
+      {{/unless}}
