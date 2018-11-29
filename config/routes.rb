@@ -629,6 +629,7 @@ Discourse::Application.routes.draw do
   get "search/query" => "search#query"
   get "search" => "search#show"
   post "search/click" => "search#click"
+  get "search-confluence" => "search#confluence"
 
   # Topics resource
   get "t/:id" => "topics#show"

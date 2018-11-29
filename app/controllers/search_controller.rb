@@ -1,4 +1,6 @@
 require_dependency 'search'
+require 'net/http'
+require 'uri'
 
 class SearchController < ApplicationController
 
@@ -14,9 +16,13 @@ class SearchController < ApplicationController
       guardian: guardian,
       include_blurbs: true,
       blurb_length: 300,
-      page: if params[:page].to_i <= 10
-              [params[:page].to_i, 1].max
-            end
+      
+      #page: if params[:page].to_i <= 10
+      #        [params[:page].to_i, 1].max
+      #      end
+      # 페이지 번호가 10이하로 제한되어 있어 주석처리함
+      # 최소는 1
+      page: [params[:page].to_i, 1].max
     }
 
     context, type = lookup_search_context
@@ -99,6 +105,27 @@ class SearchController < ApplicationController
     end
 
     render json: success_json
+  end
+  
+  def confluence
+    # uri = URI.parse('https://jira.gamevilcom2us.com/wiki/rest/api/content/search?cql=siteSearch~"%{keyword}" and space in ("C2UECOSE" ,"CDG") order by created desc' % {keyword: params[:keyword]})
+    
+    encode_str = URI::encode('https://jira.gamevilcom2us.com/wiki/rest/api/content/search?cql=siteSearch~"%{keyword}*" ' % {keyword: params[:keyword]}\
+                           + 'and space in ("C2UECOSE" ,"CDG") order by created desc&start=%{start}&limit=50&' % {start: [params[:start].to_i, 1].max}\
+                           + 'expand=space,history,body.storage,metadata.frontend,descendants.attachment')
+    uri = URI.parse(encode_str)
+    request = Net::HTTP::Get.new(uri)
+    request.basic_auth("biokim", "q1w2e3r4!@")
+
+    req_options = {
+      use_ssl: uri.scheme == "https",
+    }
+
+    response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
+      http.request(request)
+    end    
+    render json: response.body
+    # render json: {"result": response.body}
   end
 
   protected

@@ -25,7 +25,7 @@ export default Discourse.Route.extend({
     });
   },
 
-  model(params) {
+  model(params) {    
     const cached = getTransient("lastSearch");
     var args = { q: params.q };
     if (params.context_id && !args.skip_context) {
@@ -56,15 +56,15 @@ export default Discourse.Route.extend({
       const model = (results && translateResults(results)) || {
         grouped_search_result
       };
-      setTransient("lastSearch", { searchKey, model }, 5);
+      setTransient("lastSearch", { searchKey, model }, 5);      
       return model;
     });
-  },
+  },  
 
   actions: {
     didTransition() {
       this.controllerFor("full-page-search")._showFooter();
       return true;
-    }
-  }
+    }    
+  }  
 });

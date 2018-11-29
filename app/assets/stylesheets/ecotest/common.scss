@@ -7,12 +7,11 @@
 }
 .input_search{
         width: 40%;
-        height: 30px;
+        height: 42px;
         border: 2px solid gray !important;
         border-radius:5px;
         -webkit-border-radius:5px !important;
         -moz-border-radius:5px;
-
 }
 @media(max-width:600px){
         .input_search{
@@ -343,3 +342,67 @@
 
 }
 /** /////--------button **/
+
+/* 
+ * 검색 결과 페이지에 confluence 검색결과를 추가한다
+ * 그에따른 탭 메뉴 추가와 그에 관련된 css를 정의함
+ */
+.search-tab {
+        border-bottom: 1px solid red;
+}
+.search-tab ul {
+        margin: 0px;
+}
+
+.display-none {
+        display: none;
+}
+.list-style-none {
+        list-style: none;
+}
+
+.confluence-ol {
+        padding: 0px;
+}
+.confluence-ol li {
+        max-width: 700px;
+}
+.confluence-ol li div{
+        // border: 1px solid red;
+        max-height: 200px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+}
+.tab_item {
+        // max-height: 700px;
+        // overflow: hidden;
+}
+.paginate-dev {
+        text-align: center;
+        font-size: 15px;        
+}
+.paginate-dev span {
+        padding: 5px;
+}
+.tab_item.tab_1 {
+        padding-bottom: 50px;        
+}
+.bold {
+        font-weight: bold;
+}
+.selected {
+        font-size: 20px;
+}
+.search-spinner-wrapper {
+        text-align: center;
+}
+.search-spinner {        
+        position: fixed;
+        display: inline-block;
+        top: 40%;
+}
+.confluence-ol {
+        padding-left: 20px;
+        max-width: 680px;
+}

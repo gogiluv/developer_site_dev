@@ -21,10 +21,10 @@ class Search
       :term,
       :search_context,
       :include_blurbs,
-      :more_full_page_results
+      :more_full_page_results      
     )
 
-    attr_accessor :search_log_id
+    attr_accessor :search_log_id, :total_count
 
     def initialize(type_filter, term, search_context, include_blurbs, blurb_length)
       @type_filter = type_filter
@@ -36,6 +36,7 @@ class Search
       @categories = []
       @users = []
       @tags = []
+      @total_count = 0
     end
 
     def find_user_data(guardian)
@@ -73,6 +74,10 @@ class Search
 
       blurb = TextHelper.truncate(cooked, length: blurb_length, seperator: " ") if blurb.blank?
       Sanitize.clean(blurb)
+    end
+
+    def set_total_count(count)
+      @total_count = count
     end
   end
 

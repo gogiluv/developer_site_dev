@@ -7,8 +7,11 @@ class Search
     5
   end
 
-  def self.per_filter
-    50
+  def self.per_filter    
+    #50
+    # 기본값은 50이었으나 컨플루언스 검색을 하단에 추가하고 페이징을 위해 5로 수정한다
+    # 50으로 하면 스크롤이 너무 길고 컨플루언스 검색결과가 한눈에 보이지않음
+    5
   end
 
   # Sometimes we want more topics than are returned due to exclusion of dupes. This is the
@@ -574,8 +577,7 @@ class Search
   end
 
   def find_grouped_results
-
-    if @results.type_filter.present?
+    if @results.type_filter.present?      
       raise Discourse::InvalidAccess.new("invalid type filter") unless Search.facets.include?(@results.type_filter)
       send("#{@results.type_filter}_search")
     else
@@ -792,9 +794,12 @@ class Search
     else
       posts = posts.where("(categories.id IS NULL) OR (NOT categories.read_restricted)").references(:categories)
     end
+    # 카운트를 가져와야해서     
+    @results.total_count=posts.count
 
     posts = posts.offset(offset)
     posts.limit(limit)
+    posts
   end
 
   def self.default_ts_config
@@ -851,7 +856,7 @@ class Search
           .select('topics.id', "#{min_or_max}(posts.post_number) post_number")
           .group('topics.id')
       end
-
+    
     min_id = Search.min_post_id
     if min_id > 0
       low_set = query.dup.where("post_search_data.post_id < #{min_id}")
@@ -873,14 +878,21 @@ class Search
   end
 
   def aggregate_search(opts = {})
-    post_sql = aggregate_post_sql(opts)
-
+    post_sql = aggregate_post_sql(opts)    
     added = 0
 
     aggregate_posts(post_sql[:default]).each do |p|
       @results.add(p)
-      added += 1
+      added += 1      
     end
+
+    # 삭제 예정 코드, 원본코드 아님
+    #results = aggregate_posts(post_sql[:default])        
+    #@results.total_count=results.count
+    #results.offset(offset).limit(5).each do |p|
+    #  @results.add(p)
+    #  added += 1
+    #end
 
     if added < limit
       aggregate_posts(post_sql[:remaining]).each { |p| @results.add(p) }
@@ -894,14 +906,14 @@ class Search
   end
 
   def topic_search
-    if @search_context.is_a?(Topic)
+    if @search_context.is_a?(Topic)      
       posts = posts_eager_loads(posts_query(limit))
         .where('posts.topic_id = ?', @search_context.id)
 
       posts.each do |post|
         @results.add(post)
-      end
-    else
+      end      
+    else      
       aggregate_search
     end
   end
