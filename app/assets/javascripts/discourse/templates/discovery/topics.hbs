@@ -5,10 +5,10 @@
 {{#if showDismissAtTop}}
   <div class="row">
     {{#if showDismissRead}}
-      <button title="{{i18n 'topics.bulk.dismiss_tooltip'}}" id='dismiss-topics-top' class='btn dismiss-read' {{action "dismissReadPosts"}}>{{i18n 'topics.bulk.dismiss_button'}}</button>
+      <button title="{{i18n 'topics.bulk.dismiss_tooltip'}}" id='dismiss-topics-top' class='btn btn-default dismiss-read' {{action "dismissReadPosts"}}>{{i18n 'topics.bulk.dismiss_button'}}</button>
     {{/if}}
     {{#if showResetNew}}
-    <button id='dismiss-new-top' class='btn dismiss-read' {{action "resetNew"}}>{{d-icon "check"}} {{i18n 'topics.bulk.dismiss_new'}}</button>
+    <button id='dismiss-new-top' class='btn btn-default dismiss-read' {{action "resetNew"}}>{{d-icon "check"}} {{i18n 'topics.bulk.dismiss_new'}}</button>
     {{/if}}
   </div>
 {{/if}}
@@ -58,11 +58,11 @@
                 <div class="boxlabel">
 					<span>Answers</span>
 					<span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
-						<i class="fa fa-question-circle" aria-hidden="true"></i>
+						{{d-icon "question-circle"}}
 					</span>
 					<span>개발관련 질의는 물론 잡학한 질문들까지 다양하게 의견을 나누는 공간입니다.	</span>
 					<span>
-						<a href="/c/qna/">더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
+						<a href="/c/qna/">더 보기 {{d-icon "d-drop-collapsed"}}</a>
 					</span>
                 </div>
 
@@ -74,14 +74,14 @@
 						<div class="over-text-dot topic-title" style="width:75%; display:inline-block;">
 							<a href="/t/topic/{{row.id}}">{{row.title}}</a>
 						</div>
-						<div style="font-size:12px; float:right; line-height:25px;"><i class="fa fa-eye" aria-hidden="true"></i> {{row.views}}</div>
+						<div style="font-size:12px; float:right; line-height:25px;">{{d-icon 'eye'}} {{row.views}}</div>
 					</li>
 					<li class="over-text-dot">
-					<span class="t3" style="padding-right:10px;"><i class="fa fa-calendar" aria-hidden="true"></i> {{row.created_dt}}</span>
+					<span class="t3" style="padding-right:10px;">{{d-icon 'calendar'}} {{row.created_dt}}</span>
                                         {{#if row.anonymous_chk}}
-                                        <span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> anonymous</span>
+                                        <span class="t3">{{d-icon 'user'}} anonymous</span>
                                         {{else}}
-					<span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> 
+					<span class="t3">{{d-icon 'user'}}
 						<a href="/u/{{row.username}}" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</a>
 					</span>
                                         {{/if}}
@@ -117,11 +117,11 @@
 		<div class="boxlabel">
 					<span>개발 가이드</span>
 					<span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
-						<i class="fa fa-question-circle" aria-hidden="true"></i>
+						{{d-icon "question-circle"}}
 					</span>
 					<span>나만 알고 있는 노하우, 함께 알아두면 좋은 이슈들을 누구라도 공유하는 공간입니다.</span>
 					<span>
-						<a href="/c/dv-guide/">더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
+						<a href="/c/dv-guide/">더 보기 {{d-icon "d-drop-collapsed"}}</a>
 					</span>
                 </div>
 
@@ -132,14 +132,14 @@
 						<div class="over-text-dot topic-title" style="width:75%; display:inline-block;">
 							<a href="/t/topic/{{row.id}}">{{row.title}}</a>
 						</div>
-						<div style="font-size:12px; float:right; line-height:25px;"><i class="fa fa-eye" aria-hidden="true"></i> {{row.views}}</div>
+						<div style="font-size:12px; float:right; line-height:25px;">{{d-icon "eye"}} {{row.views}}</div>
 					</li>
 					<li class="over-text-dot">
-					<span class="t3" style="padding-right:10px;"><i class="fa fa-calendar" aria-hidden="true"></i> {{row.created_dt}}</span>
+					<span class="t3" style="padding-right:10px;">{{d-icon "calendar"}} {{row.created_dt}}</span>
                                         {{#if row.anonymous_chk}}
-                                        <span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> anonymous</span>
+                                        <span class="t3">{{d-icon "user"}} anonymous</span>
                                         {{else}}
-					<span class="t3"><i class="fa fa-user-o" aria-hidden="true"></i> 
+					<span class="t3">{{d-icon "user"}}
 						<a href="/u/{{row.username}}" style="color:black;">{{row.u_name}} {{#unless row.u_name}} {{row.username}} {{/unless}}</a>
 					</span>
                                         {{/if}}
@@ -176,11 +176,11 @@
 		<div class="boxlabel">
 					<span>Shader Room</span>
 					<span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
-						<i class="fa fa-question-circle" aria-hidden="true"></i>
+						 {{d-icon "question-circle"}}
 					</span>
 					<span>쉽게 쉐이더를 적용해보고 나의 쉐이더를 공유하는 공간입니다.</span>
 					<span>
-						<a {{action "go_to" '/shaders' }}>더 보기 <i class="fa fa-hand-o-right" style="vertical-align: text-top;" aria-hidden="true"></i></a>
+						<a {{action "go_to" '/shaders' }}>더 보기 {{d-icon "d-drop-collapsed"}}</a>
 					</span>
                 </div>
                 {{#each model.shader_list as |row|}}
@@ -282,10 +282,10 @@
   {{conditional-loading-spinner condition=model.loadingMore}}
   {{#if allLoaded}}
     {{#if showDismissRead}}
-      <button title="{{i18n 'topics.bulk.dismiss_tooltip'}}" id='dismiss-topics' class='btn dismiss-read' {{action "dismissReadPosts"}}>{{i18n 'topics.bulk.dismiss_button'}}</button>
+      <button title="{{i18n 'topics.bulk.dismiss_tooltip'}}" id='dismiss-topics' class='btn btn-default dismiss-read' {{action "dismissReadPosts"}}>{{i18n 'topics.bulk.dismiss_button'}}</button>
     {{/if}}
     {{#if showResetNew}}
-      <button id='dismiss-new' class='btn dismiss-read' {{action "resetNew"}}>
+      <button id='dismiss-new' class='btn btn-default dismiss-read' {{action "resetNew"}}>
         {{d-icon "check"}} {{i18n 'topics.bulk.dismiss_new'}}</button>
     {{/if}}
 

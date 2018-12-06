@@ -150,6 +150,7 @@
 
 .btn-social {
   color: #fff;
+  background: #666;
   &:hover {
     color: #fff;
   }
@@ -158,48 +159,35 @@
   }
   &:before {
     margin-right: 9px;
-    font-family: FontAwesome;
     font-size: $font-0;
   }
   &.google,
   &.google_oauth2 {
     background: $google;
-    &:before {
-      content: $fa-var-google;
+    color: #333;
+    border: 1px solid $primary-low;
+    // non-FA SVG icon for Google in login-buttons.hbs
+    .d-icon {
+      opacity: 0.9;
     }
   }
   &.instagram {
     background: $instagram;
-    &:before {
-      content: $fa-var-instagram;
-    }
   }
   &.facebook {
     background: $facebook;
-    &:before {
-      content: $fa-var-facebook;
-    }
   }
   &.cas {
     background: $cas;
   }
   &.twitter {
     background: $twitter;
-    &:before {
-      content: $fa-var-twitter;
-    }
   }
   &.yahoo {
     background: $yahoo;
-    &:before {
-      content: $fa-var-yahoo;
-    }
   }
   &.github {
     background: $github;
-    &:before {
-      content: $fa-var-github;
-    }
   }
 }
 

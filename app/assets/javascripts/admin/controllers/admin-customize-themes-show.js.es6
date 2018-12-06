@@ -11,6 +11,7 @@ export default Ember.Controller.extend({
   downloadUrl: url("model.id", "/admin/themes/%@"),
   previewUrl: url("model.id", "/admin/themes/%@/preview"),
   addButtonDisabled: Em.computed.empty("selectedChildThemeId"),
+  editRouteName: "adminCustomizeThemes.edit",
 
   @computed("model", "allThemes", "model.component")
   parentThemes(model, allThemes) {
@@ -130,8 +131,8 @@ export default Ember.Controller.extend({
         });
 
         this.get("parentController.model.content").forEach(theme => {
-          const children = _.toArray(theme.get("childThemes"));
-          const rawChildren = _.toArray(theme.get("child_themes") || []);
+          const children = Ember.makeArray(theme.get("childThemes"));
+          const rawChildren = Ember.makeArray(theme.get("child_themes"));
           const index = children ? children.indexOf(model) : -1;
           if (index > -1) {
             children.splice(index, 1);
@@ -147,7 +148,7 @@ export default Ember.Controller.extend({
   },
   transitionToEditRoute() {
     this.transitionToRoute(
-      "adminCustomizeThemes.edit",
+      this.get("editRouteName"),
       this.get("model.id"),
       "common",
       "scss"

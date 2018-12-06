@@ -44,8 +44,9 @@ export default Ember.Controller.extend({
   dev_page_arr: null,
   resultCount: null,
   confluence_list: null,
-  confluence_page: 1,
+  confluence_page:1,
   confluence_paginate: ['1'], 
+  confluence_msg: '검색중입니다...',
 
   @computed("resultCount")
   hasResults(resultCount) {
@@ -200,7 +201,7 @@ export default Ember.Controller.extend({
 
   @computed("expanded")
   searchAdvancedIcon(expanded) {
-    return iconHTML(expanded ? "caret-down fa-fw" : "caret-right fa-fw");
+    return iconHTML(expanded ? "caret-down" : "caret-right");
   },
 
   @computed("page")
@@ -337,11 +338,11 @@ export default Ember.Controller.extend({
     if(page < 1) page = 1;
 
     //var start = page%5==0 ? (page/5) : (page/5)+1;
-    var start = Math.floor((page-1) / 5) * 25 + 1    
+    var start = Math.floor((page-1) / 5) * 15 + 1    
     if(start < 1) start = 1;
-
+    
     this.set('confluence_page', page);  //현재 페이지 set
-
+    
     // 리스트 초기화
     // this.set('confluence', '검색중...');    
     ajax('/search-confluence?keyword='+this.q+'&start='+start).then(res => {
@@ -354,17 +355,17 @@ export default Ember.Controller.extend({
       // 컨플루언스에서 검색 키워드에 대해서 총 카운트를 제공해주지 않는다
       // limit 25제한 되있음
       // (버전 차이인듯, 다른 버전에서는 response에 total_count가 있음)
-      // 총 카운트를 모르기 때문에 limit 25으로 response를 받고 25 이상인 경우 다음, 이전 (5페이지씩 이동) 처리와            
-      // 25 이하인경우 해당 페이지 까지만 표시한다(최대 5개까지 페이지 번호를 표시할예정임, 페이지당 5개의 게시물)
+      // 총 카운트를 모르기 때문에 limit 15으로 response를 받고 15 이상인 경우 다음, 이전 (5페이지씩 이동) 처리와            
+      // 15 이하인경우 해당 페이지 까지만 표시한다(최대 5개까지 페이지 번호를 표시할예정임, 페이지당 5개의 게시물)
       // res._links.next가 있으면 이후 페이지가 있는것임. 다음(next) 버튼 표시하면 됨
       // res.size 가 리턴받은 게시물의 숫자임
-      // 5로 나눠서 페이지 갯수를 구함(ex: 게시물이 6개이면 (6/5)+1=2 해서 2개의 페이지 번호 표시)
-      // 5로 나눠 떨어지면 +1 하지않음
+      // 3로 나눠서 페이지 갯수를 구함(ex: 게시물이 4개이면 (4/3)+1=2 해서 2개의 페이지 번호 표시)
+      // 3로 나눠 떨어지면 +1 하지않음
       var page_arr = [];
-      var page_count = res.size%5==0 ? (res.size/5) : (res.size/5)+1;
+      var page_count = res.size%3==0 ? (res.size/3) : (res.size/3)+1;
       page_count = Math.floor(page_count);      
       //var start_num = res.start%25==0 ? (res.start/25) : (res.start/25)+1;
-      var start_num = Math.floor(start/5) + 1
+      var start_num = Math.floor(start/3) + 1
       //start_num = Math.floor(start_num);
 
       //이전(pre), 페이지 번호가 6 이상인경우에 추가
@@ -379,14 +380,18 @@ export default Ember.Controller.extend({
         page_arr.push({num: i, class_name: class_name});
       }
       
-      //다음(next) size 가 25이상인 경우
+      //다음(next) size 가 15이상인 경우
       if (res._links.next != null) {        
         page_arr.push({num: 'next'});
       }
-            
-      this.set('confluence_list', res.results.slice(((page-1)%5)*5, ((page-1)%5)*5+5));      
+          
+      this.set('confluence_list', res.results.slice(((page-1)%5)*3, ((page-1)%5)*3+3));      
       this.set('confluence_paginate', page_arr);
-    }).finally(() => {        
+    }).finally(() => {
+      console.log(this.get('confluence_list'));
+      if(this.get('confluence_list').length<1){
+        this.set('confluence_msg', '검색 결과가 없습니다.');
+      }      
       this.set("loading", false);
     });
   },

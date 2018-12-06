@@ -1,8 +1,8 @@
       <div class="search-info">
-        컨플루언스 검색 결과
+        <span class="search-name">컨플루언스 검색 결과</span>
       </div>
       {{#unless confluence_list}}
-        데이터 없음
+        {{confluence_msg}}
       {{else}}      
         {{#each confluence_list as |item|}}
           <ol class="confluence-ol list-style-none" data-query="Hockey">

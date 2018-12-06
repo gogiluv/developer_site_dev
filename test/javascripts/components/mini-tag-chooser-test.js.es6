@@ -12,6 +12,7 @@ componentTest("default", {
 
   beforeEach() {
     this.siteSettings.max_tag_length = 24;
+    this.siteSettings.force_lowercase_tags = true;
 
     this.site.set("can_create_tag", true);
     this.set("tags", ["jeff", "neil", "arpit"]);
@@ -28,7 +29,7 @@ componentTest("default", {
         });
       }
 
-      if (params.queryParams.q === "joffrey" || params.queryParams.q === "invalid'tag" || params.queryParams.q === "01234567890123456789012345") {
+      if (params.queryParams.q.toLowerCase() === "joffrey" || params.queryParams.q === "invalid'tag" || params.queryParams.q === "01234567890123456789012345") {
         return response({results: []});
       }
 
@@ -75,11 +76,21 @@ componentTest("default", {
     );
 
     await this.get("subject").expand();
-    await this.get("subject").fillInFilter("invalid'tag");
+    await this.get("subject").fillInFilter("Joffrey");
+    await this.get("subject").keyboard("enter");
+    await this.get("subject").collapse();
+    assert.deepEqual(
+      this.get("tags"),
+      ["jeff", "neil", "arpit", "régis", "joffrey"],
+      "it does not allow case insensitive duplicate tags"
+    );
+
+    await this.get("subject").expand();
+    await this.get("subject").fillInFilter("invalid' Tag");
     await this.get("subject").keyboard("enter");
     assert.deepEqual(
       this.get("tags"),
-      ["jeff", "neil", "arpit", "régis", "joffrey", "invalidtag"],
+      ["jeff", "neil", "arpit", "régis", "joffrey", "invalid-tag"],
       "it strips invalid characters in tag"
     );
 
@@ -88,7 +99,7 @@ componentTest("default", {
     await this.get("subject").keyboard("enter");
     assert.deepEqual(
       this.get("tags"),
-      ["jeff", "neil", "arpit", "régis", "joffrey", "invalidtag"],
+      ["jeff", "neil", "arpit", "régis", "joffrey", "invalid-tag"],
       "it does not allow creating long tags"
     );
 

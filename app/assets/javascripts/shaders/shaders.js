@@ -10,7 +10,7 @@ var Shader = {
 		keyword: ''
 	},
 
-        shader_render: function(){
+    shader_render: function(){
 		try{
 			Init();
 			Animate();
@@ -353,13 +353,13 @@ var Shader = {
 		var like_boolean = false;
 
 		if(e.hasClass('liked')){
-			e.removeClass('fa-heart liked');
-			e.addClass('fa-heart-o');
+			e.removeClass('fas fa-heart liked');
+			e.addClass('far fa-heart');
 			action = 'delete';
 
 		}else{
-			e.removeClass('fa-heart-o');
-			e.addClass('fa-heart liked');
+			e.removeClass('far fa-heart');
+			e.addClass('fas fa-heart liked');
 			action = 'add';
 
 		}
@@ -640,12 +640,12 @@ var ShaderComment = {
 				html.push('<span class="comment-btn-box">');
 				html.push('<button class="widget-button btn-flat edit comment no-text btn-icon" aria-label="이 글 편집." title="이 글 편집.">');
 				html.push('<a style="color:inherit" onclick="ShaderComment.edit('+raw.id+')">');
-				html.push('<i class="fa fa-pencil" aria-hidden="true"></i>');
+				html.push('<i class="fas fa-pencil-alt" aria-hidden="true"></i>');
 				html.push('</a>');
 				html.push('</button>');
 				html.push('<button class="widget-button btn-flat delete comment no-text btn-icon" aria-label="이 글 삭제." title="이 글 삭제.">');
 				html.push('<a style="color:inherit" onclick="ShaderComment.destroy('+raw.id+')">');
-				html.push('<i class="fa fa-trash" aria-hidden="true"></i>');
+				html.push('<i class="fas fa-trash" aria-hidden="true"></i>');
 				html.push('</a>');
 				html.push('</button>');
 				html.push('</span>');

@@ -49,13 +49,17 @@
     <%- end %>
 
     <%= render partial: "common/discourse_stylesheet" %>
-    <%= render partial: "common/special_font_face" %>
 
     <%= yield :head %>
 
     <%= build_plugin_html 'server:before-head-close' %>
 
     <%= tag.meta id: 'data-discourse-setup', data: client_side_setup_data %>
+
+    <%- if !current_user && cookies[:authentication_data] %>
+      <meta id="data-authentication" data-authentication-data="<%= cookies.delete(:authentication_data) %>">
+      <%= preload_script "authentication-complete" %>
+    <%- end %>
   </head>
 
   <body class="<%= body_classes %>">
@@ -78,11 +82,11 @@
       </div>
 
       <footer id='noscript-footer'>
-        <p><%= t 'powered_by_html' %></p>
+        <p style="text-align:center;"><%= t 'powered_by_html' %></p>
       </footer>
     </noscript>
 
-    <%- unless customization_disabled? || loading_admin? %>
+    <%- unless customization_disabled? %>
       <%= theme_lookup("header") %>
       <%= build_plugin_html 'server:header' %>
     <%- end %>
@@ -107,7 +111,7 @@
 
     <%= yield :data %>
 
-    <%= render :partial => "common/discourse_javascript" %>
+    <%= preload_script 'browser-update' %>
 
     <%- unless customization_disabled? %>
       <%= raw theme_lookup("body_tag") %>

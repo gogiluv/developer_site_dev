@@ -5,7 +5,6 @@
   <title><%= content_for?(:title) ? yield(:title) : SiteSetting.title %></title>
   <meta name="description" content="">
   <%= render partial: "layouts/head" %>
-  <%= render partial: "common/special_font_face" %>
   <%= render partial: "common/discourse_stylesheet" %>
   <%= discourse_csrf_tags %>
 
@@ -85,10 +84,10 @@
     .widget-button:hover, .default-hover:hover {
 	background: #e9e9e9;
     }    
-    .fa.fa-heart.liked{
+    .liked{
 	color: #fa6c8d;
     }
-    .fa.fa-bookmark.bookmarked{
+    .bookmarked{
 	color: #08c;
     }
     .loading {
@@ -131,18 +130,18 @@
         z-index: 1001;
         background: rgba(0, 0, 0, 0.5);
         display: none;
-	text-align: center;
-	vertical-align: middle;
+        text-align: center;
+        vertical-align: middle;
     }
     .overlay-inbox{
         position: relative;
         top: 30%;
         margin: -75px auto 0 auto;
         width: auto;
-	max-width: 500px;
+    	max-width: 500px;
         height: auto;
-	max-height: 250px;
-	min-height: 50px;
+	    max-height: 250px;
+	    min-height: 50px;
         -webkit-border-radius: 10px;
         -moz-border-radius: 10px;
         border-radius: 10px;
@@ -152,35 +151,35 @@
         text-align: center;
         font-size: 16px;
         color: #555;
-	width: auto;
+    	width: auto;
     }
     .overlay-inbox strong {
         display: block;
         padding-top: 15px;
         font-style: italic;
-	color:red;
+    	color:red;
     }
     .shader-pop-close, .shader-pop-check {
-	width: 30px;
-	height: 30px;
-	padding: 0px;
-	font-size: 20px !important;
-	border-radius: 15px;
-	margin-bottom: 10px;
+        width: 30px;
+        height: 30px;
+        padding: 0px;
+        font-size: 20px !important;
+        border-radius: 15px;
+        margin-bottom: 10px;
     }
     .shader-pop-close > i,.shader-pop-check > i{
-	margin-right: 0px !important;
+    	margin-right: 0px !important;
     }
     .create-widget {
-	width: 400px;
-	height: 300px;
-	border: 1px solid lightgray;
-	border-radius: 25px;
-	position: relative;
-	background-color:white;
-	display: none;
-	box-shadow:0 -1px 40px rgba(0,0,0,0.12);	
-	top: 30%;
+        width: 400px;
+        height: 300px;
+        border: 1px solid lightgray;
+        border-radius: 25px;
+        position: relative;
+        background-color:white;
+        display: none;
+        box-shadow:0 -1px 40px rgba(0,0,0,0.12);	
+        top: 30%;
         margin: -75px auto 0 auto;
     }
     .create-widget table{
@@ -215,7 +214,7 @@
     .widget-arrow {
 	width: 40px;
 	font-size: 20px !important;
-	padding: 5px 0px;;
+	padding: 5px 0px;
 	margin: 0px !important;
 	float: none !important;
 	border-radius: 5px;
@@ -227,8 +226,8 @@
 	font-size: 20px !important;
 	margin: -5px 2px 5px 0 !important;
 	float: right !important;
-	border-radius: 15px;
-    }
+    border-radius: 15px;
+    }    
     .widget-empty{
 	width: 316px;
 	height: 80px;
@@ -283,8 +282,8 @@
     }
     .comment-submit {
 	width: 50px;
-	font-size: 20px !important;
-	padding: 12px 0px 12px 0px;
+	font-size: 25px !important;
+	padding: 7px 0px 7px 0px;
 	margin: 0px 5px !important;
 	float: none !important;
 	border-radius: 5px;
@@ -433,6 +432,13 @@
 	font-size: 17px;
 	font-style: italic;
     }
+    .btn {
+        line-height: inherit !important;
+    }
+    .btn:hover {
+        background: #919191;
+        color: #fff;
+    }
 
   </style>
 
@@ -546,6 +552,7 @@
   <%= preload_script "shaders_manifest" %>
   <%= discourse_stylesheet_link_tag "bktree_manifest" %>
   <%= preload_script "bktree_manifest" %>
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
 </head>
 <body <% if @custom_body_class %>class="<%= @custom_body_class %>"<% end %>>
   <%= theme_lookup("header") %>

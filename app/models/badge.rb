@@ -15,6 +15,7 @@ class Badge < ActiveRecord::Base
   GreatPost = 8
   Autobiographer = 9
   Editor = 10
+  WikiEditor = 48
 
   FirstLike = 11
   FirstShare = 12
@@ -110,6 +111,10 @@ class Badge < ActiveRecord::Base
   scope :enabled, -> { where(enabled: true) }
 
   before_create :ensure_not_system
+
+  after_commit do
+    SvgSprite.expire_cache
+  end
 
   # fields that can not be edited on system badges
   def self.protected_system_fields

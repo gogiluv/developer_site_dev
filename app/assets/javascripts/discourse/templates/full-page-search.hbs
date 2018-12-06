@@ -51,7 +51,7 @@
           {{/if}}
 
           {{#if canBulkSelect}}
-            {{d-button icon="list" class="bulk-select" title="topics.bulk.toggle" action="toggleBulkSelect"}}
+            {{d-button icon="list" class="btn-default bulk-select" title="topics.bulk.toggle" action="toggleBulkSelect"}}
             {{bulk-select-button selected=selected action="search"}}
           {{/if}}
 
@@ -64,11 +64,15 @@
         </div>
 
         <div class='search-info'>
-          개발자 사이트 검색 결과 : 
-          <!-- {{model.grouped_search_result.total_count}} 건 -->
+          <span class="search-name">개발자 사이트 검색 결과</span>
+          <!--
+          : {{model.grouped_search_result.total_count}} 건
+          -->
+          <!--
           <div class='result-count'>
             {{{resultCountLabel}}}
           </div>
+          -->
           
           <div class='sort-by'>
             <span class='desc'>
@@ -210,14 +214,13 @@
                 {{google-search searchTerm=searchTerm}}
               {{/if}}
             {{/if}}
-          {{/unless}}            
-        
+          {{/unless}}         
       </div>
-    </div>
-
+    </div>    
     <div class="tab_item tab_1">
-      {{confluence-list confluence_list=confluence_list 
-                        confluence_paginate=confluence_paginate                         
+      {{confluence-list confluence_list=confluence_list  
+                        confluence_paginate=confluence_paginate 
+                        confluence_msg=confluence_msg
                         action="searchConfluence" 
                         confluence_goPage=(action "confluence_goPage")}}
     </div>

@@ -87,16 +87,22 @@ createWidget("topic-map-summary", {
     if(!attrs.anonymous_chk){
       contents.push(
         h("li", [
-          h("h4", I18n.t("created_lowercase")),
+          h(
+            "h4",
+            {
+              attributes: { role: "presentation" }
+            },
+            I18n.t("created_lowercase")
+          ),
           h("div.topic-map-post.created-at", [
-              avatarFor("tiny", {
+            avatarFor("tiny", {
               username: attrs.createdByUsername,
               template: attrs.createdByAvatarTemplate,
               name: attrs.createdByName
             }),
             dateNode(attrs.topicCreatedAt)
           ])
-        ])
+        ])  
       );
     }else{
       contents.push(
@@ -119,7 +125,13 @@ createWidget("topic-map-summary", {
       h(
         "li",
         h("a", { attributes: { href: attrs.lastPostUrl } }, [
-          h("h4", I18n.t("last_reply_lowercase")),
+          h(
+            "h4",
+            {
+              attributes: { role: "presentation" }
+            },
+            I18n.t("last_reply_lowercase")
+          ),
           h("div.topic-map-post.last-reply", [
             avatarFor("tiny", {
               username: attrs.lastPostUsername,
@@ -153,13 +165,27 @@ createWidget("topic-map-summary", {
     contents.push(
       h("li", [
         numberNode(attrs.topicReplyCount),
-        h("h4", I18n.t("replies_lowercase", { count: attrs.topicReplyCount }))
+        h(
+          "h4",
+          {
+            attributes: { role: "presentation" }
+          },
+          I18n.t("replies_lowercase", {
+            count: attrs.topicReplyCount
+          }).toString()
+        )
       ])
     );
     contents.push(
       h("li.secondary", [
         numberNode(attrs.topicViews, { className: attrs.topicViewsHeat }),
-        h("h4", I18n.t("views_lowercase", { count: attrs.topicViews }))
+        h(
+          "h4",
+          {
+            attributes: { role: "presentation" }
+          },
+          I18n.t("views_lowercase", { count: attrs.topicViews }).toString()
+        )
       ])
     );
 
@@ -167,7 +193,15 @@ createWidget("topic-map-summary", {
       contents.push(
         h("li.secondary", [
           numberNode(attrs.participantCount),
-          h("h4", I18n.t("users_lowercase", { count: attrs.participantCount }))
+          h(
+            "h4",
+            {
+              attributes: { role: "presentation" }
+            },
+            I18n.t("users_lowercase", {
+              count: attrs.participantCount
+            }).toString()
+          )
         ])
       );
     }
@@ -176,7 +210,15 @@ createWidget("topic-map-summary", {
       contents.push(
         h("li.secondary", [
           numberNode(attrs.topicLikeCount),
-          h("h4", I18n.t("likes_lowercase", { count: attrs.topicLikeCount }))
+          h(
+            "h4",
+            {
+              attributes: { role: "presentation" }
+            },
+            I18n.t("likes_lowercase", {
+              count: attrs.topicLikeCount
+            }).toString()
+          )
         ])
       );
     }
@@ -185,7 +227,15 @@ createWidget("topic-map-summary", {
       contents.push(
         h("li.secondary", [
           numberNode(attrs.topicLinkLength),
-          h("h4", I18n.t("links_lowercase", { count: attrs.topicLinkLength }))
+          h(
+            "h4",
+            {
+              attributes: { role: "presentation" }
+            },
+            I18n.t("links_lowercase", {
+              count: attrs.topicLinkLength
+            }).toString()
+          )
         ])
       );
     }

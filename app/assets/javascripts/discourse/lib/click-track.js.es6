@@ -13,6 +13,11 @@ export function isValidLink($link) {
 
 export default {
   trackClick(e) {
+    // right clicks are not tracked
+    if (e.which === 3) {
+      return true;
+    }
+
     // cancel click if triggered as part of selection.
     if (selectedText() !== "") {
       return false;
@@ -109,7 +114,7 @@ export default {
     }
 
     // restore href
-    setTimeout(() => {
+    Ember.run.later(() => {
       $link.removeClass("no-href");
       $link.attr("href", $link.data("href"));
       $link.data("href", null);
@@ -127,6 +132,17 @@ export default {
 
     const isInternal = DiscourseURL.isInternal(href);
 
+    const modifierLeftClicked = (e.ctrlKey || e.metaKey) && e.which === 1;
+    const middleClicked = e.which === 2;
+    const openExternalInNewTab = Discourse.User.currentProp(
+      "external_links_in_new_tab"
+    );
+
+    const openWindow =
+      modifierLeftClicked ||
+      middleClicked ||
+      (!isInternal && openExternalInNewTab);
+
     // If we're on the same site, use the router and track via AJAX
     if (isInternal && !$link.hasClass("attachment")) {
       if (tracking) {
@@ -140,21 +156,15 @@ export default {
           dataType: "html"
         });
       }
-      DiscourseURL.routeTo(href);
+      if (openWindow) {
+        window.open(destUrl, "_blank").focus();
+      } else {
+        DiscourseURL.routeTo(href);
+      }
       return false;
     }
 
-    const modifierLeftClicked = (e.ctrlKey || e.metaKey) && e.which === 1;
-    const middleClicked = e.which === 2;
-    const openExternalInNewTab = Discourse.User.currentProp(
-      "external_links_in_new_tab"
-    );
-
-    if (
-      modifierLeftClicked ||
-      middleClicked ||
-      (!isInternal && openExternalInNewTab)
-    ) {
+    if (openWindow) {
       window.open(destUrl, "_blank").focus();
     } else {
       DiscourseURL.redirectTo(destUrl);

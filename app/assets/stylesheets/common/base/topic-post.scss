@@ -28,14 +28,19 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    vertical-align: middle;
     a {
+      vertical-align: middle;
       color: dark-light-choose($primary-high, $secondary-low);
     }
   }
   .fa {
     font-size: $font-down-1;
-    margin-left: 3px;
     color: dark-light-choose($primary-medium, $secondary-medium);
+  }
+  .svg-icon-title {
+    margin-left: 3px;
+    margin-right: 0px;
   }
   .new_user a,
   .user-title,
@@ -496,7 +501,9 @@ aside.quote {
   // this is necessary for ANYTHING that extends past the right edge of
   // the post body, such as an image in a deeply nested list, image in
   // a deeply nested blockquote, and so on.. you get the idea.
-  overflow: hidden;
+  .cooked {
+    overflow: hidden;
+  }
   &.highlighted {
     animation: background-fade-highlight 2.5s ease-out;
   }
@@ -621,14 +628,14 @@ blockquote > *:last-child {
 .small-action {
   display: flex;
   align-items: center;
-  max-width: 755px;
+  max-width: 758px;
   border-top: 1px solid $primary-low;
   .topic-avatar {
     align-self: flex-start;
     padding: 0.7em 0;
     border-top: none;
     margin-right: 11px;
-    i {
+    .d-icon {
       font-size: 2em;
       width: 45px;
       text-align: center;
@@ -724,7 +731,7 @@ a.mention-group {
   }
 }
 
-#suggested-topics {
+.suggested-topics {
   .topics {
     padding-bottom: 15px;
   }
@@ -738,9 +745,10 @@ a.mention-group {
 
     > * {
       overflow: hidden;
+      vertical-align: middle;
     }
 
-    > i.fa {
+    > .d-icon {
       color: dark-light-choose($primary-medium, $secondary-medium);
       margin-right: 6px;
       font-size: $font-0;
@@ -831,11 +839,6 @@ a.mention-group {
   .reply-to-tab {
     span {
       display: none;
-    }
-  }
-  .names {
-    span {
-      display: block;
     }
   }
   .user-title {

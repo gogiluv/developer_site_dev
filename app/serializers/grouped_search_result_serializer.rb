@@ -22,15 +22,15 @@ class GroupedSearchResultSerializer < ApplicationSerializer
   end
 
   def total_page
-    # 검색결과가 5이하면 그냥 1
-    if total_count <= 5
+    # 검색결과가 3이하면 그냥 1
+    if total_count <= 3
       return 1
     end
     # 페이지가 딱떨어지지 않으면 +1
-    if (total_count % 5)==0
-      return total_count / 5
+    if (total_count % 3)==0
+      return total_count / 3
     else
-      return (total_count / 5) + 1  
+      return (total_count / 3) + 1  
     end
   end
 

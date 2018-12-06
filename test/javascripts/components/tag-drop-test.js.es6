@@ -1,4 +1,5 @@
 import componentTest from "helpers/component-test";
+import DiscourseURL from "discourse/lib/url";
 
 moduleForComponent("tag-drop", {
   integration: true,
@@ -26,6 +27,12 @@ componentTest("default", {
             { "id": "régis", "name": "régis", "count": 2, "pm_count": 0 }
           ]
         });
+      }else if (params.queryParams.q === "dav") {
+        return response({
+          "results": [
+            { "id": "David", "name": "David", "count": 2, "pm_count": 0 }
+          ]
+        });
       }
     });
   },
@@ -35,7 +42,7 @@ componentTest("default", {
 
     assert.equal(
       this.get("subject")
-        .rowByIndex(0)
+        .rowByIndex(1)
         .name(),
       "jeff",
       "it has the correct tag"
@@ -43,7 +50,7 @@ componentTest("default", {
 
     assert.equal(
       this.get("subject")
-        .rowByIndex(1)
+        .rowByIndex(2)
         .name(),
       "neil",
       "it has the correct tag"
@@ -61,10 +68,18 @@ componentTest("default", {
     await this.get("subject").fillInFilter("");
     assert.equal(
       this.get("subject")
-        .rowByIndex(0)
+        .rowByIndex(1)
         .name(),
       "jeff",
       "it returns top tags for an empty search"
+    );
+
+    sandbox.stub(DiscourseURL, "routeTo");
+    await this.get("subject").fillInFilter("dav");
+    await this.get("subject").keyboard("enter");
+    assert.ok(
+      DiscourseURL.routeTo.calledWith("/tags/david"),
+      "it uses lowercase URLs for tags"
     );
   }
 });

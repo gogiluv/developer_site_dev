@@ -122,11 +122,9 @@ describe UsersController do
     end
 
     context 'missing token' do
-      before do
-        get "/u/password-reset/#{token}"
-      end
-
       it 'disallows login' do
+        get "/u/password-reset/#{token}"
+
         expect(response.status).to eq(200)
 
         expect(CGI.unescapeHTML(response.body))
@@ -136,6 +134,14 @@ describe UsersController do
           src: '/assets/application.js'
         })
 
+        expect(session[:current_user_id]).to be_blank
+      end
+
+      it "responds with proper error message" do
+        get "/u/password-reset/#{token}.json"
+
+        expect(response.status).to eq(200)
+        expect(JSON.parse(response.body)["message"]).to eq(I18n.t('password_reset.no_token'))
         expect(session[:current_user_id]).to be_blank
       end
     end
@@ -235,6 +241,22 @@ describe UsersController do
         expect(response).to redirect_to(wizard_path)
       end
 
+      it "logs the password change" do
+        user = Fabricate(:admin)
+        UserAuthToken.generate!(user_id: user.id)
+        token = user.email_tokens.create(email: user.email).token
+        get "/u/password-reset/#{token}"
+
+        expect do
+          put "/u/password-reset/#{token}", params: { password: 'hg9ow8yhg98oadminlonger' }
+        end.to change { UserHistory.count }.by (1)
+
+        entry = UserHistory.last
+
+        expect(entry.target_user_id).to eq(user.id)
+        expect(entry.action).to eq(UserHistory.actions[:change_password])
+      end
+
       it "doesn't invalidate the token when loading the page" do
         user = Fabricate(:user)
         user_token = UserAuthToken.generate!(user_id: user.id)
@@ -248,6 +270,35 @@ describe UsersController do
 
         expect(email_token.confirmed).to eq(false)
         expect(UserAuthToken.where(id: user_token.id).count).to eq(1)
+      end
+
+      context "rate limiting" do
+
+        before { RateLimiter.clear_all!; RateLimiter.enable }
+        after  { RateLimiter.disable }
+
+        it "rate limits reset passwords" do
+          freeze_time
+
+          token = user.email_tokens.create!(email: user.email).token
+
+          3.times do
+            put "/u/password-reset/#{token}", params: {
+              second_factor_token: 123456,
+              second_factor_method: 1
+            }
+
+            expect(response.status).to eq(200)
+          end
+
+          put "/u/password-reset/#{token}", params: {
+            second_factor_token: 123456,
+            second_factor_method: 1
+          }
+
+          expect(response.status).to eq(429)
+        end
+
       end
 
       context '2 factor authentication required' do
@@ -500,7 +551,7 @@ describe UsersController do
         post "/u.json", params: {
           name: @user.name,
           username: @user.username,
-          passsword: 'tesing12352343'
+          password: 'tesing12352343'
         }
         expect(response.status).to eq(400)
       end
@@ -1378,20 +1429,13 @@ describe UsersController do
       before do
         sign_in(user)
       end
-      let(:user) { Fabricate(:user) }
+      let(:user) { Fabricate(:user, username: 'test.test', name: "Test User") }
 
       it "should be able to update a user" do
-        put "/u/#{user.username}.json", params: { name: 'test.test' }
+        put "/u/#{user.username}", params: { name: 'test.test' }
 
         expect(response.status).to eq(200)
         expect(user.reload.name).to eq('test.test')
-      end
-
-      it "should be able to update a user" do
-        put "/u/#{user.username}.json", params: { name: 'testing123' }
-
-        expect(response.status).to eq(200)
-        expect(user.reload.name).to eq('testing123')
       end
     end
 
@@ -1976,6 +2020,17 @@ describe UsersController do
     end
   end
 
+  describe "for user with period in username" do
+    let(:user_with_period) { Fabricate(:user, username: "myname.test") }
+
+    it "still works" do
+      sign_in(user_with_period)
+      UserDestroyer.any_instance.expects(:destroy).with(user_with_period, anything).returns(user_with_period)
+      delete "/u/#{user_with_period.username}", xhr: true
+      expect(response.status).to eq(200)
+    end
+  end
+
   describe '#my_redirect' do
     it "redirects if the user is not logged in" do
       get "/my/wat.json"
@@ -2170,6 +2225,14 @@ describe UsersController do
 
       expect(json["user_summary"]["topic_count"]).to eq(1)
       expect(json["user_summary"]["post_count"]).to eq(0)
+    end
+
+    it "returns 404 for a hidden profile" do
+      user = Fabricate(:user)
+      user.user_option.update_column(:hide_profile_and_presence, true)
+
+      get "/u/#{user.username_lower}/summary.json"
+      expect(response.status).to eq(404)
     end
   end
 
@@ -2417,7 +2480,23 @@ describe UsersController do
       it "returns success" do
         get "/u/#{user.username}.json"
         expect(response.status).to eq(200)
-        expect(JSON.parse(response.body)["user"]["username"]).to eq(user.username)
+        parsed = JSON.parse(response.body)["user"]
+
+        expect(parsed['username']).to eq(user.username)
+        expect(parsed["profile_hidden"]).to be_blank
+        expect(parsed["trust_level"]).to be_present
+      end
+
+      it "returns a hidden profile" do
+        user.user_option.update_column(:hide_profile_and_presence, true)
+
+        get "/u/#{user.username}.json"
+        expect(response.status).to eq(200)
+        parsed = JSON.parse(response.body)["user"]
+
+        expect(parsed["username"]).to eq(user.username)
+        expect(parsed["profile_hidden"]).to eq(true)
+        expect(parsed["trust_level"]).to be_blank
       end
 
       it "should redirect to login page for anonymous user when profiles are hidden" do
@@ -3241,12 +3320,33 @@ describe UsersController do
 
     context 'while logged in' do
       before do
-        sign_in(user)
+        2.times { sign_in(user) }
       end
 
       it 'logs user out' do
-        expect(user.user_auth_tokens.count).to eq(1)
+        ids = user.user_auth_tokens.order(:created_at).pluck(:id)
 
+        post "/u/#{user.username}/preferences/revoke-auth-token.json",
+          params: { token_id: ids[0] }
+
+        expect(response.status).to eq(200)
+
+        user.user_auth_tokens.reload
+        expect(user.user_auth_tokens.count).to eq(1)
+        expect(user.user_auth_tokens.first.id).to eq(ids[1])
+      end
+
+      it 'does not let user log out of current session' do
+        token = UserAuthToken.generate!(user_id: user.id)
+        env = Rack::MockRequest.env_for("/", "HTTP_COOKIE" => "_t=#{token.unhashed_auth_token};")
+        Guardian.any_instance.stubs(:request).returns(Rack::Request.new(env))
+
+        post "/u/#{user.username}/preferences/revoke-auth-token.json", params: { token_id: token.id }
+
+        expect(response.status).to eq(400)
+      end
+
+      it 'logs user out from everywhere if token_id is not present' do
         post "/u/#{user.username}/preferences/revoke-auth-token.json"
 
         expect(response.status).to eq(200)

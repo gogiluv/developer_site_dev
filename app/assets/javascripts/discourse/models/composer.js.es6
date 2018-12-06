@@ -26,6 +26,7 @@ const CLOSED = "closed",
   SAVING = "saving",
   OPEN = "open",
   DRAFT = "draft",
+  FULLSCREEN = "fullscreen",
   // When creating, these fields are moved into the post model from the composer model
   _create_serializer = {
     raw: "reply",
@@ -145,15 +146,24 @@ const Composer = RestModel.extend({
 
   viewOpen: Em.computed.equal("composeState", OPEN),
   viewDraft: Em.computed.equal("composeState", DRAFT),
+  viewFullscreen: Em.computed.equal("composeState", FULLSCREEN),
+  viewOpenOrFullscreen: Em.computed.or("viewOpen", "viewFullscreen"),
 
   composeStateChanged: function() {
-    var oldOpen = this.get("composerOpened");
+    let oldOpen = this.get("composerOpened"),
+      elem = $("html");
+
+    if (this.get("composeState") === FULLSCREEN) {
+      elem.addClass("fullscreen-composer");
+    } else {
+      elem.removeClass("fullscreen-composer");
+    }
 
     if (this.get("composeState") === OPEN) {
       this.set("composerOpened", oldOpen || new Date());
     } else {
       if (oldOpen) {
-        var oldTotal = this.get("composerTotalOpened") || 0;
+        let oldTotal = this.get("composerTotalOpened") || 0;
         this.set("composerTotalOpened", oldTotal + (new Date() - oldOpen));
       }
       this.set("composerOpened", null);
@@ -161,9 +171,8 @@ const Composer = RestModel.extend({
   }.observes("composeState"),
 
   composerTime: function() {
-    var total = this.get("composerTotalOpened") || 0;
-
-    var oldOpen = this.get("composerOpened");
+    let total = this.get("composerTotalOpened") || 0,
+      oldOpen = this.get("composerOpened");
     if (oldOpen) {
       total += new Date() - oldOpen;
     }
@@ -184,7 +193,7 @@ const Composer = RestModel.extend({
   // view detected user is typing
   typing: _.throttle(
     function() {
-      var typingTime = this.get("typingTime") || 0;
+      let typingTime = this.get("typingTime") || 0;
       this.set("typingTime", typingTime + 100);
     },
     100,
@@ -374,14 +383,22 @@ const Composer = RestModel.extend({
     return this.get("titleLength") <= this.siteSettings.max_topic_title_length;
   }.property("minimumTitleLength", "titleLength", "post.static_doc"),
 
-  @computed("action")
-  saveIcon(action) {
+  @computed("action", "whisper")
+  saveIcon(action, whisper) {
+    if (whisper) {
+      return "eye-slash";
+    }
     return SAVE_ICONS[action];
   },
 
-  @computed("action", "whisper")
-  saveLabel(action, whisper) {
-    return whisper ? "composer.create_whisper" : SAVE_LABELS[action];
+  @computed("action", "whisper", "editConflict")
+  saveLabel(action, whisper, editConflict) {
+    if (editConflict) {
+      return "composer.overwrite_edit";
+    } else if (whisper) {
+      return "composer.create_whisper";
+    }
+    return SAVE_LABELS[action];
   },
 
   hasMetaData: function() {
@@ -671,6 +688,8 @@ const Composer = RestModel.extend({
           originalText: post.get("raw"),
           loading: false
         });
+
+        composer.appEvents.trigger("composer:reply-reloaded", composer);
       });
     } else if (opts.action === REPLY && opts.quote) {
       this.setProperties({
@@ -684,6 +703,10 @@ const Composer = RestModel.extend({
     this.set("originalText", opts.draft ? "" : this.get("reply"));
     if (this.get("editingFirstPost")) {
       this.set("originalTitle", this.get("title"));
+    }
+
+    if (!isEdit(opts.action) || !opts.post) {
+      composer.appEvents.trigger("composer:reply-reloaded", composer);
     }
 
     return false;
@@ -720,7 +743,8 @@ const Composer = RestModel.extend({
       composerOpened: null,
       composerTotalOpened: 0,
       featuredLink: null,
-      noBump: false
+      noBump: false,
+      editConflict: false
     });
   },
 
@@ -755,6 +779,7 @@ const Composer = RestModel.extend({
 
     const props = {
       raw: this.get("reply"),
+      raw_old: this.get("editConflict") ? null : this.get("originalText"),
       edit_reason: opts.editReason,
       image_sizes: opts.imageSizes,
       cooked: this.getCookedHtml(),
@@ -763,9 +788,12 @@ const Composer = RestModel.extend({
 
     this.set("composeState", SAVING);
 
-    let rollback = throwAjaxError(() => {
+    let rollback = throwAjaxError(error => {
       post.set("cooked", oldCooked);
       this.set("composeState", OPEN);
+      if (error.jqXHR && error.jqXHR.status === 409) {
+        this.set("editConflict", true);
+      }
     });
 
     return promise
@@ -960,6 +988,16 @@ const Composer = RestModel.extend({
       if (this.get("replyLength") < this.siteSettings.min_post_length) return;
     }
 
+    this.setProperties({
+      draftStatus: I18n.t("composer.saving_draft_tip"),
+      draftConflictUser: null
+    });
+
+    if (this._clearingStatus) {
+      Em.run.cancel(this._clearingStatus);
+      this._clearingStatus = null;
+    }
+
     const data = {
       reply: this.get("reply"),
       action: this.get("action"),
@@ -977,22 +1015,29 @@ const Composer = RestModel.extend({
       anonymous_chk: this.get("anonymous_chk")
     };
 
-    this.set("draftStatus", I18n.t("composer.saving_draft_tip"));
-
-    const composer = this;
-
-    if (this._clearingStatus) {
-      Em.run.cancel(this._clearingStatus);
-      this._clearingStatus = null;
+    if (this.get("post.id") && !Ember.isEmpty(this.get("originalText"))) {
+      data["originalText"] = this.get("originalText");
     }
 
-    // try to save the draft
     return Draft.save(this.get("draftKey"), this.get("draftSequence"), data)
-      .then(function() {
-        composer.set("draftStatus", I18n.t("composer.saved_draft_tip"));
+      .then(result => {
+        if (result.conflict_user) {
+          this.setProperties({
+            draftStatus: I18n.t("composer.edit_conflict"),
+            draftConflictUser: result.conflict_user
+          });
+        } else {
+          this.setProperties({
+            draftStatus: I18n.t("composer.saved_draft_tip"),
+            draftConflictUser: null
+          });
+        }
       })
-      .catch(function() {
-        composer.set("draftStatus", I18n.t("composer.drafts_offline"));
+      .catch(() => {
+        this.setProperties({
+          draftStatus: I18n.t("composer.drafts_offline"),
+          draftConflictUser: null
+        });
       });
   },
 
@@ -1005,6 +1050,7 @@ const Composer = RestModel.extend({
         this,
         function() {
           self.set("draftStatus", null);
+          self.set("draftConflictUser", null);
           self._clearingStatus = null;
         },
         1000
@@ -1051,6 +1097,7 @@ Composer.reopenClass({
   SAVING,
   OPEN,
   DRAFT,
+  FULLSCREEN,
 
   // The actions the composer can take
   CREATE_TOPIC,

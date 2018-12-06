@@ -51,7 +51,7 @@ class S3Helper
 
   # make sure we have a cors config for assets
   # otherwise we will have no fonts
-  def ensure_cors!
+  def ensure_cors!(rules = nil)
     rule = nil
 
     begin
@@ -63,17 +63,17 @@ class S3Helper
     end
 
     unless rule
-      puts "installing CORS rule"
+      rules = [{
+        allowed_headers: ["Authorization"],
+        allowed_methods: ["GET", "HEAD"],
+        allowed_origins: ["*"],
+        max_age_seconds: 3000
+      }] if rules.nil?
 
       s3_resource.client.put_bucket_cors(
         bucket: @s3_bucket_name,
         cors_configuration: {
-          cors_rules: [{
-            allowed_headers: ["Authorization"],
-            allowed_methods: ["GET", "HEAD"],
-            allowed_origins: ["*"],
-            max_age_seconds: 3000
-          }]
+          cors_rules: rules
         }
       )
     end
@@ -136,12 +136,10 @@ class S3Helper
     update_lifecycle("purge_tombstone", grace_period, prefix: @tombstone_prefix)
   end
 
-  def list(prefix = "")
-    if @s3_bucket_folder_path.present?
-      prefix = File.join(@s3_bucket_folder_path, prefix)
-    end
-
-    s3_bucket.objects(prefix: prefix)
+  def list(prefix = "", marker = nil)
+    options = { prefix: get_path_for_s3_upload(prefix) }
+    options[:marker] = marker if marker.present?
+    s3_bucket.objects(options)
   end
 
   def tag_file(key, tags)
@@ -157,6 +155,11 @@ class S3Helper
         tag_set: tag_array
       }
     )
+  end
+
+  def object(path)
+    path = get_path_for_s3_upload(path)
+    s3_bucket.object(path)
   end
 
   def self.s3_options(obj)

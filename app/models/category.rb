@@ -8,6 +8,7 @@ class Category < ActiveRecord::Base
   include HasCustomFields
   include CategoryHashtag
   include AnonCacheInvalidator
+  include HasDestroyedWebHook
 
   REQUIRE_TOPIC_APPROVAL = 'require_topic_approval'
   REQUIRE_REPLY_APPROVAL = 'require_reply_approval'
@@ -534,7 +535,8 @@ class Category < ActiveRecord::Base
   end
 
   def full_slug(separator = "-")
-    url[3..-1].gsub("/", separator)
+    start_idx = "#{Discourse.base_uri}/c/".length
+    url[start_idx..-1].gsub("/", separator)
   end
 
   def url

@@ -111,7 +111,7 @@ class SearchController < ApplicationController
     # uri = URI.parse('https://jira.gamevilcom2us.com/wiki/rest/api/content/search?cql=siteSearch~"%{keyword}" and space in ("C2UECOSE" ,"CDG") order by created desc' % {keyword: params[:keyword]})
     
     encode_str = URI::encode('https://jira.gamevilcom2us.com/wiki/rest/api/content/search?cql=siteSearch~"%{keyword}*" ' % {keyword: params[:keyword]}\
-                           + 'and space in ("C2UECOSE" ,"CDG") order by created desc&start=%{start}&limit=50&' % {start: [params[:start].to_i, 1].max}\
+                           + 'and space in ("C2UECOSE" ,"CDG") order by created desc&start=%{start}&limit=15&' % {start: [params[:start].to_i, 1].max}\
                            + 'expand=space,history,body.storage,metadata.frontend,descendants.attachment')
     uri = URI.parse(encode_str)
     request = Net::HTTP::Get.new(uri)

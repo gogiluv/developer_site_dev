@@ -187,15 +187,6 @@ export default Ember.Controller.extend({
     );
   },
 
-  @computed("model.whisper", "model.unlistTopic")
-  whisperOrUnlistTopicText(whisper, unlistTopic) {
-    if (whisper) {
-      return I18n.t("composer.whisper");
-    } else if (unlistTopic) {
-      return I18n.t("composer.unlist");
-    }
-  },
-
   @computed
   isStaffUser() {
     const currentUser = this.currentUser;
@@ -232,7 +223,7 @@ export default Ember.Controller.extend({
 
   @computed("model.composeState", "model.creatingTopic")
   popupMenuOptions(composeState) {
-    if (composeState === "open") {
+    if (composeState === "open" || composeState === "fullscreen") {
       let options = [];
 
       options.push(
@@ -387,13 +378,21 @@ export default Ember.Controller.extend({
       ) {
         this.close();
       } else {
-        if (this.get("model.composeState") === Composer.OPEN) {
+        if (
+          this.get("model.composeState") === Composer.OPEN ||
+          this.get("model.composeState") === Composer.FULLSCREEN
+        ) {
           this.shrink();
         } else {
           this.cancelComposer();
         }
       }
 
+      return false;
+    },
+
+    fullscreenComposer() {
+      this.toggleFullscreen();
       return false;
     },
 
@@ -458,7 +457,7 @@ export default Ember.Controller.extend({
         return;
       }
 
-      if (this.get("model.viewOpen")) {
+      if (this.get("model.viewOpen") || this.get("model.viewFullscreen")) {
         this.shrink();
       }
     },
@@ -696,9 +695,9 @@ export default Ember.Controller.extend({
     opts = opts || {};
 
     if (!opts.draftKey) {
-      alert("composer was opened without a draft key");
       throw new Error("composer opened without a proper draft key");
     }
+
     const self = this;
     let composerModel = this.get("model");
 
@@ -948,7 +947,20 @@ export default Ember.Controller.extend({
     this.set("model.composeState", Composer.DRAFT);
   },
 
+  toggleFullscreen() {
+    this._saveDraft();
+    if (this.get("model.composeState") === Composer.FULLSCREEN) {
+      this.set("model.composeState", Composer.OPEN);
+    } else {
+      this.set("model.composeState", Composer.FULLSCREEN);
+    }
+  },
+
   close() {
+    // the 'fullscreen-composer' class is added to remove scrollbars from the
+    // document while in fullscreen mode. If the composer is closed for any reason
+    // this class should be removed
+    $("html").removeClass("fullscreen-composer");
     this.setProperties({ model: null, lastValidatedAt: null });
   },
 

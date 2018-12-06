@@ -3,6 +3,7 @@ import TagsMixin from "select-kit/mixins/tags";
 import { default as computed } from "ember-addons/ember-computed-decorators";
 import renderTag from "discourse/lib/render-tag";
 import { escapeExpression } from "discourse/lib/utilities";
+import { iconHTML } from "discourse-common/lib/icon-library";
 const { get, isEmpty, run, makeArray } = Ember;
 
 export default ComboBox.extend(TagsMixin, {
@@ -52,7 +53,7 @@ export default ComboBox.extend(TagsMixin, {
       "mousedown touchstart",
       ".selected-tag",
       event => {
-        const $button = $(event.target);
+        const $button = $(event.target).closest(".selected-tag");
         this._destroyEvent(event);
         this.destroyTags(this.computeContentItem($button.attr("data-value")));
       }
@@ -67,7 +68,7 @@ export default ComboBox.extend(TagsMixin, {
 
   @computed("hasReachedMaximum")
   caretIcon(hasReachedMaximum) {
-    return hasReachedMaximum ? null : "plus fa-fw";
+    return hasReachedMaximum ? null : "plus";
   },
 
   @computed("tags")
@@ -125,7 +126,7 @@ export default ComboBox.extend(TagsMixin, {
           <button aria-label="${tag}" title="${tag}" class="selected-tag ${
           isHighlighted ? "is-highlighted" : ""
         }" data-value="${tag}">
-            ${tag}
+            ${tag} ${iconHTML("times")}
           </button>
         `;
       });
@@ -192,12 +193,6 @@ export default ComboBox.extend(TagsMixin, {
       return { id: result.text, name: result.text, count: result.count };
     });
 
-    // if forbidden we probably have an existing tag which is not in the list of
-    // returned tags, so we manually add it at the top
-    if (json.forbidden) {
-      results.unshift({ id: json.forbidden, name: json.forbidden, count: 0 });
-    }
-
     return results;
   },
 
@@ -218,29 +213,6 @@ export default ComboBox.extend(TagsMixin, {
 
   didDeselect(tags) {
     this.destroyTags(tags);
-  },
-
-  _sanitizeContent(content, property) {
-    switch (typeof content) {
-      case "string":
-        // See lib/discourse_tagging#clean_tag.
-        return content
-          .toLowerCase()
-          .trim()
-          .replace(/\s+/, "-")
-          .replace(/[\/\?#\[\]@!\$&'\(\)\*\+,;=\.%\\`^\s|\{\}"<>]+/, "")
-          .substring(0, this.siteSettings.max_tag_length);
-      default:
-        return get(content, this.get(property));
-    }
-  },
-
-  valueForContentItem(content) {
-    return this._sanitizeContent(content, "valueAttribute");
-  },
-
-  _nameForContent(content) {
-    return this._sanitizeContent(content, "nameProperty");
   },
 
   actions: {

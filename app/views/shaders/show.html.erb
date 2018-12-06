@@ -21,7 +21,7 @@ height 800px에서 1000px로 변경함
 		<div id="scene-view" style="width:100%; height:100%;"></div>
 	</div>
 	<div id="tab-code" class="tab-view"style="width:100%; height:auto; display:none; border: 1px solid lightgrey; border-top:none;">
-		<div id="btnbox-in-code" style="width:100%; height:30px; border-bottom:1px solid lightgrey;">			
+		<div id="btnbox-in-code" style="width:100%; height:31px; border-bottom:1px solid lightgrey;">			
                 	<button id="btn-vertex" class="btn btn-default btn btn-icon-text ember-view active" style="width:150px;" onclick="TabVertex(true)" value='VERTEX'>
         	                <span class="d-button-label">vertex</span>
 	                </button>			
@@ -40,17 +40,17 @@ height 800px에서 1000px로 변경함
 		<div style="padding:5px 10px;">
 			<span class="shader-notice-title"><%= @shader.title %></span>
 			<span>
-				<button class="widget-button btn-flat" aria-label="이 글을 좋아합니다." 
-					title="이 글을 좋아합니다." onclick="ShaderUser.open(<%= @shader.user.id %>)">
+				<button class="widget-button btn-flat" aria-label="작성자" 
+					title="작성자" onclick="ShaderUser.open(<%= @shader.user.id %>)">
 					<span class="shader-notice-username">by.<%= @shader.user.username%></span>
 				</button>
 				<% if @nomal_action_display %>
 				<button class="widget-button btn-flat toggle-like like no-text btn-icon" aria-label="이 글을 좋아합니다." 
 					title="이 글을 좋아합니다." onclick="Shader.like(this)">
-					<% if @shader_like %>
-						<i class="fa fa-heart liked" aria-hidden="true" ></i>
-					<% else %>
-						<i class="fa fa-heart-o" aria-hidden="true" ></i>
+					<% if @shader_like %>						
+						<i class="fas fa-heart liked" aria-hidden="true" ></i>
+					<% else %>						
+						<i class="far fa-heart" aria-hidden="true" ></i>
 					<% end %>
 				</button>
 				<button class="widget-button btn-flat bookmark no-text btn-icon" aria-label=" 즐겨찾기에 추가하려면 클릭하세요." 
@@ -65,8 +65,8 @@ height 800px에서 1000px로 변경함
 				<% if @auth_action_display %>
 				<button class="widget-button btn-flat edit no-text btn-icon" aria-label="이 글 편집." 
 					title="이 글 편집.">
-					<%= link_to edit_shader_path(@shader), style: 'color:inherit' do %>
-						<i class="fa fa-pencil" aria-hidden="true"></i>
+					<%= link_to edit_shader_path(@shader), style: 'color:inherit' do %>						
+						<i class="fas fa-pencil-alt" aria-hidden="true"></i>
 					<% end %>
 				</button>
 				<button class="widget-button btn-flat delete no-text btn-icon" aria-label="이 글 삭제." 
@@ -92,7 +92,7 @@ height 800px에서 1000px로 변경함
 				<textarea placeholder="comment..." onkeydown="Shader.textarea_resize(this)" onkeyup="Shader.textarea_resize(this)" 
 					style="width:80%; resize:none; height:auto; max-height:150px; margin:0px;" ></textarea>
                                 <button id="comment-submit" class="btn comment-submit" onclick="ShaderComment.submit()">
-   	                             <i class="fa fa-commenting"></i>
+   	                             <i class="far fa-comment-dots"></i>
                                 </button>
 			</div>
 		</div>

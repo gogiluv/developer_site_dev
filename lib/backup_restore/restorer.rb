@@ -59,38 +59,26 @@ module BackupRestore
       if !can_restore_into_different_schema?
         log "Cannot restore into different schema, restoring in-place"
         enable_readonly_mode
-
         pause_sidekiq
         wait_for_sidekiq
-
         BackupRestore.move_tables_between_schemas("public", "backup")
-
         @db_was_changed = true
         restore_dump
-        migrate_database
-        reconnect_database
-
-        reload_site_settings
-        clear_emoji_cache
-
-        disable_readonly_mode
       else
         log "Restoring into 'backup' schema"
         restore_dump
         enable_readonly_mode
-
         pause_sidekiq
         wait_for_sidekiq
-
         switch_schema!
-
-        migrate_database
-        reconnect_database
-        reload_site_settings
-        clear_emoji_cache
-
-        disable_readonly_mode
       end
+
+      migrate_database
+      reconnect_database
+      reload_site_settings
+      clear_emoji_cache
+      disable_readonly_mode
+      clear_theme_cache
 
       extract_uploads
     rescue SystemExit
@@ -133,12 +121,12 @@ module BackupRestore
 
     def initialize_state
       @success = false
+      @store = BackupRestore::BackupStore.create
       @db_was_changed = false
       @current_db = RailsMultisite::ConnectionManagement.current_db
       @current_version = BackupRestore.current_version
       @timestamp = Time.now.strftime("%Y-%m-%d-%H%M%S")
       @tmp_directory = File.join(Rails.root, "tmp", "restores", @current_db, @timestamp)
-      @source_filename = File.join(Backup.base_directory, @filename)
       @archive_filename = File.join(@tmp_directory, @filename)
       @tar_filename = @archive_filename[0...-3]
       @meta_filename = File.join(@tmp_directory, BackupRestore::METADATA_FILE)
@@ -195,8 +183,15 @@ module BackupRestore
     end
 
     def copy_archive_to_tmp_directory
-      log "Copying archive to tmp directory..."
-      Discourse::Utils.execute_command('cp', @source_filename, @archive_filename, failure_message: "Failed to copy archive to tmp directory.")
+      if @store.remote?
+        log "Downloading archive to tmp directory..."
+        failure_message = "Failed to download archive to tmp directory."
+      else
+        log "Copying archive to tmp directory..."
+        failure_message = "Failed to copy archive to tmp directory."
+      end
+
+      @store.download_file(@filename, @archive_filename, failure_message)
     end
 
     def unzip_archive
@@ -480,6 +475,15 @@ module BackupRestore
       Sidekiq.unpause!
     rescue => ex
       log "Something went wrong while unpausing Sidekiq.", ex
+    end
+
+    def clear_theme_cache
+      log "Clear theme cache"
+      ThemeField.all.each do |field|
+        field.compiler_version = 0
+        field.ensure_baked!
+      end
+      Theme.expire_site_cache!
     end
 
     def disable_readonly_mode
