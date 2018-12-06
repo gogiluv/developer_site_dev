@@ -120,11 +120,7 @@ export default ComboBoxComponent.extend(TagsMixin, {
     if (this.siteSettings.tags_sort_alphabetically && topTags) {
       return shortcuts.concat(topTags.sort());
     } else {
-      // topTags가 null일때 에러나서 분기처리함
-      if(topTags==null) {
-        return shortcuts;
-      }
-      return shortcuts.concat(topTags);
+      return shortcuts.concat(Ember.makeArray(topTags));
     }
   },
 
