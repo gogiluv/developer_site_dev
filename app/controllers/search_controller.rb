@@ -111,11 +111,12 @@ class SearchController < ApplicationController
     # uri = URI.parse('https://jira.gamevilcom2us.com/wiki/rest/api/content/search?cql=siteSearch~"%{keyword}" and space in ("C2UECOSE" ,"CDG") order by created desc' % {keyword: params[:keyword]})
     
     encode_str = URI::encode('https://jira.gamevilcom2us.com/wiki/rest/api/content/search?cql=siteSearch~"%{keyword}*" ' % {keyword: params[:keyword]}\
-                           + 'and space in ("C2UECOSE" ,"CDG") order by created desc&start=%{start}&limit=15&' % {start: [params[:start].to_i, 1].max}\
+                           + 'and type="page" order by created desc&start=%{start}&limit=15&' % {start: [params[:start].to_i, 0].max}\
                            + 'expand=space,history,body.storage,metadata.frontend,descendants.attachment')
+                           #+ 'and space in ("C2UECOSE" ,"CDG") order by created desc&start=%{start}&limit=15&' % {start: [params[:start].to_i, 1].max}\
     uri = URI.parse(encode_str)
     request = Net::HTTP::Get.new(uri)
-    request.basic_auth("biokim", "q1w2e3r4!@")
+    request.basic_auth("eco_confluence", "ecoeco12!@")
 
     req_options = {
       use_ssl: uri.scheme == "https",
@@ -123,7 +124,7 @@ class SearchController < ApplicationController
 
     response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
       http.request(request)
-    end    
+    end
     render json: response.body
     # render json: {"result": response.body}
   end

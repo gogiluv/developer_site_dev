@@ -6,7 +6,7 @@
 
   if (
     !window.opener ||
-    !window.opener.Discourse ||
+    //!window.opener.Discourse ||
     !window.opener.Discourse.authenticationComplete
   ) {
     localStorage.setItem("lastAuthResult", authResult);

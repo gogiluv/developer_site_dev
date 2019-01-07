@@ -338,8 +338,8 @@ export default Ember.Controller.extend({
     if(page < 1) page = 1;
 
     //var start = page%5==0 ? (page/5) : (page/5)+1;
-    var start = Math.floor((page-1) / 5) * 15 + 1    
-    if(start < 1) start = 1;
+    var start = Math.floor((page-1) / 5) * 15;
+    if(start < 0) start = 0;
     
     this.set('confluence_page', page);  //현재 페이지 set
     
