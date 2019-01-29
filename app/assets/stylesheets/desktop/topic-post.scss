@@ -6,11 +6,6 @@
   margin-left: 0;
 }
 
-h1 .topic-statuses .topic-status .d-icon {
-  font-size: 0.857em;
-  vertical-align: middle;
-}
-
 .topic-body {
   // this ensures consistent top margin on topic posts even if the first line of a post
   // is a top-margin-less element like a list or image.
@@ -361,15 +356,16 @@ nav.post-controls {
         text-align: center;
       }
     }
-    a,
     .number {
-      line-height: $line-height-large;
+      color: $primary-high;
     }
     .number,
     .d-icon {
-      color: dark-light-choose($primary-high, $secondary-low);
       font-size: $font-up-2;
       line-height: $line-height-medium;
+    }
+    button .d-icon {
+      color: $primary-high;
     }
     .avatar a {
       float: left;
@@ -509,16 +505,10 @@ video {
   }
   .topic-statuses {
     .d-icon {
-      color: $header_primary;
+      color: $header_primary-medium;
     }
     .d-icon-envelope {
       color: $danger;
-    }
-    .d-icon-lock {
-      padding-top: 0.15em;
-    }
-    .unpinned {
-      color: $header_primary;
     }
   }
   .topic-link {
@@ -527,9 +517,6 @@ video {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .topic-header-extra {
-    margin: 0 0 0 5px;
   }
 }
 
@@ -541,9 +528,6 @@ video {
     font-size: $font-up-3;
     line-height: $line-height-large;
     width: 100%;
-  }
-  .topic-statuses {
-    margin-top: -2px;
   }
 }
 

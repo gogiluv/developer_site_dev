@@ -2,6 +2,9 @@
   position: fixed;
   right: 0;
   box-shadow: shadow("header");
+  &.animate {
+    transition: right 0.2s ease-out, left 0.2s ease-out;
+  }
 
   .panel-body {
     position: absolute;
@@ -9,6 +12,9 @@
     bottom: 37px;
     width: 97%;
   }
+}
+.header-cloak {
+  display: none;
 }
 
 .menu-panel.drop-down {
@@ -42,8 +48,13 @@
   }
 
   .panel-body {
+    touch-action: pan-y pinch-zoom;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+
+  .badge-notification {
+    vertical-align: text-bottom;
   }
 }
 
@@ -184,7 +195,7 @@
       .d-icon {
         float: left;
         margin-right: 5px;
-        padding-top: 2px;
+        padding-top: 0.2em;
       }
     }
     .is-warning {

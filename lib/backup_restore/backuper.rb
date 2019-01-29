@@ -1,4 +1,3 @@
-require "disk_space"
 require "mini_mime"
 
 module BackupRestore
@@ -257,9 +256,6 @@ module BackupRestore
       content_type = MiniMime.lookup_by_filename(@backup_filename).content_type
       archive_path = File.join(@archive_directory, @backup_filename)
       @store.upload_file(@backup_filename, archive_path, content_type)
-    ensure
-      log "Removing archive from local storage..."
-      FileUtils.remove_file(archive_path, force: true)
     end
 
     def after_create_hook
@@ -277,24 +273,25 @@ module BackupRestore
     end
 
     def notify_user
+      return if @success && @user.id == Discourse::SYSTEM_USER_ID
+
       log "Notifying '#{@user.username}' of the end of the backup..."
       status = @success ? :backup_succeeded : :backup_failed
 
-      post = SystemMessage.create_from_system_user(@user, status,
-        logs: Discourse::Utils.pretty_logs(@logs)
+      post = SystemMessage.create_from_system_user(
+        @user, status, logs: Discourse::Utils.pretty_logs(@logs)
       )
 
-      if !@success && @user.id == Discourse::SYSTEM_USER_ID
+      if @user.id == Discourse::SYSTEM_USER_ID
         post.topic.invite_group(@user, Group[:admins])
       end
-
-      post
     rescue => ex
       log "Something went wrong while notifying user.", ex
     end
 
     def clean_up
       log "Cleaning stuff up..."
+      delete_uploaded_archive
       remove_tar_leftovers
       unpause_sidekiq
       disable_readonly_mode if Discourse.readonly_mode?
@@ -302,9 +299,22 @@ module BackupRestore
       refresh_disk_space
     end
 
+    def delete_uploaded_archive
+      return unless @store.remote?
+
+      archive_path = File.join(@archive_directory, @backup_filename)
+
+      if File.exist?(archive_path)
+        log "Removing archive from local storage..."
+        File.delete(archive_path)
+      end
+    rescue => ex
+      log "Something went wrong while deleting uploaded archive from local storage.", ex
+    end
+
     def refresh_disk_space
       log "Refreshing disk stats..."
-      DiskSpace.reset_cached_stats
+      @store.reset_cache
     rescue => ex
       log "Something went wrong while refreshing disk stats.", ex
     end

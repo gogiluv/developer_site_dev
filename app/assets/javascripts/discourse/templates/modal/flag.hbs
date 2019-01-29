@@ -7,7 +7,7 @@
                          selectedFlag=selected
                          username=model.username
                          staffFlagsAvailable=staffFlagsAvailable
-                         changePostActionType="changePostActionType"
+                         changePostActionType=(action "changePostActionType")
                          anonymous_chk=model.anonymous_chk}}
    {{/flag-selection}}
   </form>
@@ -44,7 +44,7 @@
   {{#if showDeleteSpammer}}
     {{d-button
       class="btn-danger"
-      action="deleteSpammer"
+      action=(action "deleteSpammer")
       disabled=submitDisabled
       icon="exclamation-triangle"
       label="flagging.delete_spammer"}}

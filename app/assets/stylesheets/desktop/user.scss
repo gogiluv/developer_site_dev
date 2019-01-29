@@ -39,6 +39,10 @@
   .wrapper {
     display: table-row;
   }
+
+  .new-private-message {
+    margin-bottom: 15px;
+  }
 }
 
 .user-profile-hidden {
@@ -195,8 +199,8 @@
       float: right;
       text-align: right;
 
-      a {
-        width: 140px;
+      .btn {
+        min-width: 140px;
       }
 
       .right {

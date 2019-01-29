@@ -150,7 +150,13 @@
     z-index: z("base") + 1; // Intentionally overlapping category to create bigger tap target
     a.title {
       color: $primary;
-      padding: 0.5em 0.667em 1.2em 0;
+      padding: 0.5em 0 1.2em 0;
+    }
+    .topic-statuses {
+      a {
+        line-height: 0.8;
+        color: $primary-medium;
+      }
     }
   }
 
@@ -171,7 +177,6 @@
     }
     &.new-topic {
       padding: 0;
-      top: -2px;
     }
   }
 

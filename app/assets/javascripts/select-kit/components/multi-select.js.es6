@@ -23,7 +23,7 @@ export default SelectKitComponent.extend({
   values: null,
 
   init() {
-    this._super();
+    this._super(...arguments);
 
     this.set("computedValues", []);
 
@@ -114,6 +114,11 @@ export default SelectKitComponent.extend({
     this.set("values", computedValues);
   },
   mutateContent() {},
+
+  forceValues(values) {
+    this.mutateValues(values);
+    this._compute();
+  },
 
   filterComputedContent(computedContent, computedValues, filter) {
     return computedContent.filter(c => {

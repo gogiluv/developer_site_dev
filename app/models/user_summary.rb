@@ -30,7 +30,7 @@ class UserSummary
       .listable_topics
       .visible
       .where(user: @user)
-      .order('like_count DESC, created_at ASC')
+      .order('like_count DESC, created_at DESC')
       .limit(MAX_SUMMARY_RESULTS)
   end
 
@@ -54,7 +54,7 @@ class UserSummary
       .merge(Topic.listable_topics.visible.secured(@guardian))
       .where(user: @user)
       .where(internal: false, reflection: false, quote: false)
-      .order('clicks DESC, topic_links.created_at ASC')
+      .order('clicks DESC, topic_links.created_at DESC')
       .limit(MAX_SUMMARY_RESULTS)
   end
 
@@ -204,10 +204,12 @@ protected
 
     lookup = AvatarLookup.new(user_ids)
     user_ids.map do |user_id|
+      lookup_hash = lookup[user_id]
+
       UserWithCount.new(
-        lookup[user_id].attributes.merge(count: user_hash[user_id])
-      )
-    end.sort_by { |u| -u[:count] }
+        lookup_hash.attributes.merge(count: user_hash[user_id])
+      ) if lookup_hash.present?
+    end.compact.sort_by { |u| -u[:count] }
   end
 
 end

@@ -1,7 +1,16 @@
-import { acceptance, replaceCurrentUser } from "helpers/qunit-helpers";
+import { acceptance } from "helpers/qunit-helpers";
+import { toggleCheckDraftPopup } from "discourse/controllers/composer";
 
 acceptance("Composer", {
   loggedIn: true,
+  pretend(server, helper) {
+    server.get("/draft.json", () => {
+      return helper.response({
+        draft: null,
+        draft_sequence: 42
+      });
+    });
+  },
   settings: {
     enable_whispers: true
   }
@@ -375,7 +384,7 @@ QUnit.test("Composer can toggle whispers", async assert => {
   await menu.selectRowByValue("toggleWhisper");
 
   assert.ok(
-    find(".composer-fields .whisper .d-icon-eye-slash").length === 1,
+    find(".composer-fields .whisper .d-icon-far-eye-slash").length === 1,
     "it sets the post type to whisper"
   );
 
@@ -383,7 +392,7 @@ QUnit.test("Composer can toggle whispers", async assert => {
   await menu.selectRowByValue("toggleWhisper");
 
   assert.ok(
-    find(".composer-fields .whisper .d-icon-eye-slash").length === 0,
+    find(".composer-fields .whisper .d-icon-far-eye-slash").length === 0,
     "it removes the whisper mode"
   );
 
@@ -398,6 +407,86 @@ QUnit.test("Composer can toggle whispers", async assert => {
   );
 });
 
+QUnit.test("Switching composer whisper state", async assert => {
+  const menu = selectKit(".toolbar-popup-menu-options");
+
+  await visit("/t/this-is-a-test-topic/9");
+  await click(".topic-post:eq(0) button.reply");
+
+  await menu.expand();
+  await menu.selectRowByValue("toggleWhisper");
+
+  await fillIn(".d-editor-input", "this is the content of my reply");
+  await click("#reply-control button.create");
+
+  assert.ok(find(".topic-post:last").hasClass("whisper"));
+
+  await click("#topic-footer-buttons .btn.create");
+
+  assert.ok(
+    find(".composer-fields .whisper .d-icon-far-eye-slash").length === 0,
+    "doesn’t set topic reply as whisper"
+  );
+
+  await click(".topic-post:last button.reply");
+
+  assert.ok(find(".topic-post:last").hasClass("whisper"));
+  assert.ok(
+    find(".composer-fields .whisper .d-icon-far-eye-slash").length === 1,
+    "sets post reply as a whisper"
+  );
+
+  await click(".topic-post:nth-last-child(2) button.reply");
+
+  assert.notOk(find(".topic-post:nth-last-child(2)").hasClass("whisper"));
+  assert.ok(
+    find(".composer-fields .whisper .d-icon-far-eye-slash").length === 0,
+    "doesn’t set post reply as a whisper"
+  );
+});
+
+QUnit.test(
+  "Composer can toggle layouts (open, fullscreen and draft)",
+  async assert => {
+    await visit("/t/this-is-a-test-topic/9");
+    await click(".topic-post:eq(0) button.reply");
+
+    assert.ok(
+      find("#reply-control.open").length === 1,
+      "it starts in open state by default"
+    );
+
+    await click(".toggle-fullscreen");
+
+    assert.ok(
+      find("#reply-control.fullscreen").length === 1,
+      "it expands composer to full screen"
+    );
+
+    await click(".toggle-fullscreen");
+
+    assert.ok(
+      find("#reply-control.open").length === 1,
+      "it collapses composer to regular size"
+    );
+
+    await fillIn(".d-editor-input", "This is a dirty reply");
+    await click(".toggler");
+
+    assert.ok(
+      find("#reply-control.draft").length === 1,
+      "it collapses composer to draft bar"
+    );
+
+    await click(".toggle-fullscreen");
+
+    assert.ok(
+      find("#reply-control.open").length === 1,
+      "from draft, it expands composer back to open state"
+    );
+  }
+);
+
 QUnit.test(
   "Composer can toggle between reply and createTopic",
   async assert => {
@@ -410,7 +499,7 @@ QUnit.test(
     );
 
     assert.ok(
-      find(".composer-fields .whisper .d-icon-eye-slash").length === 1,
+      find(".composer-fields .whisper .d-icon-far-eye-slash").length === 1,
       "it sets the post type to whisper"
     );
 
@@ -419,7 +508,7 @@ QUnit.test(
 
     await click("#create-topic");
     assert.ok(
-      find(".composer-fields .whisper .d-icon-eye-slash").length === 0,
+      find(".composer-fields .whisper .d-icon-far-eye-slash").length === 0,
       "it should reset the state of the composer's model"
     );
 
@@ -485,49 +574,25 @@ QUnit.test(
   }
 );
 
-acceptance("Composer and uncategorized is not allowed", {
-  loggedIn: true,
-  settings: {
-    enable_whispers: true,
-    allow_uncategorized_topics: false
-  }
-});
+QUnit.test("Checks for existing draft", async assert => {
+  toggleCheckDraftPopup(true);
 
-QUnit.test("Disable body until category is selected", async assert => {
-  replaceCurrentUser({ admin: false, staff: false, trust_level: 1 });
+  // prettier-ignore
+  server.get("/draft.json", () => { // eslint-disable-line no-undef
+    return [ 200, { "Content-Type": "application/json" }, {
+      draft: "{\"reply\":\"This is a draft of the first post\",\"action\":\"reply\",\"categoryId\":1,\"archetypeId\":\"regular\",\"metaData\":null,\"composerTime\":2863,\"typingTime\":200}",
+      draft_sequence: 42
+    } ];
+  });
 
-  await visit("/");
-  await click("#create-topic");
-  assert.ok(exists(".d-editor-input"), "the composer input is visible");
-  assert.ok(
-    exists(".title-input .popup-tip.bad.hide"),
-    "title errors are hidden by default"
-  );
-  assert.ok(
-    exists(".d-editor-textarea-wrapper .popup-tip.bad.hide"),
-    "body errors are hidden by default"
-  );
-  assert.ok(
-    exists(".d-editor-textarea-wrapper.disabled"),
-    "textarea is disabled"
-  );
+  await visit("/t/internationalization-localization/280");
 
-  const categoryChooser = selectKit(".category-chooser");
+  await click(".topic-post:eq(0) button.show-more-actions");
+  await click(".topic-post:eq(0) button.edit");
 
-  await categoryChooser.expand();
-  await categoryChooser.selectRowByValue(2);
+  assert.equal(find(".modal-body").text(), I18n.t("drafts.abandon.confirm"));
 
-  assert.ok(
-    find(".d-editor-textarea-wrapper.disabled").length === 0,
-    "textarea is enabled"
-  );
+  await click(".modal-footer .btn.btn-default");
 
-  await fillIn(".d-editor-input", "Now I can type stuff");
-  await categoryChooser.expand();
-  await categoryChooser.selectRowByValue("__none__");
-
-  assert.ok(
-    find(".d-editor-textarea-wrapper.disabled").length === 0,
-    "textarea is still enabled"
-  );
+  toggleCheckDraftPopup(false);
 });

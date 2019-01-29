@@ -48,7 +48,7 @@ module PostGuardian
         (!SiteSetting.allow_flagging_staff?) &&
         post&.user&.staff?
 
-      if [:notify_user, :notify_moderators].include?(action_key) &&
+      if action_key == :notify_user &&
          (!SiteSetting.enable_personal_messages? ||
          !@user.has_trust_level?(SiteSetting.min_trust_to_send_messages))
 
@@ -267,6 +267,6 @@ module PostGuardian
   end
 
   def can_skip_bump?
-    is_staff?
+    is_staff? || @user.has_trust_level?(TrustLevel[4])
   end
 end

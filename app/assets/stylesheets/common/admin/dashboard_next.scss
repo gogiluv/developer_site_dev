@@ -39,6 +39,14 @@
     @include active-navigation-item;
   }
 
+  &.dashboard-next-security .navigation-item.security {
+    @include active-navigation-item;
+  }
+
+  &.dashboard-next-reports .navigation-item.reports {
+    @include active-navigation-item;
+  }
+
   &.general .navigation-item.general {
     @include active-navigation-item;
   }
@@ -136,34 +144,44 @@
     -ms-grid-rows: 1fr 1fr;
     .admin-report {
       -ms-grid-column-span: 4;
+
       &:nth-of-type(1) {
         -ms-grid-row: 1;
         -ms-grid-column: 1;
       }
       &:nth-of-type(2) {
-        -ms-grid-row: 1;
-        -ms-grid-column: 5;
-      }
-      &:nth-of-type(3) {
-        -ms-grid-row: 1;
-        -ms-grid-column: 9;
-      }
-      &:nth-of-type(4) {
         -ms-grid-row: 2;
         -ms-grid-column: 1;
       }
-      &:nth-of-type(5) {
+      &:nth-of-type(3) {
         -ms-grid-row: 2;
         -ms-grid-column: 5;
       }
-      &:nth-of-type(6) {
+      &:nth-of-type(4) {
         -ms-grid-row: 2;
+        -ms-grid-column: 9;
+      }
+      &:nth-of-type(5) {
+        -ms-grid-row: 3;
+        -ms-grid-column: 1;
+      }
+      &:nth-of-type(6) {
+        -ms-grid-row: 3;
+        -ms-grid-column: 5;
+      }
+      &:nth-of-type(7) {
+        -ms-grid-row: 3;
         -ms-grid-column: 9;
       }
     }
 
     .admin-report {
       grid-column: span 4;
+
+      &.consolidated-page-views {
+        grid-column: span 12;
+        -ms-grid-column-span: 12;
+      }
     }
 
     @include breakpoint(medium) {
@@ -187,7 +205,7 @@
     display: flex;
     border: 1px solid $primary-low;
 
-    .durability,
+    .storage-stats,
     .last-dashboard-update {
       flex: 1 1 50%;
       box-sizing: border-box;
@@ -195,7 +213,7 @@
       padding: 0 1em;
     }
 
-    .durability {
+    .storage-stats {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
@@ -209,15 +227,11 @@
       .uploads p:last-of-type {
         margin-bottom: 0;
       }
-
-      .durability-title {
-        text-transform: capitalize;
-      }
     }
 
     @media screen and (max-width: 400px) {
       flex-wrap: wrap;
-      .durability,
+      .storage-stats,
       .last-dashboard-update {
         flex: 1 1 100%;
         text-align: left;
@@ -275,14 +289,20 @@
     }
 
     .actions {
-      margin: 0;
+      margin: 1em 0 0 0;
+      display: flex;
+      align-items: center;
+      color: $primary-medium;
+      .btn {
+        margin-right: 1em;
+      }
     }
   }
 }
 
 .counters-list {
   display: flex;
-  flex: 1;
+  flex: 1 0 0px;
   flex-direction: column;
 
   .counters-header {
@@ -488,14 +508,8 @@
   margin-bottom: 1.5em;
 }
 
-.dashboard-next-moderation {
-  .admin-dashboard-moderation-top {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    grid-column-gap: 1em;
-    grid-row-gap: 1em;
-  }
-
+.dashboard-next-moderation,
+.dashboard-next-security {
   .section-body {
     margin-bottom: 1em;
   }
@@ -510,6 +524,7 @@
       grid-column: span 12;
     }
 
+    .admin-dashboard-security-bottom-outlet,
     .admin-dashboard-moderation-bottom-outlet {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -518,11 +533,46 @@
     }
   }
 
-  .admin-report.flags-status {
+  .admin-report {
     grid-column: span 12;
   }
+}
 
-  .admin-report.post-edits {
-    grid-column: span 12;
+.dashboard-next-moderation {
+  .admin-dashboard-moderation-top {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-column-gap: 1em;
+    grid-row-gap: 1em;
+  }
+}
+
+.dashboard-next-reports {
+  .reports-list {
+    display: flex;
+    flex-wrap: wrap;
+    list-style-type: none;
+    margin: 0 -1.5%;
+  }
+  .report {
+    margin: 1.5%;
+    border: 1px solid $primary-low;
+    flex: 1 1 28%;
+    transition: box-shadow 0.25s;
+    min-width: 225px;
+    max-width: 550px;
+    a {
+      display: block;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      padding: 1em;
+      .report-description {
+        color: $primary-high;
+      }
+    }
+    &:hover {
+      box-shadow: shadow("card");
+    }
   }
 }

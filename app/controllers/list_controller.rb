@@ -109,6 +109,8 @@ class ListController < ApplicationController
             @title = I18n.t('js.filters.with_topics', filter: filter_title)
           end
           @title << " - #{SiteSetting.title}"
+        elsif (filter.to_s == current_homepage) && SiteSetting.short_site_description.present?
+          @title = "#{SiteSetting.title} - #{SiteSetting.short_site_description}"
         end
       end
 
@@ -472,7 +474,6 @@ class ListController < ApplicationController
     # hacky columns get special handling
     options[:topic_ids] = param_to_integer_list(:topic_ids)
     options[:no_subcategories] = options[:no_subcategories] == 'true'
-    options[:slow_platform] = slow_platform?
 
     options
   end

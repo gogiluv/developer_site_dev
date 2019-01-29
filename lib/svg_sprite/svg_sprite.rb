@@ -5,6 +5,7 @@ require_dependency 'distributed_cache'
 module SvgSprite
   SVG_ICONS ||= Set.new([
     "adjust",
+    "ambulance",
     "anchor",
     "angle-double-down",
     "angle-double-up",
@@ -12,10 +13,11 @@ module SvgSprite
     "angle-right",
     "angle-up",
     "archive",
-    "arrows-alt-h",
     "arrow-down",
-    "arrow-up",
     "arrow-left",
+    "arrow-up",
+    "arrows-alt-h",
+    "arrows-alt-v",
     "at",
     "backward",
     "ban",
@@ -61,6 +63,7 @@ module SvgSprite
     "exclamation-circle",
     "exclamation-triangle",
     "external-link-alt",
+    "fab-android",
     "fab-apple",
     "fab-discourse",
     "fab-facebook-f",
@@ -68,8 +71,8 @@ module SvgSprite
     "fab-github",
     "fab-google-plus-square",
     "fab-instagram",
-    "fab-twitter",
     "fab-linux",
+    "fab-twitter",
     "fab-twitter-square",
     "fab-windows",
     "fab-yahoo",
@@ -82,6 +85,7 @@ module SvgSprite
     "far-clipboard",
     "far-clock",
     "far-comment",
+    "far-copyright",
     "far-dot-circle",
     "far-edit",
     "far-envelope",
@@ -123,8 +127,8 @@ module SvgSprite
     "list-ol",
     "list-ul",
     "lock",
-    "map-marker-alt",
     "magic",
+    "map-marker-alt",
     "microphone-slash",
     "minus",
     "minus-circle",
@@ -132,6 +136,7 @@ module SvgSprite
     "paint-brush",
     "paper-plane",
     "pencil-alt",
+    "play",
     "plug",
     "plus",
     "plus-circle",
@@ -149,15 +154,14 @@ module SvgSprite
     "share",
     "shield-alt",
     "shower",
-    "signal",
     "sign-out-alt",
+    "signal",
     "step-backward",
     "step-forward",
     "sync",
     "table",
     "tag",
     "tasks",
-    "tv",
     "thermometer-three-quarters",
     "thumbs-down",
     "thumbs-up",
@@ -165,6 +169,7 @@ module SvgSprite
     "times",
     "times-circle",
     "trash-alt",
+    "tv",
     "undo",
     "unlink",
     "unlock",
@@ -180,13 +185,15 @@ module SvgSprite
 
   FA_ICON_MAP = { 'far fa-' => 'far-', 'fab fa-' => 'fab-', 'fas fa-' => '', 'fa-' => '' }
 
+  SVG_SPRITE_PATHS = Dir.glob(["#{Rails.root}/vendor/assets/svg-icons/**/*.svg",
+                               "#{Rails.root}/plugins/*/svg-icons/*.svg"])
+
   def self.svg_sprite_cache
     @svg_sprite_cache ||= DistributedCache.new('svg_sprite')
   end
 
   def self.all_icons
-    icons = Set.new()
-    icons
+    Set.new()
       .merge(settings_icons)
       .merge(plugin_icons)
       .merge(badge_icons)
@@ -195,13 +202,13 @@ module SvgSprite
       .delete_if { |i| i.blank? || i.include?("/") }
       .map! { |i| process(i.dup) }
       .merge(SVG_ICONS)
-    icons
+      .sort
   end
 
   def self.rebuild_cache
     icons = all_icons
     svg_sprite_cache['icons'] = icons
-    svg_sprite_cache['version'] = Digest::SHA1.hexdigest(icons.sort.join('|'))
+    svg_sprite_cache['version'] = Digest::SHA1.hexdigest(icons.join('|'))
   end
 
   def self.expire_cache
@@ -224,7 +231,7 @@ Discourse SVG subset of #{fa_license}
 <svg xmlns='http://www.w3.org/2000/svg' style='display: none;'>
 """.dup
 
-    Dir["#{Rails.root}/vendor/assets/svg-icons/**/*.svg"].each do |fname|
+    SVG_SPRITE_PATHS.each do |fname|
       svg_file = Nokogiri::XML(File.open(fname)) do |config|
         config.options = Nokogiri::XML::ParseOptions::NOBLANKS
       end
@@ -236,7 +243,7 @@ Discourse SVG subset of #{fa_license}
 
         if icons.include? icon_id
           sym.attributes['id'].value = icon_id
-          sym.css('title').each { |t| t.remove }
+          sym.css('title').each(&:remove)
           svg_subset << sym.to_xml
         end
       end
@@ -248,7 +255,7 @@ Discourse SVG subset of #{fa_license}
   def self.search(searched_icon)
     searched_icon = process(searched_icon.dup)
 
-    Dir["#{Rails.root}/vendor/assets/svg-icons/**/*.svg"].each do |fname|
+    SVG_SPRITE_PATHS.each do |fname|
       svg_file = Nokogiri::XML(File.open(fname))
       svg_filename = "#{File.basename(fname, ".svg")}"
 
@@ -257,13 +264,13 @@ Discourse SVG subset of #{fa_license}
 
         if searched_icon == icon_id
           sym.attributes['id'].value = icon_id
-          sym.css('title').each { |t| t.remove }
+          sym.css('title').each(&:remove)
           return sym.to_xml
         end
       end
     end
 
-    return false
+    false
   end
 
   def self.prepare_symbol(symbol, svg_filename)
@@ -305,7 +312,7 @@ Discourse SVG subset of #{fa_license}
   end
 
   def self.badge_icons
-    Badge.all.pluck(:icon).uniq
+    Badge.pluck(:icon).uniq
   end
 
   def self.group_icons
@@ -332,11 +339,11 @@ Discourse SVG subset of #{fa_license}
   end
 
   def self.fa4_to_fa5_names
-    @db ||= File.open(fa4_shim_file, "r:UTF-8") { |f|  JSON.parse(f.read); }
+    @db ||= File.open(fa4_shim_file, "r:UTF-8") { |f| JSON.parse(f.read) }
   end
 
   def self.process(icon_name)
-    icon_name = icon_name.strip
+    icon_name.strip!
     FA_ICON_MAP.each { |k, v| icon_name.sub!(k, v) }
     fa4_to_fa5_names[icon_name] || icon_name
   end

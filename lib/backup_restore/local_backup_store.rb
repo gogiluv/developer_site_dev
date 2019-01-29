@@ -33,8 +33,8 @@ module BackupRestore
       path = path_from_filename(filename)
 
       if File.exists?(path)
-        FileUtils.remove_file(path, force: true)
-        DiskSpace.reset_cached_stats
+        File.delete(path)
+        reset_cache
       end
     end
 
@@ -62,6 +62,10 @@ module BackupRestore
         last_modified: File.mtime(path).utc,
         source: include_download_source ? path : nil
       )
+    end
+
+    def free_bytes
+      DiskSpace.free(@base_directory)
     end
   end
 end
