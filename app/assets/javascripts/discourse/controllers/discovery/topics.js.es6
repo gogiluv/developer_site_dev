@@ -87,15 +87,15 @@ const controllerOpts = {
     },
 
     go_to(url){
-	location.href=url;
+	    location.href=url;
     },
     
     show_tip(event){
-	$(event.target.parentNode.children[2]).fadeIn();
+	    $(event.target.parentNode.children[2]).fadeIn();
     },
 
     hide_tip(event){
-	$(event.target.parentNode.children[2]).fadeOut();
+	    $(event.target.parentNode.children[2]).fadeOut();
     }
 
   },

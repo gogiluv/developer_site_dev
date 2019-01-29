@@ -113,14 +113,16 @@ class ListController < ApplicationController
       end
 
       #puts "----------main list query-----------"
-      if params[:category].blank?
-        if filter == :latest
-	  list.guide_list = get_guide_list
-	  list.qna_list = get_qna_list
-	  list.popular_tags = get_popular_tags
-	  list.shader_list = get_shader_list
-        end
-      end
+      
+      #if params[:category].blank?
+      #  if filter == :latest
+      #    list.guide_list = get_guide_list
+      #    list.qna_list = get_qna_list
+      #    list.popular_tags = get_popular_tags
+      #    list.shader_list = get_shader_list
+      #  end
+      #end
+
       #puts "query end---------------------------------------------------------"
 
       respond_with_list(list)
@@ -324,29 +326,43 @@ class ListController < ApplicationController
   def get_guide_list
       guide_c_info = Category.where(parent_category_id: nil, name: "개발 가이드").select(:id, :parent_category_id, :name).first
       guide_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD\') as created_dt,
-		   t.views, t.visible, t.deleted_at, t.excerpt, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
-		   c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk, 
-		   case when length(t.excerpt)>30 THEN substring(t.excerpt from 1 for 50) || \'...\' else t.excerpt end as preview
-		   from topics as t
-		   inner join categories as c on t.category_id=c.id
-		   inner join users as u on t.user_id = u.id
-		   inner join posts as p on t.id = p.topic_id and p.post_number=1
-		   where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 3', guide_c_info.id, guide_c_info.id])
+		  t.views, t.visible, t.deleted_at, t.excerpt, t.posts_count, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+		  c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk, 
+		  case when length(t.excerpt)>30 THEN substring(t.excerpt from 1 for 50) || \'...\' else t.excerpt end as preview
+		  from topics as t
+		  inner join categories as c on t.category_id=c.id
+		  inner join users as u on t.user_id = u.id
+		  inner join posts as p on t.id = p.topic_id and p.post_number=1
+		  where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 5', guide_c_info.id, guide_c_info.id])
       guide_list
   end
 
   def get_qna_list
       qna_c_info = Category.where(parent_category_id: nil, name: "질의 응답").select(:id, :parent_category_id, :name).first
       qna_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD\') as created_dt,
-		 t.views, t.visible, t.deleted_at, t.excerpt, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
-		 c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk,
-		 case when length(t.excerpt)>30 THEN substring(t.excerpt from 1 for 50) || \'...\' else t.excerpt end as preview
-		 from topics as t
-		 inner join categories as c on t.category_id=c.id
-		 inner join users as u on t.user_id = u.id
-		 inner join posts as p on t.id = p.topic_id and p.post_number=1
-		 where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 3', qna_c_info.id, qna_c_info.id])
+      t.views, t.visible, t.deleted_at, t.excerpt, t.posts_count, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+      c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk,
+      case when length(t.excerpt)>30 THEN substring(t.excerpt from 1 for 50) || \'...\' else t.excerpt end as preview
+      from topics as t
+      inner join categories as c on t.category_id=c.id
+      inner join users as u on t.user_id = u.id
+      inner join posts as p on t.id = p.topic_id and p.post_number=1
+      where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 5', qna_c_info.id, qna_c_info.id])
       qna_list
+  end
+
+  def get_unity_list
+      unity_c_info = Category.where(parent_category_id: nil, name: "unity Q&A").select(:id, :parent_category_id, :name).first
+      unity_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD\') as created_dt,
+      t.views, t.visible, t.deleted_at, t.excerpt, t.posts_count, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+      c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk,
+      case when length(t.excerpt)>30 THEN substring(t.excerpt from 1 for 50) || \'...\' else t.excerpt end as preview
+      from topics as t
+      inner join categories as c on t.category_id=c.id
+      inner join users as u on t.user_id = u.id
+      inner join posts as p on t.id = p.topic_id and p.post_number=1
+      where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 5', unity_c_info.id, unity_c_info.id])
+      unity_list
   end
   
   def get_popular_tags
@@ -356,6 +372,31 @@ class ListController < ApplicationController
   def get_shader_list
       #add shader room list
       Shader.select(:id, :title, :like_count, :img_data, 'users.username').joins(:user).order(created_at: :desc).limit(3)
+  end
+
+  def dev
+    #TODO
+  end
+
+  def dev_home
+
+    # draft, 작성중이던 글이 있는가
+    draft_key = Draft::NEW_TOPIC
+    draft_sequence = DraftSequence.current(current_user, Draft::NEW_TOPIC)
+    draft = Draft.get(current_user, draft_key, draft_sequence) if current_user
+
+    data = {
+      "guide_list" => get_guide_list,
+      "qna_list" => get_qna_list,
+      "shader_list" => get_shader_list,
+      "popular_tags" => get_popular_tags,
+      "unity_list" => get_unity_list,
+      "can_create_topic" => guardian.can_create?(Topic),
+      "draft_key" => draft_key,
+      "draft_sequence" => draft_sequence,
+      "draft" => draft
+    }
+    render json: data
   end
 
   protected

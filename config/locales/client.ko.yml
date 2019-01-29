@@ -2064,6 +2064,8 @@ ko:
         this_week: "주"
         today: "오늘"
         other_periods: "상단 보기"
+      dev:
+        title: "개발자 홈"
     permission_types:
       full: "생성 / 답글 / 보기"
       create_post: "답글 / 보기"

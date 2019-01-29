@@ -159,7 +159,7 @@ basic:
     refresh: true
     type: list
     list_type: compact
-    default: "latest|new|unread|top|categories"
+    default: "latest|new|unread|top|categories|dev"
     regex: "latest"
     regex_error: "site_settings.errors.must_include_latest"
     validator: RegexPresenceValidator
@@ -173,6 +173,7 @@ basic:
      - read
      - posted
      - bookmarks
+     - dev
   post_menu:
     client: true
     type: list

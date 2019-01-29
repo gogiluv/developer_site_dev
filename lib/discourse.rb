@@ -110,15 +110,15 @@ module Discourse
   end
 
   def self.anonymous_filters
-    @anonymous_filters ||= [:latest, :top, :categories]
+    @anonymous_filters ||= [:latest, :top, :categories, :dev]
   end
 
   def self.top_menu_items
-    @top_menu_items ||= Discourse.filters + [:category, :categories, :top]
+    @top_menu_items ||= Discourse.filters + [:category, :categories, :top, :dev]
   end
 
   def self.anonymous_top_menu_items
-    @anonymous_top_menu_items ||= Discourse.anonymous_filters + [:category, :categories, :top]
+    @anonymous_top_menu_items ||= Discourse.anonymous_filters + [:category, :categories, :top, :dev]
   end
 
   PIXEL_RATIOS ||= [1, 1.5, 2, 3]

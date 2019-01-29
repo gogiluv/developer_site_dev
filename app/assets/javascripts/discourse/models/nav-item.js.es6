@@ -75,6 +75,11 @@ const NavItem = Discourse.Model.extend({
 
   @computed("name", "category", "categorySlug", "noSubcategories")
   filterMode(name, category, categorySlug, noSubcategories) {
+    // filter가 dev 이면 그냥 name을 리턴, custom filter
+    if(name==="dev") {
+      return name;
+    }
+
     if (name.split("/")[0] === "category") {
       return "c/" + categorySlug;
     } else {
@@ -86,7 +91,7 @@ const NavItem = Discourse.Model.extend({
           mode += "/none";
         }
         mode += "/l/";
-      }
+      }      
       return mode + name.replace(" ", "-");
     }
   },

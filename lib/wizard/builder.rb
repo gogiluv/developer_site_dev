@@ -202,9 +202,9 @@ class Wizard
 
         step.on_update do |updater|
           if updater.fields[:homepage_style] == 'latest'
-            top_menu = "latest|new|unread|top|categories"
+            top_menu = "latest|new|unread|top|categories|dev"
           else
-            top_menu = "categories|latest|new|unread|top"
+            top_menu = "categories|latest|new|unread|top|dev"
             updater.update_setting(:desktop_category_page_style, updater.fields[:homepage_style])
           end
           updater.update_setting(:top_menu, top_menu)

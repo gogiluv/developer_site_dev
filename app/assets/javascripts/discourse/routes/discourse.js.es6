@@ -70,6 +70,10 @@ const DiscourseRoute = Ember.Route.extend({
       if (this.controllerFor("discovery/topics").get("model.draft")) {
         this.controllerFor("discovery/topics").set("model.draft", null);
       }
+      // 작성중이던 글 취소시 draft 삭제 및 버튼 label 변경
+      if (this.controllerFor("discovery/dev").get("model.draft")) {
+        this.controllerFor("discovery/dev").set("model.draft", null);
+      }
     }
   },
 
