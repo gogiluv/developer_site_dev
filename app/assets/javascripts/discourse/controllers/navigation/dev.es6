@@ -5,7 +5,7 @@ export default Ember.Controller.extend({
     return this.get("discoveryDev.model.draft");    
   }.property("discoveryDev.model", "discoveryDev.model.draft"),
 
-  canCreateTopic: function() {
+  canCreateTopic: function() {  
     return this.get("discoveryDev.model.can_create_topic");
-  }
+  }.property("discoveryDev.model", "discoveryDev.model.can_create_topic")
 });
