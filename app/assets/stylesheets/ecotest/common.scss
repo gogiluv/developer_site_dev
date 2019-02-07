@@ -167,7 +167,8 @@
 }
 .rightbox, .leftbox, .left-area{
         float: left;
-        width: auto;
+        width: 26%;
+        width: -webkit-fill-available;
         max-width: 295px;
         height: 600px;
         //border-left: 1px solid lightgray;

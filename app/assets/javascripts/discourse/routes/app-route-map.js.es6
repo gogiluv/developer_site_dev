@@ -55,6 +55,7 @@ export default function() {
     
     // route test dev
     this.route("dev");
+    this.route("dev2");
 
     // default filter for a category
     this.route("parentCategory", { path: "/c/:slug" });

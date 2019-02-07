@@ -85,6 +85,8 @@ module SvgSprite
     "far-clipboard",
     "far-clock",
     "far-comment",
+    "far-comments",
+    "far-comment-dots",
     "far-copyright",
     "far-dot-circle",
     "far-edit",

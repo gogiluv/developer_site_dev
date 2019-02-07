@@ -53,8 +53,8 @@ class ListController < ApplicationController
     TopTopic.periods.map { |p| :"category_none_top_#{p}" },
     TopTopic.periods.map { |p| :"parent_category_category_top_#{p}" },
     :group_topics,
-    :dev,
-    :dev_home
+    :home_api,
+    :home_index
   ].flatten
 
   # Create our filters
@@ -382,7 +382,7 @@ class ListController < ApplicationController
     #TODO
   end
 
-  def dev_home
+  def home_api
     # draft, 작성중이던 글이 있는가
     draft_key = Draft::NEW_TOPIC
     draft_sequence = DraftSequence.current(current_user, Draft::NEW_TOPIC)
@@ -400,6 +400,10 @@ class ListController < ApplicationController
       "draft" => draft
     }
     render json: data
+  end
+
+  def home_index
+    # homes index func
   end
 
   protected

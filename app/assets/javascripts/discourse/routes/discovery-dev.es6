@@ -9,7 +9,7 @@ const DiscoveryDevRoute = Discourse.Route.extend(OpenComposer, {
   },
   
   model() {
-    return ajax('dev_home');
+    return ajax('home_api');
   },
   actions: {
     createTopic() {
