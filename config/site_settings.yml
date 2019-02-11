@@ -175,8 +175,8 @@ basic:
      - read
      - posted
      - bookmarks
-     - dev
-     - dev2
+     - devone
+     - devtwo
   post_menu:
     client: true
     type: list

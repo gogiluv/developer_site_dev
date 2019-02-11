@@ -1045,7 +1045,7 @@ const Composer = RestModel.extend({
 
   anonymous_chk: function(){
     return false;
-  }.property("anonymous_chk")
+  }.property("this.anonymous_chk")
 
 });
 

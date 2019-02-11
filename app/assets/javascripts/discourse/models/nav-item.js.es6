@@ -76,7 +76,7 @@ const NavItem = Discourse.Model.extend({
   @computed("name", "category", "categorySlug", "noSubcategories")
   filterMode(name, category, categorySlug, noSubcategories) {
     // filter가 dev 이면 그냥 name을 리턴, custom filter
-    if(name==="dev") {
+    if(name==="dev" || name==="devone" || name==="devtwo") {
       return name;
     }
 

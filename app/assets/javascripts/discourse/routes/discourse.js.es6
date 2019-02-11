@@ -76,6 +76,12 @@ const DiscourseRoute = Ember.Route.extend({
       if (this.controllerFor("discovery/dev").get("model.draft")) {
         this.controllerFor("discovery/dev").set("model.draft", null);
       }
+      if (this.controllerFor("discovery/devone").get("model.draft")) {
+        this.controllerFor("discovery/devone").set("model.draft", null);
+      }
+      if (this.controllerFor("discovery/devtwo").get("model.draft")) {
+        this.controllerFor("discovery/devtwo").set("model.draft", null);
+      }
     }
   },
 

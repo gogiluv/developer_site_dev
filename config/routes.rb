@@ -10,13 +10,14 @@ USERNAME_ROUTE_FORMAT = /[\w.\-]+?/ unless defined? USERNAME_ROUTE_FORMAT
 BACKUP_ROUTE_FORMAT = /.+\.(sql\.gz|tar\.gz|tgz)/i unless defined? BACKUP_ROUTE_FORMAT
 
 Discourse::Application.routes.draw do  
-  root to: "list#home_index", constraints: HomePageConstraint.new("dev2"), as: "dev2_index" 
-  root to: "list#home_index", constraints: HomePageConstraint.new("dev"), as: "dev_index" 
+  root to: "list#home_index", constraints: HomePageConstraint.new("devone"), as: "devOne_index" 
+  root to: "list#home_index", constraints: HomePageConstraint.new("devtwo"), as: "devTwo_index" 
   # get "/" => "list#dev" # dev 페이지 추가하면서 생성한 라우팅, 원래는 "/" 경로가 동적으로 생성되던거 같다. 어딘지 모르겠음
   ## 추가 ## 파일 제일 하단쪽에 root to 로 다른 경로도 명시되있음
   #root to: "list#dev", constraints: HomePageConstraint.new("dev"), as: "dev_index" 
-  get "dev2" => "list#home_index"
   get "dev" => "list#home_index"
+  get "devone" => "list#home_index"
+  get "devtwo" => "list#home_index"
   get "home_api" => "list#home_api"
   get "shaders/guide" => "shaders#guide"
   get "shaders/user/:id" => "shaders#get_user_info"
