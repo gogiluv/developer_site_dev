@@ -21,10 +21,6 @@ class User < ActiveRecord::Base
   include SecondFactorManager
   include HasDestroyedWebHook
 
-  self.ignored_columns = %w{
-    group_locked_trust_level
-  }
-
   has_many :posts
   has_many :notifications, dependent: :destroy
   has_many :topic_users, dependent: :destroy
@@ -293,6 +289,10 @@ class User < ActiveRecord::Base
     end
 
     fields.uniq
+  end
+
+  def human?
+    self.id > 0
   end
 
   def effective_locale

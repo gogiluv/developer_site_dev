@@ -7,6 +7,10 @@ class ThemeField < ActiveRecord::Base
   belongs_to :upload
   has_one :javascript_cache, dependent: :destroy
 
+  after_commit do |field|
+    SvgSprite.expire_cache if field.target_id == Theme.targets[:settings]
+  end
+
   scope :find_by_theme_ids, ->(theme_ids) {
     return none unless theme_ids.present?
 
@@ -60,7 +64,7 @@ class ThemeField < ActiveRecord::Base
   validates :name, format: { with: /\A[a-z_][a-z0-9_-]*\z/i },
                    if: Proc.new { |field| ThemeField.theme_var_type_ids.include?(field.type_id) }
 
-  COMPILER_VERSION = 9
+  COMPILER_VERSION = 10
 
   belongs_to :theme
 
