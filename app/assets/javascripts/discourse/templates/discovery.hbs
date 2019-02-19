@@ -2,15 +2,23 @@
   {{discourse-banner user=currentUser banner=site.banner}}
 </div>
 
+{{#if false}}
 <div class="searcharea">
                  <input type="text" class="input_search" id="search_keyword" name="keyword" value="" placeholder="주제, 글, 사용자, 카테고리 검색" onkeydown="ecowiki.keychk()"/>
                  <input type="button" class="button red btn_search" value="검색" onclick="ecowiki.search()"/>
 </div>
+{{/if}}
 
 <div class="list-controls">
   <div class="container">
     {{outlet "navigation-bar"}}
-  </div>
+    <div class="devtwo-search" style="float:right;margin-left:5px; border:0px;">
+      <form class="form-search" style="border-bottom:1px solid black; padding:0; margin:0;">
+        <input type="text" class="form-text" maxlength="128" placeholder="Search">
+          {{d-icon "search"}}                    
+      </form>
+    </div>       
+  </div>  
 </div>
 
 {{conditional-loading-spinner condition=loading}}

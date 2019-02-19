@@ -40,7 +40,7 @@
         //border: 1px solid red;
         width: 100%;
         height: auto;
-	color: rgb(99, 99, 99);
+	color: #2d2d2d;//rgb(99, 99, 99);
 }
 #list-area {
         min-height: 1px;
@@ -493,4 +493,127 @@
 .search-name {
         font-weight: bold;
         font-size: 17px;
+}
+
+// devtwo
+.devtwo-area {
+        //border: 1px solid red;
+        width: 100%;
+        height: 100%;
+        font-family: 'MuseoSans-500','Malgun Gothic',Helvetica,Arial,sans-serif;
+}
+.devtwo-table, .devtwo-top {
+        width: 100%;        
+        //margin: 0px 1%;
+}
+.devtwo-table a{        
+        color: #2d2d2d;
+}
+.devtwo-table a:hover{
+        text-decoration: underline;
+}
+.devtwo-table tbody{        
+        display:block;
+        border: 1px solid #cfcfcf;
+        border-collapse: separate;
+        margin-bottom: 5px;        
+}
+.devtwo-table tbody tr:first-child td:nth-child(1) {
+        width: 300px;   
+        padding: 15px;
+        background-color: #f9f9f9;
+}
+.devtwo-table tbody tr:nth-child(n+2) td:last-child {
+        padding: 5px 20px;
+        height: 20px;
+}
+.devtwo-top {
+        padding-top: 20px;
+        padding-bottom: 20px;
+}
+.devtwo-description {
+        display: inline-block;
+        width: 750px;
+}
+.fs-25 {
+        font-size: 25px;
+}
+.fs-20 {
+        font-size: 20px;
+}
+.fs-15 {
+        font-size: 15px;
+}
+.c-1e9cd8{
+        color: #1e9cd8;
+}
+.borard-descripton div {        
+        padding: 0px 3px 10px 0px;        
+}
+.devtwo-table .svg-icon {
+        height: 5px;
+        width: 5px;
+        vertical-align: 0.1em;
+}
+.devtwo-shader-box {
+        display: inline-block;
+        width: 32%;
+}
+/*
+.d-header {
+        margin-bottom: 0px !important;
+        position: relative;
+}
+*/
+.header-underline {
+        width:100%;
+        height:30px;
+        background-color:#f2f2f2;
+        //border-bottom: 1px solid #e5e5e5;
+        box-shadow: 0 2px 4px -1px rgba(0,0,0,0.25);
+}
+.devtwo-search form {
+        padding-top: 35px;
+        font-size: 17                                                                                                                                         x;
+}
+.devtwo-search form input {
+        background-color: inherit;
+        border: 0;
+        margin: 0;
+}
+.devtwo-search form input:focus {
+        outline: 0;
+        box-shadow: none;
+}
+
+.list-controls {
+        width: 100%;
+        position: absolute;
+        left: 0;
+        background-color: #f2f2f2;
+        box-shadow: 0 2px 4px -1px rgba(0,0,0,0.25);
+}
+
+.list-controls .container {
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 10px;
+        width: 1100px;
+}
+.container.list-container {
+        margin-top: 60px;
+}
+
+#main-outlet {
+        padding-top: 4.15em !important;
+}
+.row .full-width .admin-main-nav {      //관리자 페이지 상단이 너무 붙어서 10px 떨어뜨림
+        padding-top: 10px;
+}
+.btn {
+        background-color: #1e9cd8;
+        color:white;
+}
+.btn .d-icon {
+        color: white;
 }

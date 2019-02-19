@@ -2058,6 +2058,10 @@ ko:
         other_periods: "상단 보기"
       dev:
         title: "개발자 홈"
+      devone:
+        title: "홈1"
+      devtwo:
+        title: "홈2"
     permission_types:
       full: "생성 / 답글 / 보기"
       create_post: "답글 / 보기"
