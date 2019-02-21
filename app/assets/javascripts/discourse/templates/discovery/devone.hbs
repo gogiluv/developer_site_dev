@@ -6,15 +6,15 @@
         </div>
         -->
     <div class="left-area">
+        {{#if false}}
         <div class="noticebox">
             <h4>Com2us 지식공유 사이트에 오신것을 환영합니다</h4>
             <span class="fs-12">
                 <br />
-                이곳에서는 개발관련 노하우 공유는 물론<br />
-                google신보다 빠르게 <br/>
-                우리에게 필요한 정보를 공유하고자 합니다. <br /><br/>
-                누구나 쉽게 질문하고 <br/>
-                답변을 등록 할 수 있습니다. <br /><br/>
+                이곳에서는 개발관련 노하우 공유는 물론
+                google신보다 빠르게
+                우리에게 필요한 정보를 공유하고자 합니다. <br /><br />
+                누구나 쉽게 질문하고 답변을 등록 할 수 있습니다. <br /><br />
                 당신의 노하우를 자랑해 주세요~ <br />
                 {{#if false}}
                 <h3>* 퀵 링크</h3>
@@ -25,42 +25,71 @@
                 {{/if}}
             </span>
         </div>
+        {{/if}}
+        <div class="category-box">
+                <a href="/c/qna/">
+                    <div class="category-link">
+                        <span class="fs-25">{{d-icon "far-edit"}}</span><span>Answers</span>
+                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
+                    </div>
+                </a>
+                <a href="/c/dv-guide/">
+                    <div class="category-link">
+                        <span class="fs-25">{{d-icon "chalkboard-teacher"}}</span><span>개발가이드</span>
+                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
+                    </div>
+                </a>
+                <a {{action "go_to" '/shaders' }}>
+                    <div class="category-link">
+                        <span class="fs-25">{{d-icon "shapes"}}</span><span>Shader Room</span>                        
+                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
+                    </div>
+                </a>
+                <a href="/c/unity-qna/">
+                    <div class="category-link">
+                        <span class="fs-25">{{d-icon "list"}}</span><span>Unity Q&A</span>
+                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
+                    </div>
+                </a>
+        </div>      
         <div class="site-guide-box">
-                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140546128">
-                    <div class="guide-link">
-                        {{d-icon "book"}}
-                        사용 가이드
-                        <div class="f-r">{{d-icon "chevron-right"}}</div>
-                    </div>
-                </a>
-                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542552">
-                    <div class="guide-link">
-                        {{d-icon "book"}}
-                        작성 가이드
-                        <div class="f-r">{{d-icon "chevron-right"}}</div>
-                    </div>
-                </a>
-                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542565">
-                    <div class="guide-link">
-                        {{d-icon "book"}}
-                        게시물에 태그를 추가하는 방법
-                        <div class="f-r">{{d-icon "chevron-right"}}</div>
-                    </div>
-                </a>
-                <a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140543801">
-                    <div class="guide-link">
-                        {{d-icon "book"}}
-                        수식 표기법(MathJax)
-                        <div class="f-r">{{d-icon "chevron-right"}}</div>
-                    </div>
-                </a>
+                <div class="guide-opener" {{action "guide_tab"}}>
+                    <span class="fs-25">{{d-icon "info-circle"}}</span><span>Guides</span>
+                        <span class="fs-15 f-r">
+                            {{#if guide_is_open}}     
+                                {{d-icon "chevron-down"}}
+                            {{else}}
+                                {{d-icon "chevron-right"}}
+                            {{/if}}
+                        </span>
+                </div>
+                {{#if guide_is_open}}     
+                <div>
+                    <ul>
+                        <li><a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140546128" target="_blank">사용가이드</a></li>
+                        <li><a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542552" target="_blank">작성가이드</a></li>
+                        <li><a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140542565" target="_blank">게시물에 태그를 추가하는 방법</a></li>
+                        <li><a href="https://jira.gamevilcom2us.com/wiki/pages/viewpage.action?pageId=140543801" target="_blank">수식 표기법(MathJax)</a></li>
+                    </ul>
+                </div>
+                {{/if}}
         </div>
         <div class="tagbox">
-            <div class="tags-label">{{d-icon "tag"}} Popular Tags</div>            
+            <div class="tags-label">
+                <span class="fs-25">{{d-icon "tag"}}</span><span>Popular Tags</span>
+            </div>
             {{#each model.popular_tags as |row|}}
             <a href="/tags/{{row.name}}" class="tag discourse-tag simple button">{{row.name}}({{row.topic_count}})</a>
             {{/each}}
         </div>
+        <div class="category-box">
+                <a href="http://developers.withhive.com/" target="_blank">
+                    <div class="category-link">
+                        <span class="fs-25">{{d-icon "h-square"}}</span><span>HIVE Developer</span>
+                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
+                    </div>
+                </a>
+        </div>         
     </div>
 
     <div class="right-area">

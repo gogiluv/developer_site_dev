@@ -182,7 +182,10 @@ module SvgSprite
     "user-secret",
     "user-times",
     "users",
-    "wrench"
+    "wrench",
+    "chalkboard-teacher",
+    "h-square",
+    "shapes"
   ])
 
   FA_ICON_MAP = { 'far fa-' => 'far-', 'fab fa-' => 'fab-', 'fas fa-' => '', 'fa-' => '' }

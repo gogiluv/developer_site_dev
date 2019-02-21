@@ -13,6 +13,7 @@ export default DiscoveryController.extend({
   discovery: Ember.inject.controller(),
   // this makes sure the composer isn't scoping to a specific category
   category: null,  
+  guide_is_open: true,
 
   actions: {
     go_to(url){
@@ -22,9 +23,11 @@ export default DiscoveryController.extend({
     show_tip(event){
 	    $(event.target.parentNode.children[2]).fadeIn();
     },
-
     hide_tip(event){
 	    $(event.target.parentNode.children[2]).fadeOut();
+    },
+    guide_tab(event) {
+      this.toggleProperty('guide_is_open');
     }
   }
 });

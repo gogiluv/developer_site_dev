@@ -2,8 +2,9 @@
         text-align: center;
 }
 .searcharea{
-        height: 80px;
+        height: 70px;
         text-align: center;
+        padding-top: 10px;
 }
 .input_search{
         width: 40%;
@@ -53,7 +54,7 @@
 }
 .right-area {
         float: right;
-        width: 73%;
+        width: 75%;
         height: 100%;
 }
 .list-box {
@@ -70,8 +71,11 @@
 .list-box table thead a:hover, .list-box .boxlabel a:hover{
         color:#e45735;
 }
-.list-box table tbody a, .list-box .postbox a, .left-area a {
-        color:#E07300;
+.list-box table tbody a, .list-box .postbox a {
+        //color:#E07300;
+}
+.list-box table tbody tr:nth-last-child(n+4) a {
+        color: #2a84d8;
 }
 .list-box table thead, .list-box .boxlabel {
         background-color: #f7f7f7;
@@ -167,9 +171,9 @@
 }
 .rightbox, .leftbox, .left-area{
         float: left;
-        width: 26%;
+        width: 24%;
         width: -webkit-fill-available;
-        max-width: 295px;
+        max-width: 270px;
         height: 600px;
         //border-left: 1px solid lightgray;
 }
@@ -213,13 +217,16 @@
 .noticebox, .tagbox {
         min-height: 15%;
         height: auto;
-        padding: 15px;
+        padding: 5px;
         margin-bottom: 5px;
         //border: 1px solid lightgray;
         background-color: #f7f7f7;
         a {
                 font-size: 12px;
         }
+}
+.tagbox {
+        margin-top: 20px;
 }
 
 .w100 {
@@ -535,6 +542,9 @@
         display: inline-block;
         width: 750px;
 }
+.fs-30 {
+        font-size: 30px;
+}
 .fs-25 {
         font-size: 25px;
 }
@@ -543,6 +553,9 @@
 }
 .fs-15 {
         font-size: 15px;
+}
+.fs-12 {
+        font-size: 12px;
 }
 .f-r {
         float: right;
@@ -620,31 +633,81 @@
 .btn .d-icon {
         color: white;
 }
-.site-guide-box {
-        height: auto;        
-        margin-bottom: 5px;
+.site-guide-box, .category-box {
+        height: auto;
         //border: 1px solid lightgray;
         background-color: #f7f7f7;
         a {
                 font-size: 12px;
         }
 }
-.guide-link {
+.category-box:last-child {
+        margin-top: 20px;
+}
+.site-guide-box {
+        margin-top: 20px;
+        margin-bottom: 5px;
+}
+.site-guide-box a {
+        padding: 5px;
+        color: #2a84d8;
+}
+.site-guide-box ul {
+        margin-bottom: 0;
+}
+.site-guide-box li {        
+        padding-top: 5px;
+}
+.site-guide-box li:last-child{        
+        padding-bottom: 20px;
+}
+.site-guide-box a:hover {
+        background-color: #a7a7a7;
+        color: white;
+}
+.guide-link, .category-link {
         border: 0;
         border-bottom: 5px;
         border-style: solid;
         border-color: white;
-        font-size: 14px;
+        font-size: 12px;
         text-align: left;
-        padding: 5px 15px 5px 15px;
+        padding: 5px 5px 5px 5px;
         color: #2d2d2d;
 }
-.guide-link:hover{
+.guide-opener {
+        border: 0;        
+        font-size: 12px;
+        text-align: left;
+        padding: 5px 5px 5px 5px;
+        color: #2d2d2d;
+}
+.guide-opener:hover {
+        cursor: pointer;
         background-color: #a7a7a7;
-        color: white;        
+        color: white;
+}
+
+.category-link {
+        font-size: 12px;
+        //height: 25px;
+        //line-height: 30px;
+}
+.category-link span:nth-child(2), .guide-opener span:nth-child(2), .tags-label span:nth-child(2){
+        padding-left: 10px;
+        position: absolute;
+        padding-top: 10px;
+}
+.category-link span:nth-child(3), .guide-opener span:nth-child(3){        
+        padding-top: 7px;
+        padding-right: 15px;
+}
+.category-link:hover, .guide-list:hover {
+        background-color: #a7a7a7;
+        color: white;
 }
 .tags-label{
-        font-size: 14px;
+        font-size: 12px;
         text-align: left;
         padding: 0 0 10px 0;
 }
