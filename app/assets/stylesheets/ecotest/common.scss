@@ -210,11 +210,11 @@
 	line-height:30px;
 	padding-right:10px;
 }
-.noticebox, .tagbox{
-        min-height: 45%;
+.noticebox, .tagbox {
+        min-height: 15%;
         height: auto;
-        padding: 10px;
-        margin: 0 5px 5px 5px;
+        padding: 15px;
+        margin-bottom: 5px;
         //border: 1px solid lightgray;
         background-color: #f7f7f7;
         a {
@@ -544,6 +544,9 @@
 .fs-15 {
         font-size: 15px;
 }
+.f-r {
+        float: right;
+}
 .c-1e9cd8{
         color: #1e9cd8;
 }
@@ -607,13 +610,41 @@
 #main-outlet {
         padding-top: 4.15em !important;
 }
-.row .full-width .admin-main-nav {      //관리자 페이지 상단이 너무 붙어서 10px 떨어뜨림
+.row .full-width .admin-main-nav, .search-container {      //관리자 페이지 상단이 너무 붙어서 10px 떨어뜨림
         padding-top: 10px;
 }
 .btn {
-        background-color: #1e9cd8;
+        background-color: #c9151b;
         color:white;
 }
 .btn .d-icon {
         color: white;
+}
+.site-guide-box {
+        height: auto;        
+        margin-bottom: 5px;
+        //border: 1px solid lightgray;
+        background-color: #f7f7f7;
+        a {
+                font-size: 12px;
+        }
+}
+.guide-link {
+        border: 0;
+        border-bottom: 5px;
+        border-style: solid;
+        border-color: white;
+        font-size: 14px;
+        text-align: left;
+        padding: 5px 15px 5px 15px;
+        color: #2d2d2d;
+}
+.guide-link:hover{
+        background-color: #a7a7a7;
+        color: white;        
+}
+.tags-label{
+        font-size: 14px;
+        text-align: left;
+        padding: 0 0 10px 0;
 }
