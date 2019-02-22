@@ -370,7 +370,7 @@ class ListController < ApplicationController
   end
   
   def get_popular_tags
-      Tag.order(topic_count: :desc).limit(20)
+      Tag.order(topic_count: :desc).limit(10)
   end
 
   def get_shader_list

@@ -74,8 +74,18 @@
 .list-box table tbody a, .list-box .postbox a {
         //color:#E07300;
 }
-.list-box table tbody tr:nth-last-child(n+4) a {
-        color: #2a84d8;
+.list-box table tbody {
+        tr:nth-last-child(n+4) td a {
+                color: #2a84d8;
+        }
+        tr td a {
+                display: inline-block;
+                max-width: 500px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                vertical-align: top
+        }
 }
 .list-box table thead, .list-box .boxlabel {
         background-color: #f7f7f7;
@@ -107,7 +117,7 @@
 .list-box table tbody td {
         padding-top: 5px;    
 }
-.list-box table tbody tr td:nth-child(3), .list-box table tbody tr td:nth-child(4),{
+.list-box table tbody tr td:nth-child(3), .list-box table tbody tr td:nth-child(4) {
         text-align: center;
 }
 
@@ -627,7 +637,7 @@
         padding-top: 10px;
 }
 .btn {
-        background-color: #c9151b;
+        background-color: #2a84d8;
         color:white;
 }
 .btn .d-icon {
@@ -710,4 +720,7 @@
         font-size: 12px;
         text-align: left;
         padding: 0 0 10px 0;
+}
+#navigation-bar li[title=main], #navigation-bar li[title=main2] {
+        display: none;
 }

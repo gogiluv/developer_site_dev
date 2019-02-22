@@ -43,30 +43,6 @@
     {{/if}}
   {{/if}}
 
-  {{#if category}}
-    {{#if hasTopics}}
-      {{topic-list
-        highlightLastVisited=true
-        top=top
-        showTopicPostBadges=showTopicPostBadges
-        showPosters=true
-        canBulkSelect=canBulkSelect
-        changeSort="changeSort"
-        toggleBulkSelect="toggleBulkSelect"
-        hideCategory=model.hideCategory
-        order=order
-        ascending=ascending
-        bulkSelectEnabled=bulkSelectEnabled
-        selected=selected
-        expandGloballyPinned=expandGloballyPinned
-        expandAllPinned=expandAllPinned
-        category=category
-        topics=model.topics
-        discoveryList=true}}
-    {{/if}}
-  {{/if}}
-
-
   {{#if hasTopics}}
     {{topic-list
       highlightLastVisited=true

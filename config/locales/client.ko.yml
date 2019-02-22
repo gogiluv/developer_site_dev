@@ -1991,9 +1991,9 @@ ko:
       with_topics: "%{filter} 주제"
       with_category: "%{filter} %{category} 주제"
       latest:
-        title: "최근글"
+        title: "최신글"
         title_with_count:
-          other: "최근글 ({{count}})"
+          other: "최신글 ({{count}})"
         help: "가장 최근 주제"
       hot:
         title: "인기 있는 글"
@@ -2059,9 +2059,11 @@ ko:
       dev:
         title: "개발자 홈"
       devone:
-        title: "홈1"
+        title: "main"
+        help: "main"
       devtwo:
         title: "홈2"
+        help: "main2"
     permission_types:
       full: "생성 / 답글 / 보기"
       create_post: "답글 / 보기"
