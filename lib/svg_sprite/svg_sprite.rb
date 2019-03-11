@@ -9,6 +9,8 @@ module SvgSprite
     "anchor",
     "angle-double-down",
     "angle-double-up",
+    "angle-double-right",
+    "angle-double-left",
     "angle-down",
     "angle-right",
     "angle-up",
@@ -66,8 +68,8 @@ module SvgSprite
     "fab-android",
     "fab-apple",
     "fab-discourse",
-    "fab-facebook-f",
     "fab-facebook-square",
+    "fab-facebook",
     "fab-github",
     "fab-google-plus-square",
     "fab-instagram",
@@ -118,6 +120,7 @@ module SvgSprite
     "globe",
     "globe-americas",
     "hand-point-right",
+    "hands-helping",
     "heading",
     "heart",
     "home",
@@ -144,6 +147,7 @@ module SvgSprite
     "plus-circle",
     "plus-square",
     "power-off",
+    "puzzle-piece",
     "question",
     "question-circle",
     "quote-left",
@@ -226,10 +230,10 @@ module SvgSprite
     icons = all_icons(theme_ids)
 
     doc = File.open("#{Rails.root}/vendor/assets/svg-icons/fontawesome/solid.svg") { |f| Nokogiri::XML(f) }
-    fa_license = doc.at('//comment()').text
 
     svg_subset = """<!--
-Discourse SVG subset of #{fa_license}
+Discourse SVG subset of Font Awesome Free by @fontawesome - https://fontawesome.com
+License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
 -->
 <svg xmlns='http://www.w3.org/2000/svg' style='display: none;'>
 """.dup

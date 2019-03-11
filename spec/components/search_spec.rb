@@ -430,6 +430,38 @@ describe Search do
 
   end
 
+  context 'groups' do
+    def search(user = Fabricate(:user))
+      Search.execute(group.name, guardian: Guardian.new(user))
+    end
+
+    let!(:group) { Group[:trust_level_0] }
+
+    it 'shows group' do
+      expect(search.groups.map(&:name)).to eq([group.name])
+    end
+
+    context 'group visibility' do
+      let!(:group) { Fabricate(:group) }
+
+      before do
+        group.update!(visibility_level: 3)
+      end
+
+      context 'staff logged in' do
+        it 'shows group' do
+          expect(search(Fabricate(:admin)).groups.map(&:name)).to eq([group.name])
+        end
+      end
+
+      context 'non staff logged in' do
+        it 'shows doesn’t show group' do
+          expect(search.groups.map(&:name)).to be_empty
+        end
+      end
+    end
+  end
+
   context 'tags' do
     def search
       Search.execute(tag.name)
@@ -701,8 +733,14 @@ describe Search do
       expect(Search.execute('test after:jan').posts.length).to eq(1)
 
       expect(Search.execute('test in:first').posts.length).to eq(1)
+
       expect(Search.execute('boom').posts.length).to eq(1)
+
       expect(Search.execute('boom in:first').posts.length).to eq(0)
+      expect(Search.execute('boom f').posts.length).to eq(0)
+
+      expect(Search.execute('123 in:first').posts.length).to eq(1)
+      expect(Search.execute('123 f').posts.length).to eq(1)
 
       expect(Search.execute('user:nobody').posts.length).to eq(0)
       expect(Search.execute("user:#{_post.user.username}").posts.length).to eq(1)
@@ -1050,7 +1088,13 @@ describe Search do
       results = Search.execute('title in:title')
       expect(results.posts.length).to eq(1)
 
+      results = Search.execute('title t')
+      expect(results.posts.length).to eq(1)
+
       results = Search.execute('first in:title')
+      expect(results.posts.length).to eq(0)
+
+      results = Search.execute('first t')
       expect(results.posts.length).to eq(0)
     end
 

@@ -248,7 +248,6 @@ describe PostMover do
             expected_text = I18n.with_locale(:en) do
               I18n.t("move_posts.new_topic_moderator_post",
                      count: 2,
-                     entity: "topic",
                      topic_link: "[#{new_topic.title}](#{new_topic.relative_url})")
             end
 
@@ -620,7 +619,7 @@ describe PostMover do
 
           old_message.reload
           move_message = old_message.posts.find_by(post_number: 2)
-          expect(move_message.post_type).to eq(Post.types[:small_action])
+          expect(move_message.post_type).to eq(Post.types[:whisper])
           expect(move_message.raw).to include("2 posts were split")
         end
       end
@@ -659,6 +658,20 @@ describe PostMover do
           personal_message.reload
           expect(personal_message.closed).to eq(true)
           expect(moved_to.posts_count).to eq(6)
+        end
+
+        it "uses the correct small action post" do
+          moved_to = personal_message.move_posts(admin, [p2.id], destination_topic_id: another_personal_message.id, archetype: "private_message")
+          post = Post.find_by(topic_id: personal_message.id, post_type: Post.types[:whisper])
+
+          expected_text = I18n.t(
+            "move_posts.existing_message_moderator_post",
+            count: 1,
+            topic_link: "[#{moved_to.title}](#{p2.reload.url})",
+            locale: :en
+          )
+
+          expect(post.raw).to eq(expected_text)
         end
       end
     end

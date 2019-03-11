@@ -13,6 +13,7 @@ import {
   formatUsername
 } from "discourse/lib/utilities";
 import hbs from "discourse/widgets/hbs-compiler";
+import { relativeAge } from "discourse/lib/formatter";
 
 function transformWithCallbacks(post) {
   let transformed = transformBasicPost(post);
@@ -422,6 +423,13 @@ createWidget("post-contents", {
     return result;
   },
 
+  _date(attrs) {
+    const lastWikiEdit =
+      attrs.wiki && attrs.lastWikiEdit && new Date(attrs.lastWikiEdit);
+    const createdAt = new Date(attrs.created_at);
+    return lastWikiEdit ? lastWikiEdit : createdAt;
+  },
+
   toggleRepliesBelow(goToPost = "false") {
     if (this.state.repliesBelow.length) {
       this.state.repliesBelow = [];
@@ -448,6 +456,29 @@ createWidget("post-contents", {
   expandFirstPost() {
     const post = this.findAncestorModel();
     return post.expand().then(() => (this.state.expandedFirstPost = true));
+  }
+});
+
+createWidget("post-notice", {
+  tagName: "div.post-notice",
+
+  html(attrs) {
+    let text, icon;
+    if (attrs.postNoticeType === "first") {
+      icon = "hands-helping";
+      text = I18n.t("post.notice.first", { user: attrs.username });
+    } else if (attrs.postNoticeType === "returning") {
+      icon = "far-smile";
+      text = I18n.t("post.notice.return", {
+        user: attrs.username,
+        time: relativeAge(attrs.postNoticeTime, {
+          format: "tiny",
+          addAgo: true
+        })
+      });
+    }
+
+    return h("p", [iconNode(icon), text]);
   }
 });
 
@@ -527,6 +558,10 @@ createWidget("post-article", {
           ])
         )
       );
+    }
+
+    if (attrs.postNoticeType) {
+      rows.push(h("div.row", [this.attach("post-notice", attrs)]));
     }
 
     rows.push(
@@ -631,6 +666,9 @@ export default createWidget("post", {
       classNames.push("moderator");
     } else {
       classNames.push("regular");
+    }
+    if (attrs.ignored) {
+      classNames.push("post-ignored");
     }
     if (addPostClassesCallbacks) {
       for (let i = 0; i < addPostClassesCallbacks.length; i++) {

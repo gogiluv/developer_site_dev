@@ -256,43 +256,43 @@ class Search
     @advanced_filters
   end
 
-  advanced_filter(/status:open/) do |posts|
+  advanced_filter(/^status:open$/) do |posts|
     posts.where('NOT topics.closed AND NOT topics.archived')
   end
 
-  advanced_filter(/status:closed/) do |posts|
+  advanced_filter(/^status:closed$/) do |posts|
     posts.where('topics.closed')
   end
 
-  advanced_filter(/status:archived/) do |posts|
+  advanced_filter(/^status:archived$/) do |posts|
     posts.where('topics.archived')
   end
 
-  advanced_filter(/status:noreplies/) do |posts|
+  advanced_filter(/^status:noreplies$/) do |posts|
     posts.where("topics.posts_count = 1")
   end
 
-  advanced_filter(/status:single_user/) do |posts|
+  advanced_filter(/^status:single_user$/) do |posts|
     posts.where("topics.participant_count = 1")
   end
 
-  advanced_filter(/posts_count:(\d+)/) do |posts, match|
+  advanced_filter(/^posts_count:(\d+)$/) do |posts, match|
     posts.where("topics.posts_count = ?", match.to_i)
   end
 
-  advanced_filter(/min_post_count:(\d+)/) do |posts, match|
+  advanced_filter(/^min_post_count:(\d+)$/) do |posts, match|
     posts.where("topics.posts_count >= ?", match.to_i)
   end
 
-  advanced_filter(/in:first/) do |posts|
+  advanced_filter(/^in:first|^f$/) do |posts|
     posts.where("posts.post_number = 1")
   end
 
-  advanced_filter(/in:pinned/) do |posts|
+  advanced_filter(/^in:pinned$/) do |posts|
     posts.where("topics.pinned_at IS NOT NULL")
   end
 
-  advanced_filter(/in:unpinned/) do |posts|
+  advanced_filter(/^in:unpinned$/) do |posts|
     if @guardian.user
       posts.where("topics.pinned_at IS NOT NULL AND topics.id IN (
                   SELECT topic_id FROM topic_users WHERE user_id = ? AND cleared_pinned_at IS NOT NULL
@@ -300,11 +300,11 @@ class Search
     end
   end
 
-  advanced_filter(/in:wiki/) do |posts, match|
+  advanced_filter(/^in:wiki$/) do |posts, match|
     posts.where(wiki: true)
   end
 
-  advanced_filter(/badge:(.*)/) do |posts, match|
+  advanced_filter(/^badge:(.*)$/) do |posts, match|
     badge_id = Badge.where('name ilike ? OR id = ?', match, match.to_i).pluck(:id).first
     if badge_id
       posts.where('posts.user_id IN (SELECT ub.user_id FROM user_badges ub WHERE ub.badge_id = ?)', badge_id)
@@ -313,7 +313,7 @@ class Search
     end
   end
 
-  advanced_filter(/in:(likes|bookmarks)/) do |posts, match|
+  advanced_filter(/^in:(likes|bookmarks)$/) do |posts, match|
     if @guardian.user
       post_action_type = PostActionType.types[:like] if match == "likes"
       post_action_type = PostActionType.types[:bookmark] if match == "bookmarks"
@@ -327,11 +327,11 @@ class Search
     end
   end
 
-  advanced_filter(/in:posted/) do |posts|
+  advanced_filter(/^in:posted$/) do |posts|
     posts.where("posts.user_id = #{@guardian.user.id}") if @guardian.user
   end
 
-  advanced_filter(/in:(watching|tracking)/) do |posts, match|
+  advanced_filter(/^in:(watching|tracking)$/) do |posts, match|
     if @guardian.user
       level = TopicUser.notification_levels[match.to_sym]
       posts.where("posts.topic_id IN (
@@ -343,7 +343,7 @@ class Search
     end
   end
 
-  advanced_filter(/in:seen/) do |posts|
+  advanced_filter(/^in:seen$/) do |posts|
     if @guardian.user
       posts
         .joins("INNER JOIN post_timings ON
@@ -354,7 +354,7 @@ class Search
     end
   end
 
-  advanced_filter(/in:unseen/) do |posts|
+  advanced_filter(/^in:unseen$/) do |posts|
     if @guardian.user
       posts
         .joins("LEFT JOIN post_timings ON
@@ -366,11 +366,11 @@ class Search
     end
   end
 
-  advanced_filter(/with:images/) do |posts|
+  advanced_filter(/^with:images$/) do |posts|
     posts.where("posts.image_url IS NOT NULL")
   end
 
-  advanced_filter(/category:(.+)/) do |posts, match|
+  advanced_filter(/^category:(.+)$/) do |posts, match|
     exact = false
 
     if match[0] == "="
@@ -393,7 +393,7 @@ class Search
     end
   end
 
-  advanced_filter(/^\#([\p{L}0-9\-:=]+)/) do |posts, match|
+  advanced_filter(/^\#([\p{L}0-9\-:=]+)$/) do |posts, match|
 
     exact = true
 
@@ -446,7 +446,7 @@ class Search
     end
   end
 
-  advanced_filter(/group:(.+)/) do |posts, match|
+  advanced_filter(/^group:(.+)$/) do |posts, match|
     group_id = Group.where('name ilike ? OR (id = ? AND id > 0)', match, match.to_i).pluck(:id).first
     if group_id
       posts.where("posts.user_id IN (select gu.user_id from group_users gu where gu.group_id = ?)", group_id)
@@ -455,7 +455,7 @@ class Search
     end
   end
 
-  advanced_filter(/user:(.+)/) do |posts, match|
+  advanced_filter(/^user:(.+)$/) do |posts, match|
     user_id = User.where(staged: false).where('username_lower = ? OR id = ?', match.downcase, match.to_i).pluck(:id).first
     if user_id
       posts.where("posts.user_id = #{user_id}")
@@ -464,7 +464,7 @@ class Search
     end
   end
 
-  advanced_filter(/^\@([a-zA-Z0-9_\-.]+)/) do |posts, match|
+  advanced_filter(/^\@([a-zA-Z0-9_\-.]+)$/) do |posts, match|
     user_id = User.where(staged: false).where(username_lower: match.downcase).pluck(:id).first
     if user_id
       #posts.where("posts.user_id = #{user_id}")
@@ -474,7 +474,7 @@ class Search
     end
   end
 
-  advanced_filter(/before:(.*)/) do |posts, match|
+  advanced_filter(/^before:(.*)$/) do |posts, match|
     if date = Search.word_to_date(match)
       posts.where("posts.created_at < ?", date)
     else
@@ -482,7 +482,7 @@ class Search
     end
   end
 
-  advanced_filter(/after:(.*)/) do |posts, match|
+  advanced_filter(/^after:(.*)$/) do |posts, match|
     if date = Search.word_to_date(match)
       posts.where("posts.created_at > ?", date)
     else
@@ -490,15 +490,15 @@ class Search
     end
   end
 
-  advanced_filter(/^tags?:([\p{L}0-9,\-_+]+)/) do |posts, match|
+  advanced_filter(/^tags?:([\p{L}0-9,\-_+]+)$/) do |posts, match|
     search_tags(posts, match, positive: true)
   end
 
-  advanced_filter(/\-tags?:([\p{L}0-9,\-_+]+)/) do |posts, match|
+  advanced_filter(/^\-tags?:([\p{L}0-9,\-_+]+)$/) do |posts, match|
     search_tags(posts, match, positive: false)
   end
 
-  advanced_filter(/filetypes?:([a-zA-Z0-9,\-_]+)/) do |posts, match|
+  advanced_filter(/^filetypes?:([a-zA-Z0-9,\-_]+)$/) do |posts, match|
     file_extensions = match.split(",").map(&:downcase)
     posts.where("posts.id IN (
       SELECT post_id
@@ -562,7 +562,7 @@ class Search
       elsif word == 'order:latest_topic'
         @order = :latest_topic
         nil
-      elsif word == 'in:title'
+      elsif word == 'in:title' || word == 't'
         @in_title = true
         nil
       elsif word =~ /topic:(\d+)/
@@ -601,6 +601,7 @@ class Search
         user_search if @term.present?
         category_search if @term.present?
         tags_search if @term.present?
+        groups_search if @term.present?
       end
       topic_search
     end
@@ -684,6 +685,14 @@ class Search
     users.each do |user|
       @results.add(user)
     end
+  end
+
+  def groups_search
+    groups = Group
+      .visible_groups(@guardian.user, "name ASC", include_everyone: false)
+      .where("name ILIKE :term OR full_name ILIKE :term", term: "%#{@term}%")
+
+    groups.each { |group| @results.add(group) }
   end
 
   def tags_search

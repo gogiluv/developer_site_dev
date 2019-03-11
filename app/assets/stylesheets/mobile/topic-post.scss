@@ -350,12 +350,6 @@ iframe {
   position: relative;
 }
 
-#share-link {
-  width: 290px;
-  left: auto;
-  right: 4px;
-}
-
 .selected-posts {
   padding: 0.1em 0.7em;
 }
@@ -480,4 +474,8 @@ span.highlighted {
   h3 {
     margin-bottom: 0;
   }
+}
+
+.post-notice {
+  margin-bottom: 1em;
 }

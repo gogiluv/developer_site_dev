@@ -15,6 +15,7 @@ class Search
       :categories,
       :users,
       :tags,
+      :groups,
       :more_posts,
       :more_categories,
       :more_users,
@@ -36,6 +37,7 @@ class Search
       @categories = []
       @users = []
       @tags = []
+      @groups = []
       @total_count = 0
     end
 

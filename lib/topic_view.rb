@@ -18,7 +18,7 @@ class TopicView
   end
 
   def self.default_post_custom_fields
-    @default_post_custom_fields ||= ["action_code_who"]
+    @default_post_custom_fields ||= ["action_code_who", "post_notice_type", "post_notice_time"]
   end
 
   def self.post_custom_fields_whitelisters
@@ -50,6 +50,9 @@ class TopicView
 
     @post_number = [@post_number.to_i, 1].max
     @page = [@page.to_i, 1].max
+
+    @include_suggested = options.fetch(:include_suggested) { true }
+    @include_related = options.fetch(:include_related) { true }
 
     @chunk_size =
       case
@@ -404,11 +407,19 @@ class TopicView
   end
 
   def suggested_topics
-    @suggested_topics ||= TopicQuery.new(@user).list_suggested_for(topic, pm_params: pm_params)
+    if @include_suggested
+      @suggested_topics ||= TopicQuery.new(@user).list_suggested_for(topic, pm_params: pm_params)
+    else
+      nil
+    end
   end
 
   def related_messages
-    @related_messages ||= TopicQuery.new(@user).list_related_for(topic, pm_params: pm_params)
+    if @include_related
+      @related_messages ||= TopicQuery.new(@user).list_related_for(topic, pm_params: pm_params)
+    else
+      nil
+    end
   end
 
   # This is pending a larger refactor, that allows custom orders
@@ -506,22 +517,22 @@ class TopicView
 
   def get_sort_order(post_number)
     sql = <<~SQL
-    SELECT posts.sort_order
-    FROM posts
-    WHERE posts.post_number = #{post_number.to_i}
-    AND posts.topic_id = #{@topic.id.to_i}
-    LIMIT 1
+      SELECT posts.sort_order
+      FROM posts
+      WHERE posts.post_number = #{post_number.to_i}
+      AND posts.topic_id = #{@topic.id.to_i}
+      LIMIT 1
     SQL
 
     sort_order = DB.query_single(sql).first
 
     if !sort_order
       sql = <<~SQL
-      SELECT posts.sort_order
-      FROM posts
-      WHERE posts.topic_id = #{@topic.id.to_i}
-      ORDER BY @(post_number - #{post_number.to_i})
-      LIMIT 1
+        SELECT posts.sort_order
+        FROM posts
+        WHERE posts.topic_id = #{@topic.id.to_i}
+        ORDER BY @(post_number - #{post_number.to_i})
+        LIMIT 1
       SQL
 
       sort_order = DB.query_single(sql).first
@@ -592,6 +603,15 @@ class TopicView
     # Certain filters might leave gaps between posts. If that's true, we can return a gap structure
     @contains_gaps = false
     @filtered_posts = unfiltered_posts
+
+    if SiteSetting.ignore_user_enabled
+      ignored_user_ids = IgnoredUser.where(user_id: @user&.id).pluck(:ignored_user_id)
+
+      if ignored_user_ids.present?
+        @filtered_posts = @filtered_posts.where.not("user_id IN (?) AND id <> ?", ignored_user_ids, first_post_id)
+        @contains_gaps = true
+      end
+    end
 
     # Filters
     if @filter == 'summary'

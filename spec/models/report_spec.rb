@@ -1006,11 +1006,10 @@ describe Report do
     context "with data" do
       it "works" do
         SiteSetting.verbose_auth_token_logging = true
-        freeze_time DateTime.parse('2017-03-01 12:00')
 
-        UserAuthToken.log(action: "suspicious", user_id: robin.id)
-        UserAuthToken.log(action: "suspicious", user_id: joffrey.id)
-        UserAuthToken.log(action: "suspicious", user_id: joffrey.id)
+        UserAuthToken.log(action: "suspicious", user_id: joffrey.id, created_at: 2.hours.ago)
+        UserAuthToken.log(action: "suspicious", user_id: joffrey.id, created_at: 3.hours.ago)
+        UserAuthToken.log(action: "suspicious", user_id: robin.id, created_at: 1.hour.ago)
 
         report = Report.find("suspicious_logins")
 
@@ -1098,6 +1097,7 @@ describe Report do
   describe "consolidated_page_views" do
     before do
       freeze_time(Time.now.at_midnight)
+      Theme.clear_default!
       ApplicationRequest.clear_cache!
     end
 
