@@ -385,6 +385,10 @@ class PostSerializer < BasicPostSerializer
   end
 
   def include_post_notice_type?
+    return false if !scope.user || !scope.user.id || scope.user.id == object.user_id ||
+                    !object.user || object.user.anonymous? ||
+                    !scope.user.has_trust_level?(SiteSetting.min_post_notice_tl)
+
     post_notice_type.present?
   end
 
@@ -393,7 +397,7 @@ class PostSerializer < BasicPostSerializer
   end
 
   def include_post_notice_time?
-    post_notice_time.present?
+    include_post_notice_type? && post_notice_time.present?
   end
 
   def locked
