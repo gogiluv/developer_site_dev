@@ -137,7 +137,7 @@
 	max-width: 50%;
 	float:left;
 	padding-right: 5px;
-	font-size: 15px;
+	font-size: 13px;
 }
 .postbox li:nth-child(2){
 	font-size: 12px;
@@ -698,21 +698,21 @@
         color: white;
 }
 
-.category-link {
+.category-box .category-link {
         font-size: 12px;
         //height: 25px;
         //line-height: 30px;
 }
-.category-link span:nth-child(2), .guide-opener span:nth-child(2), .tags-label span:nth-child(2){
+.category-box .category-link span:nth-child(2), .guide-opener span:nth-child(2), .tags-label span:nth-child(2){
         padding-left: 10px;
         position: absolute;
         padding-top: 10px;
 }
-.category-link span:nth-child(3), .guide-opener span:nth-child(3){        
+.category-box .category-link span:nth-child(3), .guide-opener span:nth-child(3){        
         padding-top: 7px;
         padding-right: 15px;
 }
-.category-link:hover, .guide-list:hover {
+.category-box .category-link:hover, .guide-list:hover {
         background-color: #a7a7a7;
         color: white;
 }
