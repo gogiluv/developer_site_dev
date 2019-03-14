@@ -66,9 +66,18 @@
     ul {
       margin: 0 5px 5px 0;
     }
-    .btn.active {
+    .shader-left-box .btn {
+        background-color: #a9a9a9;
+    }
+    .shader-left-box .btn.active {
       color: #fff;
       background-color: #e45735;
+    }
+    .shader-navigation-bar li.active {      
+      background-color: #e45735;
+    }
+    .shader-navigation-bar li.active a {
+      color: white;
     }
     .write-form table { 
       border-collapse: separate;
@@ -178,7 +187,7 @@
     }
     .create-widget {
         width: 400px;
-        height: 300px;
+        height: 350px;
         border: 1px solid lightgray;
         border-radius: 25px;
         position: relative;
@@ -195,7 +204,8 @@
     .create-widget table th {
 	font-size: 15px;
 	margin-bottom: 5px;
-	width: 100px;
+    width: 100px;
+    text-align: center;
     }
     .create-widget table tr {
 	text-align: center;
