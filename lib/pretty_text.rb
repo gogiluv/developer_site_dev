@@ -82,7 +82,6 @@ module PrettyText
     ctx_load_manifest(ctx, "markdown-it-bundle.js")
     root_path = "#{Rails.root}/app/assets/javascripts/"
 
-    apply_es6_file(ctx, root_path, "discourse/helpers/parse-html")
     apply_es6_file(ctx, root_path, "discourse/lib/to-markdown")
     apply_es6_file(ctx, root_path, "discourse/lib/utilities")
 
@@ -227,7 +226,7 @@ module PrettyText
   end
 
   def self.unescape_emoji(title)
-    return title unless SiteSetting.enable_emoji?
+    return title unless SiteSetting.enable_emoji? && title
 
     set = SiteSetting.emoji_set.inspect
     custom = Emoji.custom.map { |e| [e.name, e.url] }.to_h.to_json
@@ -235,6 +234,16 @@ module PrettyText
       v8.eval(<<~JS)
         __paths = #{paths_json};
         __performEmojiUnescape(#{title.inspect}, { getURL: __getURL, emojiSet: #{set}, customEmoji: #{custom} });
+      JS
+    end
+  end
+
+  def self.escape_emoji(title)
+    return unless title
+
+    protect do
+      v8.eval(<<~JS)
+        __performEmojiEscape(#{title.inspect});
       JS
     end
   end

@@ -256,10 +256,12 @@ export default Ember.Controller.extend({
   _setupPopupMenuOption(callback) {
     let option = callback();
 
-    if (option.condition) {
-      option.condition = this.get(option.condition);
-    } else {
+    if (typeof option.condition === "undefined") {
       option.condition = true;
+    } else if (typeof option.condition === "boolean") {
+      // uses existing value
+    } else {
+      option.condition = this.get(option.condition);
     }
 
     return option;
@@ -718,14 +720,9 @@ export default Ember.Controller.extend({
           currentUser.set("reply_count", currentUser.get("reply_count") + 1);
         }
 
-        const disableJumpReply = Discourse.User.currentProp(
-          "disable_jump_reply"
-        );
-        if (!composer.get("replyingToTopic") || !disableJumpReply) {
-          const post = result.target;
-          if (post && !staged) {
-            DiscourseURL.routeTo(post.get("url"));
-          }
+        const post = result.target;
+        if (post && !staged) {
+          DiscourseURL.routeTo(post.get("url"));
         }
       })
       .catch(error => {
@@ -911,7 +908,7 @@ export default Ember.Controller.extend({
       opts.topicTitle &&
       opts.topicTitle.length <= this.siteSettings.max_topic_title_length
     ) {
-      this.set("model.title", escapeExpression(opts.topicTitle));
+      this.set("model.title", opts.topicTitle);
     }
 
     if (opts.topicCategoryId) {

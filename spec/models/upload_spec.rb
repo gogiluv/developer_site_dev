@@ -95,6 +95,14 @@ describe Upload do
     expect(created_upload.valid?).to eq(false)
   end
 
+  context ".extract_url" do
+    let(:url) { 'https://example.com/uploads/default/original/1X/d1c2d40ab994e8410c.png' }
+
+    it 'should return the right part of url' do
+      expect(Upload.extract_url(url).to_s).to eq('/original/1X/d1c2d40ab994e8410c.png')
+    end
+  end
+
   context ".get_from_url" do
     let(:sha1) { "10f73034616a796dfd70177dc54b6def44c4ba6f" }
     let(:upload) { Fabricate(:upload, sha1: sha1) }
@@ -247,6 +255,15 @@ describe Upload do
   describe '#to_s' do
     it 'should return the right value' do
       expect(upload.to_s).to eq(upload.url)
+    end
+  end
+
+  describe '.migrate_to_new_scheme' do
+    it 'should not migrate system uploads' do
+      SiteSetting.migrate_to_new_scheme = true
+
+      expect { Upload.migrate_to_new_scheme }
+        .to_not change { Upload.pluck(:url) }
     end
   end
 

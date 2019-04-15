@@ -251,6 +251,8 @@ export default Ember.Controller.extend({
     return page_arr;
   },
 
+  searchButtonDisabled: Ember.computed.or("searching", "loading"),
+
   _search() {
     if (this.get("searching")) {
       return;
@@ -265,11 +267,12 @@ export default Ember.Controller.extend({
 
     let args = { q: searchTerm, page: this.get("page") };
 
-    this.set("searching", true);
-    this.set("loading", true);
     if (args.page === 1) {
       this.set("bulkSelectEnabled", false);
       this.get("selected").clear();
+      this.set("searching", true);
+    } else {
+      this.set("loading", true);
     }
 
     const sortOrder = this.get("sortOrder");
@@ -441,9 +444,10 @@ export default Ember.Controller.extend({
       // this.actions.searchTab(0);      
       this.set("page", 1);
       this._search();
-
       //컨플루언스 검색
       this._searchConfluence();
+      
+      if (this.site.mobileView) this.set("expanded", false);
     },
 
     toggleAdvancedSearch() {

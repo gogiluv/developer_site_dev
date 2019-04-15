@@ -140,6 +140,8 @@ export default {
     this.sendToSelectedPost("replyToPost");
     // lazy but should work for now
     Ember.run.later(() => $(".d-editor .quote").click(), 500);
+
+    return false;
   },
 
   goToFirstSuggestedTopic() {
@@ -443,6 +445,9 @@ export default {
       $selected = $articles
         .toArray()
         .find(article => article.getBoundingClientRect().top > offset);
+      if (!$selected) {
+        $selected = $articles[$articles.length - 1];
+      }
       direction = 0;
     }
 

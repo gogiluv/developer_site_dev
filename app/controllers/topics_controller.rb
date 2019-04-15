@@ -5,6 +5,7 @@ require_dependency 'topics_bulk_action'
 require_dependency 'discourse_event'
 require_dependency 'rate_limiter'
 require_dependency 'topic_publisher'
+require_dependency 'post_action_destroyer'
 
 class TopicsController < ApplicationController
   requires_login only: [
@@ -253,10 +254,25 @@ class TopicsController < ApplicationController
   end
 
   def destroy_timings
+    topic_id = params[:topic_id].to_i
+
     if params[:last].to_s == "1"
-      PostTiming.destroy_last_for(current_user, params[:topic_id])
+      PostTiming.destroy_last_for(current_user, topic_id)
     else
-      PostTiming.destroy_for(current_user.id, [params[:topic_id].to_i])
+      PostTiming.destroy_for(current_user.id, [topic_id])
+    end
+
+    last_notification = Notification
+      .where(
+        user_id: current_user.id,
+        topic_id: topic_id
+      )
+      .order(created_at: :desc)
+      .limit(1)
+      .first
+
+    if last_notification
+      last_notification.update!(read: false)
     end
 
     render body: nil
@@ -407,7 +423,7 @@ class TopicsController < ApplicationController
 
   def make_banner
     topic = Topic.find_by(id: params[:topic_id].to_i)
-    guardian.ensure_can_moderate!(topic)
+    guardian.ensure_can_banner_topic!(topic)
 
     topic.make_banner!(current_user)
 
@@ -416,7 +432,7 @@ class TopicsController < ApplicationController
 
   def remove_banner
     topic = Topic.find_by(id: params[:topic_id].to_i)
-    guardian.ensure_can_moderate!(topic)
+    guardian.ensure_can_banner_topic!(topic)
 
     topic.remove_banner!(current_user)
 
@@ -430,7 +446,7 @@ class TopicsController < ApplicationController
       .where(user_id: current_user.id)
       .where('topic_id = ?', topic.id).each do |pa|
 
-      PostAction.remove_act(current_user, pa.post, PostActionType.types[:bookmark])
+      PostActionDestroyer.destroy(current_user, pa.post, :bookmark)
     end
 
     render body: nil
@@ -483,9 +499,8 @@ class TopicsController < ApplicationController
     topic = Topic.find(params[:topic_id].to_i)
     first_post = topic.ordered_posts.first
 
-    guardian.ensure_can_see!(first_post)
-
-    PostAction.act(current_user, first_post, PostActionType.types[:bookmark])
+    result = PostActionCreator.create(current_user, first_post, :bookmark)
+    return render_json_error(result) if result.failed?
 
     render body: nil
   end

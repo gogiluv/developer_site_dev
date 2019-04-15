@@ -15,16 +15,14 @@ class UserUpdater
   }
 
   OPTION_ATTR = [
-    :email_always,
     :mailing_list_mode,
     :mailing_list_mode_frequency,
     :email_digests,
-    :email_direct,
-    :email_private_messages,
+    :email_level,
+    :email_messages_level,
     :external_links_in_new_tab,
     :enable_quoting,
     :dynamic_favicon,
-    :disable_jump_reply,
     :automatically_unpin_topics,
     :digest_after_minutes,
     :new_topic_duration_minutes,
@@ -38,7 +36,8 @@ class UserUpdater
     :allow_private_messages,
     :homepage_id,
     :hide_profile_and_presence,
-    :text_size
+    :text_size,
+    :title_count_mode
   ]
 
   def initialize(actor, user)
@@ -150,7 +149,8 @@ class UserUpdater
 
   def update_muted_users(usernames)
     usernames ||= ""
-    desired_ids = User.where(username: usernames.split(",")).pluck(:id)
+    desired_usernames = usernames.split(",").reject { |username| user.username == username }
+    desired_ids = User.where(username: desired_usernames).pluck(:id)
     if desired_ids.empty?
       MutedUser.where(user_id: user.id).destroy_all
     else
@@ -168,8 +168,11 @@ class UserUpdater
   end
 
   def update_ignored_users(usernames)
+    return unless guardian.can_ignore_users?
+
     usernames ||= ""
-    desired_ids = User.where(username: usernames.split(",")).pluck(:id)
+    desired_usernames = usernames.split(",").reject { |username| user.username == username }
+    desired_ids = User.where(username: desired_usernames).where(admin: false, moderator: false).pluck(:id)
     if desired_ids.empty?
       IgnoredUser.where(user_id: user.id).destroy_all
     else

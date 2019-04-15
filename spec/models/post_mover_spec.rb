@@ -41,11 +41,11 @@ describe PostMover do
 
       before do
         SiteSetting.tagging_enabled = true
-        run_jobs_synchronously!
+        Jobs.run_immediately!
         p1.replies << p3
         p2.replies << p4
-        UserActionCreator.enable
-        @like = PostAction.act(another_user, p4, PostActionType.types[:like])
+        UserActionManager.enable
+        @like = PostActionCreator.like(another_user, p4)
       end
 
       context 'success' do
@@ -452,7 +452,7 @@ describe PostMover do
           end
 
           it "preserves post actions in the new post" do
-            PostAction.act(another_user, p1, PostActionType.types[:like])
+            PostActionCreator.like(another_user, p1)
 
             new_topic = topic.move_posts(user, [p1.id], title: "new testing topic name")
             new_post = new_topic.posts.where(post_number: 1).first
@@ -570,11 +570,11 @@ describe PostMover do
 
       before do
         SiteSetting.tagging_enabled = true
-        run_jobs_synchronously!
+        Jobs.run_immediately!
         p1.replies << p3
         p2.replies << p4
-        UserActionCreator.enable
-        @like = PostAction.act(another_user, p4, PostActionType.types[:like])
+        UserActionManager.enable
+        @like = PostActionCreator.like(another_user, p4)
       end
 
       context 'move to new message' do
@@ -672,6 +672,30 @@ describe PostMover do
           )
 
           expect(post.raw).to eq(expected_text)
+        end
+      end
+    end
+
+    context 'banner topic' do
+      let(:admin) { Fabricate(:admin) }
+      let(:evil_trout) { Fabricate(:evil_trout) }
+      let(:regular_user) { Fabricate(:trust_level_4) }
+      let(:topic) { Fabricate(:topic) }
+      let(:personal_message) { Fabricate(:private_message_topic, user: regular_user) }
+      let(:banner_topic) { Fabricate(:banner_topic, user: evil_trout) }
+      let!(:p1) { Fabricate(:post, topic: banner_topic, user: evil_trout) }
+      let!(:p2) { Fabricate(:post, topic: banner_topic, reply_to_post_number: p1.post_number, user: regular_user) }
+
+      context 'move to existing topic' do
+        it "allows moving banner topic posts in regular topic" do
+          banner_topic.move_posts(admin, [p2.id], destination_topic_id: topic.id)
+          expect(p2.reload.topic_id).to eq(topic.id)
+        end
+
+        it "does not allow moving banner topic posts in personal message" do
+          expect {
+            banner_topic.move_posts(admin, [p2.id], destination_topic_id: personal_message.id)
+          }.to raise_error(Discourse::InvalidParameters)
         end
       end
     end

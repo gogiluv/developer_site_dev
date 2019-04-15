@@ -385,7 +385,7 @@ class TopicView
   end
 
   def all_active_flags
-    @all_active_flags ||= PostAction.active_flags_counts_for(@posts)
+    @all_active_flags ||= ReviewableFlaggedPost.counts_for(@posts)
   end
 
   def links
@@ -423,10 +423,10 @@ class TopicView
   end
 
   # This is pending a larger refactor, that allows custom orders
-  #  for now we need to look for the highest_post_number in the stream
-  #  the cache on topics is not correct if there are deleted posts at
-  #  the end of the stream (for mods), nor is it correct for filtered
-  #  streams
+  # for now we need to look for the highest_post_number in the stream
+  # the cache on topics is not correct if there are deleted posts at
+  # the end of the stream (for mods), nor is it correct for filtered
+  # streams
   def highest_post_number
     @highest_post_number ||= @filtered_posts.maximum(:post_number)
   end
@@ -604,13 +604,21 @@ class TopicView
     @contains_gaps = false
     @filtered_posts = unfiltered_posts
 
-    if SiteSetting.ignore_user_enabled
-      ignored_user_ids = IgnoredUser.where(user_id: @user&.id).pluck(:ignored_user_id)
+    sql = <<~SQL
+        SELECT ignored_user_id
+        FROM ignored_users as ig
+        JOIN users as u ON u.id = ig.ignored_user_id
+        WHERE ig.user_id = :current_user_id
+          AND ig.ignored_user_id <> :current_user_id
+          AND NOT u.admin
+          AND NOT u.moderator
+    SQL
 
-      if ignored_user_ids.present?
-        @filtered_posts = @filtered_posts.where.not("user_id IN (?) AND id <> ?", ignored_user_ids, first_post_id)
-        @contains_gaps = true
-      end
+    ignored_user_ids = DB.query_single(sql, current_user_id: @user&.id)
+
+    if ignored_user_ids.present?
+      @filtered_posts = @filtered_posts.where.not("user_id IN (?) AND id <> ?", ignored_user_ids, first_post_id)
+      @contains_gaps = true
     end
 
     # Filters

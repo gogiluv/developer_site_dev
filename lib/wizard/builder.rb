@@ -1,5 +1,7 @@
 require_dependency 'introduction_updater'
 require_dependency 'emoji_set_site_setting'
+require_dependency 'seed_data/categories'
+require_dependency 'seed_data/topics'
 
 class Wizard
   class Builder
@@ -26,7 +28,15 @@ class Wizard
         step.on_update do |updater|
           old_locale = SiteSetting.default_locale
           updater.apply_setting(:default_locale)
-          updater.refresh_required = true if old_locale != updater.fields[:default_locale]
+
+          if old_locale != updater.fields[:default_locale]
+            Scheduler::Defer.later "Reseed" do
+              SeedData::Categories.with_default_locale.update(skip_changed: true)
+              SeedData::Topics.with_default_locale.update(skip_changed: true)
+            end
+
+            updater.refresh_required = true
+          end
         end
       end
 
@@ -66,17 +76,22 @@ class Wizard
       end
 
       @wizard.append_step('privacy') do |step|
-        locked = SiteSetting.login_required? && SiteSetting.invite_only?
         privacy = step.add_field(id: 'privacy',
                                  type: 'radio',
                                  required: true,
-                                 value: locked ? 'restricted' : 'open')
+                                 value: SiteSetting.login_required? ? 'restricted' : 'open')
         privacy.add_choice('open', icon: 'unlock')
         privacy.add_choice('restricted', icon: 'lock')
 
+        invite_only = step.add_field(id: 'invite_only',
+                                     type: 'checkbox',
+                                     required: false,
+                                     placeholder: 'wizard.invites.add_user',
+                                     value: SiteSetting.invite_only?)
+
         step.on_update do |updater|
           updater.update_setting(:login_required, updater.fields[:privacy] == 'restricted')
-          updater.update_setting(:invite_only, updater.fields[:privacy] == 'restricted')
+          updater.update_setting(:invite_only, updater.fields[:invite_only])
         end
       end
 
@@ -95,7 +110,7 @@ class Wizard
 
         step.on_update do |updater|
           update_tos do |raw|
-            replace_company(updater, raw, 'contact_email')
+            replace_setting_value(updater, raw, 'contact_email')
           end
 
           updater.apply_settings(:contact_email, :contact_url)
@@ -111,9 +126,9 @@ class Wizard
 
         step.on_update do |updater|
           update_tos do |raw|
-            replace_company(updater, raw, 'company_name')
-            replace_company(updater, raw, 'governing_law')
-            replace_company(updater, raw, 'city_for_disputes')
+            replace_setting_value(updater, raw, 'company_name')
+            replace_setting_value(updater, raw, 'governing_law')
+            replace_setting_value(updater, raw, 'city_for_disputes')
           end
 
           updater.apply_settings(:company_name, :governing_law, :city_for_disputes)
@@ -273,14 +288,14 @@ class Wizard
 
     protected
 
-    def replace_company(updater, raw, field_name)
+    def replace_setting_value(updater, raw, field_name)
       old_value = SiteSetting.send(field_name)
       old_value = field_name if old_value.blank?
 
       new_value = updater.fields[field_name.to_sym]
       new_value = field_name if new_value.blank?
 
-      raw.gsub!(old_value, new_value)
+      raw.gsub!("<ins>#{old_value}</ins>", new_value) || raw.gsub!(old_value, new_value)
     end
 
     def reserved_usernames

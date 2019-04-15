@@ -20,6 +20,7 @@ class Post < ActiveRecord::Base
   self.plugin_permitted_create_params = {}
 
   # increase this number to force a system wide post rebake
+  # Recreate `index_for_rebake_old` when the number is increased
   # Version 1, was the initial version
   # Version 2 15-12-2017, introduces CommonMark and a huge number of onebox fixes
   BAKED_VERSION = 2
@@ -55,7 +56,6 @@ class Post < ActiveRecord::Base
   validates_with ::Validators::PostValidator, unless: :skip_validation
 
   after_save :index_search
-  after_save :create_user_action
 
   # We can pass several creating options to a post via attributes
   attr_accessor :image_sizes, :quoted_post_numbers, :no_bump, :invalidate_oneboxes, :cooking_options, :skip_unique_check, :skip_validation
@@ -63,8 +63,11 @@ class Post < ActiveRecord::Base
   LARGE_IMAGES      ||= "large_images".freeze
   BROKEN_IMAGES     ||= "broken_images".freeze
   DOWNLOADED_IMAGES ||= "downloaded_images".freeze
+  MISSING_UPLOADS ||= "missing uploads".freeze
 
   SHORT_POST_CHARS ||= 1200
+
+  register_custom_field_type(MISSING_UPLOADS, :json)
 
   scope :private_posts_for_user, ->(user) {
     where("posts.topic_id IN (SELECT topic_id
@@ -87,15 +90,16 @@ class Post < ActiveRecord::Base
   scope :with_topic_subtype, ->(subtype) { joins(:topic).where('topics.subtype = ?', subtype) }
   scope :visible, -> { joins(:topic).where('topics.visible = true').where(hidden: false) }
   scope :secured, -> (guardian) { where('posts.post_type IN (?)', Topic.visible_post_types(guardian&.user)) }
+
   scope :for_mailing_list, ->(user, since) {
     q = created_since(since)
-      .joins(:topic)
-      .where(topic: Topic.for_digest(user, Time.at(0))) # we want all topics with new content, regardless when they were created
+      .joins("INNER JOIN (#{Topic.for_digest(user, Time.at(0)).select(:id).to_sql}) AS digest_topics ON digest_topics.id = posts.topic_id") # we want all topics with new content, regardless when they were created
+      .order('posts.created_at ASC')
 
     q = q.where.not(post_type: Post.types[:whisper]) unless user.staff?
-
-    q.order('posts.created_at ASC')
+    q
   }
+
   scope :raw_match, -> (pattern, type = 'string') {
     type = type&.downcase
 
@@ -105,6 +109,13 @@ class Post < ActiveRecord::Base
     when 'regex'
       where('raw ~* ?', "(?n)#{pattern}")
     end
+  }
+
+  scope :have_uploads, -> {
+    where(
+      "(posts.cooked LIKE '%<a %' OR posts.cooked LIKE '%<img %') AND posts.cooked LIKE ?",
+      "%/uploads/#{RailsMultisite::ConnectionManagement.current_db}/%"
+    )
   }
 
   delegate :username, to: :user
@@ -194,7 +205,6 @@ class Post < ActiveRecord::Base
 
   def recover!
     super
-    update_flagged_posts_count
     recover_public_post_actions
     TopicLink.extract_from(self)
     QuotedPost.extract_from(self)
@@ -378,10 +388,6 @@ class Post < ActiveRecord::Base
       ])
   end
 
-  def update_flagged_posts_count
-    PostAction.update_flagged_posts_count
-  end
-
   def delete_post_notices
     self.custom_fields.delete("post_notice_type")
     self.custom_fields.delete("post_notice_time")
@@ -463,8 +469,49 @@ class Post < ActiveRecord::Base
     post_actions.active.where(post_action_type_id: PostActionType.flag_types_without_custom.values)
   end
 
-  def has_active_flag?
-    active_flags.count != 0
+  def reviewable_flag
+    ReviewableFlaggedPost.pending.find_by(target: self)
+  end
+
+  def hide!(post_action_type_id, reason = nil)
+    return if hidden?
+
+    reason ||= hidden_at ?
+      Post.hidden_reasons[:flag_threshold_reached_again] :
+      Post.hidden_reasons[:flag_threshold_reached]
+
+    hiding_again = hidden_at.present?
+
+    self.hidden = true
+    self.hidden_at = Time.zone.now
+    self.hidden_reason_id = reason
+    save!
+
+    Topic.where(
+      "id = :topic_id AND NOT EXISTS(SELECT 1 FROM POSTS WHERE topic_id = :topic_id AND NOT hidden)",
+      topic_id: topic_id
+    ).update_all(visible: false)
+
+    # inform user
+    if user.present?
+      options = {
+        url: url,
+        edit_delay: SiteSetting.cooldown_minutes_after_hiding_posts,
+        flag_reason: I18n.t(
+          "flag_reasons.#{PostActionType.types[post_action_type_id]}",
+          locale: SiteSetting.default_locale,
+          base_path: Discourse.base_path
+        )
+      }
+
+      Jobs.enqueue_in(
+        5.seconds,
+        :send_system_message,
+        user_id: user.id,
+        message_type: hiding_again ? :post_hidden_again : :post_hidden,
+        message_options: options
+      )
+    end
   end
 
   def unhide!
@@ -569,7 +616,11 @@ class Post < ActiveRecord::Base
     new_cooked = cook(raw, topic_id: topic_id, invalidate_oneboxes: invalidate_oneboxes)
     old_cooked = cooked
 
-    update_columns(cooked: new_cooked, baked_at: Time.new, baked_version: BAKED_VERSION)
+    update_columns(
+      cooked: new_cooked,
+      baked_at: Time.zone.now,
+      baked_version: BAKED_VERSION
+    )
 
     if invalidate_broken_images
       custom_fields.delete(BROKEN_IMAGES)
@@ -827,10 +878,6 @@ class Post < ActiveRecord::Base
     SearchIndexer.index(self)
   end
 
-  def create_user_action
-    UserActionCreator.log_post(self)
-  end
-
   def locked?
     locked_by_id.present?
   end
@@ -953,6 +1000,8 @@ end
 #  idx_posts_created_at_topic_id             (created_at,topic_id) WHERE (deleted_at IS NULL)
 #  idx_posts_deleted_posts                   (topic_id,post_number) WHERE (deleted_at IS NOT NULL)
 #  idx_posts_user_id_deleted_at              (user_id) WHERE (deleted_at IS NULL)
+#  index_for_rebake_old                      (id) WHERE (((baked_version IS NULL) OR (baked_version < 2)) AND (deleted_at IS NULL))
+#  index_posts_on_id_and_baked_version       (id DESC,baked_version) WHERE (deleted_at IS NULL)
 #  index_posts_on_reply_to_post_number       (reply_to_post_number)
 #  index_posts_on_topic_id_and_percent_rank  (topic_id,percent_rank)
 #  index_posts_on_topic_id_and_post_number   (topic_id,post_number) UNIQUE

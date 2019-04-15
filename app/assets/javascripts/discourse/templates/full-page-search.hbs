@@ -5,7 +5,7 @@
     {{#unless site.mobileView}}
       <div class="search-bar">
         {{search-text-field value=searchTerm class="full-page-search search no-blur search-query" enter=(action "search") hasAutofocus=hasAutofocus}}
-        {{d-button action=(action "search") icon="search" class="btn-primary search-cta" disabled=searching}}
+        {{d-button action=(action "search") icon="search" class="btn-primary search-cta" disabled=searchButtonDisabled}}
       </div>
     {{/unless}}
     <!-- 로딩 아이콘 start -->    
@@ -49,7 +49,7 @@
           {{#if hasResults}}
             {{create-topic-button canCreateTopic=canCreateTopic action=(action "createTopic" searchTerm)}}
           {{/if}}
-
+          
           {{#if canBulkSelect}}
             {{d-button icon="list" class="btn-default bulk-select" title="topics.bulk.toggle" action="toggleBulkSelect"}}
             {{bulk-select-button selected=selected action="search"}}
@@ -84,10 +84,9 @@
       {{/if}}
 
     {{plugin-outlet name="full-page-search-below-search-info" args=(hash search=searchTerm)}}
-
+    {{#unless searching}}
       <div class="search-results">        
-        {{!-- #load-more selector=".fps-result" action="loadMore" --}}
-        
+        {{#load-more selector=".fps-result" action=(action "loadMore")}}
           {{#each model.posts as |result|}}
             <div class='fps-result'>
               <div class='author'>
@@ -147,13 +146,12 @@
               </div>
             </div>
           {{/each}}
-          
           <div class="paginate-dev">                        
             {{#each pageNumArray as |item|}}                    
               <span class={{item.class_name}}><a href="#" {{action "goPage" item.num}}>{{item.num}}</a></span>              
             {{/each}}
           </div>
-          <!--
+                    <!--
           {{#conditional-loading-spinner condition=loading }}
             {{#unless hasResults}}
               {{#if searchActive}}
@@ -175,9 +173,11 @@
                   {{google-search searchTerm=searchTerm}}
                 {{/if}}
               {{/if}}
-            {{/unless}}            
-            {{#if hasResults}}            
-              {{#unless loading}}                 
+
+            {{/unless}}
+
+            {{#if hasResults}}
+              {{#unless loading}}
                 <h3 class="search-footer">
                   {{#if model.grouped_search_result.more_full_page_results}}
                     {{#if isLastPage }}
@@ -208,21 +208,25 @@
                       {{i18n "search.or_search_google"}}
                     {{/unless}}
                   {{else}}
-                    {{i18n "search.search_google"}}
+                    {{i18n "search.no_more_results"}}
                   {{/if}}
                 </div>
                 {{google-search searchTerm=searchTerm}}
               {{/if}}
             {{/if}}
-          {{/unless}}         
+          {{/unless}}
+          <div class="tab_item tab_1">
+            {{confluence-list confluence_list=confluence_list  
+                              confluence_paginate=confluence_paginate 
+                              confluence_msg=confluence_msg
+                              action="searchConfluence" 
+                              confluence_goPage=(action "confluence_goPage")}}
+          </div>
+        {{/load-more}}
       </div>
-    </div>    
-    <div class="tab_item tab_1">
-      {{confluence-list confluence_list=confluence_list  
-                        confluence_paginate=confluence_paginate 
-                        confluence_msg=confluence_msg
-                        action="searchConfluence" 
-                        confluence_goPage=(action "confluence_goPage")}}
+    {{else}}
+      {{loading-spinner size="medium"}}
+    {{/unless}}
     </div>
   </div>
 
@@ -230,7 +234,7 @@
     {{#if site.mobileView}}
       <div class="search-bar">
         {{search-text-field value=searchTerm class="full-page-search search no-blur search-query" enter=(action "search") hasAutofocus=hasAutofocus}}
-        {{d-button action=(action "search") icon="search" class="btn-primary search-cta" disabled=searching}}
+        {{d-button action=(action "search") icon="search" class="btn-primary search-cta" disabled=searchButtonDisabled}}
       </div>
     {{/if}}
 
@@ -259,7 +263,7 @@
           action=(action "search")
           icon="search"
           class="btn-primary search-cta"
-          disabled=searching}}
+          disabled=searchButtonDisabled}}
       </div>
     {{/if}}
   </div>
