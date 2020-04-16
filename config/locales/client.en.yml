@@ -359,6 +359,8 @@ en:
         placeholder: "type the message title here"
 
     review:
+      awaiting_approval: "Awaiting Approval"
+      delete: "Delete"
       settings:
         saved: "Saved"
         save_changes: "Save Changes"
@@ -3403,6 +3405,7 @@ en:
           mobile: "Mobile"
           settings: "Settings"
           translations: "Translations"
+          extra_scss: "Extra SCSS"
           preview: "Preview"
           show_advanced: "Show advanced fields"
           hide_advanced: "Hide advanced fields"
