@@ -42,33 +42,33 @@
                   {{/link-to-input}}
                 {{/if}}
               </div>
-              {{/unless}}
-              {{composer-toggles composeState=model.composeState
-                        toggleComposer=(action "toggle")
-                        toggleToolbar=(action "toggleToolbar")
-                        toggleFullscreen=(action "fullscreenComposer")}}
-            </div>
-          	  <!--//////////////익명 작성 체크박스 추가////////////////-->
-              <label>익명 작성
-              {{input type="checkbox" checked=model.anonymous_chk}}<br/>			
-              </label>
-              <!--///////////////////////////////-->
-              {{#if model.canEditTitle}}
-                {{#if model.creatingPrivateMessage}}
-                  <div class='user-selector'>
-                    {{composer-user-selector topicId=topicModel.id
-                                             usernames=model.targetRecipients
-                                             hasGroups=model.hasTargetGroups
-                                             focusTarget=focusTarget
-                                             class="users-input"}}
-                    {{#if showWarning}}
-                      <label class='add-warning'>
-                        {{input type="checkbox" checked=model.isWarning tabindex="3"}}
-                        {{i18n "composer.add_warning"}}
-                      </label>
-                    {{/if}}
-                  </div>
-                {{/if}}
+            {{/unless}}
+            {{composer-toggles composeState=model.composeState
+                      toggleComposer=(action "toggle")
+                      toggleToolbar=(action "toggleToolbar")
+                      toggleFullscreen=(action "fullscreenComposer")}}
+          </div>
+          <!--//////////////익명 작성 체크박스 추가////////////////-->
+          <label>익명 작성
+            {{input type="checkbox" checked=model.anonymous_chk}}<br/>			
+          </label>
+          <!--///////////////////////////////-->
+          {{#unless model.viewFullscreen}}
+            {{#if model.canEditTitle}}
+              {{#if model.creatingPrivateMessage}}
+                <div class="user-selector">
+                  {{composer-user-selector topicId=topicModel.id
+                                           usernames=model.targetRecipients
+                                           hasGroups=model.hasTargetGroups
+                                           focusTarget=focusTarget
+                                           class="users-input"}}
+                  {{#if showWarning}}
+                    <label class="add-warning">
+                      {{input type="checkbox" checked=model.isWarning tabindex="3"}}
+                      {{i18n "composer.add_warning"}}
+                    </label>
+                  {{/if}}
+                </div>
               {{/if}}
 
               <div class="title-and-category {{if showPreview "with-preview"}}">
