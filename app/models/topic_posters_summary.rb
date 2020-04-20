@@ -81,6 +81,8 @@ class TopicPostersSummary
         topic_poster.extras << ' single' if user_ids.uniq.size == 1
       end
       topic_poster.anonymous_chk = false
+    end
+  end
 
   def new_topic_poster_for_20200416_origin(user)
     topic_poster = TopicPoster.new

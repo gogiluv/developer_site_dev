@@ -25,7 +25,7 @@ class ListableTopicSerializer < BasicTopicSerializer
              :bookmarked,
              :liked,
              :unicode_title,
-             :unread_by_group_member
+             :unread_by_group_member,
              :first_post_anonymous_chk,
              :last_post_anonymous_chk
 
@@ -134,6 +134,7 @@ class ListableTopicSerializer < BasicTopicSerializer
 
   def include_unread_by_group_member?
     !!object.topic_list&.publish_read_state
+  end
     
   def first_post_anonymous_chk
     if object.first_post.nil?
