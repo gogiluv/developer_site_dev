@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class UserOption < ActiveRecord::Base
   self.primary_key = :user_id
   belongs_to :user
@@ -40,6 +42,7 @@ class UserOption < ActiveRecord::Base
   validates :text_size_key, inclusion: { in: UserOption.text_sizes.values }
   validates :email_level, inclusion: { in: UserOption.email_level_types.values }
   validates :email_messages_level, inclusion: { in: UserOption.email_level_types.values }
+  validates :timezone, timezone: true
 
   def set_defaults
     self.mailing_list_mode = SiteSetting.default_email_mailing_list_mode
@@ -51,6 +54,7 @@ class UserOption < ActiveRecord::Base
     self.email_in_reply_to = SiteSetting.default_email_in_reply_to
 
     self.enable_quoting = SiteSetting.default_other_enable_quoting
+    self.enable_defer = SiteSetting.default_other_enable_defer
     self.external_links_in_new_tab = SiteSetting.default_other_external_links_in_new_tab
     self.dynamic_favicon = SiteSetting.default_other_dynamic_favicon
 
@@ -90,8 +94,8 @@ class UserOption < ActiveRecord::Base
     delay = SiteSetting.active_user_rate_limit_secs
 
     # only update last_redirected_to_top_at once every minute
-    return unless $redis.setnx(key, "1")
-    $redis.expire(key, delay)
+    return unless Discourse.redis.setnx(key, "1")
+    Discourse.redis.expire(key, delay)
 
     # delay the update
     Jobs.enqueue_in(delay / 2, :update_top_redirection, user_id: self.user_id, redirected_at: Time.zone.now)
@@ -195,8 +199,6 @@ end
 #  user_id                          :integer          not null, primary key
 #  mailing_list_mode                :boolean          default(FALSE), not null
 #  email_digests                    :boolean
-#  email_level                      :integer          default(1), not null
-#  email_messages_level             :integer          default(0), not null
 #  external_links_in_new_tab        :boolean          default(FALSE), not null
 #  enable_quoting                   :boolean          default(TRUE), not null
 #  dynamic_favicon                  :boolean          default(FALSE), not null
@@ -219,6 +221,11 @@ end
 #  hide_profile_and_presence        :boolean          default(FALSE), not null
 #  text_size_key                    :integer          default(0), not null
 #  text_size_seq                    :integer          default(0), not null
+#  email_level                      :integer          default(1), not null
+#  email_messages_level             :integer          default(0), not null
+#  title_count_mode_key             :integer          default(0), not null
+#  enable_defer                     :boolean          default(FALSE), not null
+#  timezone                         :string
 #
 # Indexes
 #

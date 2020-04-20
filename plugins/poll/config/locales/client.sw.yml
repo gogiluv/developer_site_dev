@@ -20,13 +20,13 @@ sw:
       multiple:
         help:
           at_least_min_options:
-            one: "Chagua angalau chaguo <strong>1</strong>"
+            one: "Chagua angalau chaguo <strong>%{count}</strong>"
             other: "Chagua angalau machaguo <strong>%{count}</strong>."
           up_to_max_options:
-            one: "Chagua mpaka chaguo <strong>1</strong>"
+            one: "Chagua mpaka chaguo <strong>%{count}</strong>"
             other: "Chagua mpaka machaguo <strong>%{count}</strong>"
           x_options:
-            one: "Chagua chaguo <strong>1</strong>"
+            one: "Chagua chaguo <strong>%{count}</strong>"
             other: "Chagua machaguo <strong>%{count}</strong>"
           between_min_and_max_options: "Chagua kati ya <strong>%{min}</strong> mpaka <strong>%{max}</strong>"
       cast-votes:
@@ -37,7 +37,8 @@ sw:
         label: "Onyesha matokeo"
       hide-results:
         title: "Rudi kwenye kura zako"
-        label: "Ficha matokeo"
+      export-results:
+        label: "Hamisha"
       open:
         title: "Fungua uchaguzi"
         label: "Fungua"
@@ -53,7 +54,6 @@ sw:
         title: Jenga uchaguzi
         insert: Ingiza uchaguzi
         help:
-          options_count: Weka angalau machaguo mawili
           invalid_values: Kiwango cha chini lazima kiwe kidogo kuliko kiwango cha juu.
           min_step_value: Kiasi cha Kipimo cha chini ni 1
         poll_type:
@@ -61,6 +61,8 @@ sw:
           regular: Chaguo Moja
           multiple: Machaguo Mengi
           number: Thaminisha kwa kutumia namba
+        poll_result:
+          label: Majibu
         poll_config:
           max: Kiwango cha juu
           min: Kiwango cha chini

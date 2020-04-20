@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # A helper class to send an email. It will also handle a nil message, which it considers
 # to be "do nothing". This is because some Mailers will decide not to do work for some
@@ -6,7 +8,6 @@
 #
 # It also adds an HTML part for the plain text body
 #
-require_dependency 'email/renderer'
 require 'uri'
 require 'net/smtp'
 
@@ -70,7 +71,7 @@ module Email
       # These are the links we add when a user uploads a file or image.
       # Ideally we would parse general markdown into plain text, but that is almost an intractable problem.
       url_prefix = Discourse.base_url
-      @message.parts[0].body = @message.parts[0].body.to_s.gsub(/<a class="attachment" href="(\/uploads\/default\/[^"]+)">([^<]*)<\/a>/, '[\2](' + url_prefix + '\1)')
+      @message.parts[0].body = @message.parts[0].body.to_s.gsub(/<a class="attachment" href="(\/uploads\/default\/[^"]+)">([^<]*)<\/a>/, '[\2|attachment](' + url_prefix + '\1)')
       @message.parts[0].body = @message.parts[0].body.to_s.gsub(/<img src="(\/uploads\/default\/[^"]+)"([^>]*)>/, '![](' + url_prefix + '\1)')
 
       @message.text_part.content_type = 'text/plain; charset=UTF-8'
@@ -95,10 +96,13 @@ module Email
       if topic_id.present? && post_id.present?
         post = Post.find_by(id: post_id, topic_id: topic_id)
 
-        # guards against deleted posts
-        return skip(SkippedEmailLog.reason_types[:sender_post_deleted]) unless post
+        # guards against deleted posts and topics
+        return skip(SkippedEmailLog.reason_types[:sender_post_deleted]) if post.blank?
 
         topic = post.topic
+        return skip(SkippedEmailLog.reason_types[:sender_topic_deleted]) if topic.blank?
+
+        add_attachments(post)
         first_post = topic.ordered_posts.first
 
         topic_message_id = first_post.incoming_email&.message_id.present? ?
@@ -111,7 +115,7 @@ module Email
 
         referenced_posts = Post.includes(:incoming_email)
           .joins("INNER JOIN post_replies ON post_replies.post_id = posts.id ")
-          .where("post_replies.reply_id = ?", post_id)
+          .where("post_replies.reply_post_id = ?", post_id)
           .order(id: :desc)
 
         referenced_post_message_ids = referenced_posts.map do |referenced_post|
@@ -236,6 +240,82 @@ module Email
     end
 
     private
+
+    def add_attachments(post)
+      max_email_size = SiteSetting.email_total_attachment_size_limit_kb.kilobytes
+      return if max_email_size == 0
+
+      email_size = 0
+      post.uploads.each do |upload|
+        next if FileHelper.is_supported_image?(upload.original_filename)
+        next if email_size + upload.filesize > max_email_size
+
+        begin
+          path = if upload.local?
+            Discourse.store.path_for(upload)
+          else
+            Discourse.store.download(upload).path
+          end
+
+          @message.attachments[upload.original_filename] = File.read(path)
+          email_size += File.size(path)
+        rescue => e
+          Discourse.warn_exception(
+            e,
+            message: "Failed to attach file to email",
+            env: {
+              post_id: post.id,
+              upload_id: upload.id,
+              filename: upload.original_filename
+            }
+          )
+        end
+      end
+
+      fix_parts_after_attachments!
+    end
+
+    #
+    # Two behaviors in the mail gem collide:
+    #
+    #  1. Attachments are added as extra parts at the top level,
+    #  2. When there are both text and html parts, the content type is set
+    #     to 'multipart/alternative'.
+    #
+    # Since attachments aren't alternative renderings, for emails that contain
+    # attachments and both html and text parts, some coercing is necessary.
+    #
+    # When there are alternative rendering and attachments, this method causes
+    # the top level to be 'multipart/mixed' and puts the html and text parts
+    # into a nested 'multipart/alternative' part.
+    #
+    # Due to mail gem magic, @message.text_part and @message.html_part still
+    # refer to the same objects.
+    #
+    def fix_parts_after_attachments!
+      has_attachments = @message.attachments.present?
+      has_alternative_renderings =
+        @message.html_part.present? && @message.text_part.present?
+
+      if has_attachments && has_alternative_renderings
+        @message.content_type = "multipart/mixed"
+
+        html_part = @message.html_part
+        @message.html_part = nil
+
+        text_part = @message.text_part
+        @message.text_part = nil
+
+        content = Mail::Part.new do
+          content_type "multipart/alternative"
+
+          part html_part
+          part text_part
+        end
+
+        @message.parts.unshift(content)
+      end
+    end
 
     def header_value(name)
       header = @message.header[name]

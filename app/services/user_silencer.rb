@@ -1,4 +1,4 @@
-require_dependency 'staff_message_format'
+# frozen_string_literal: true
 
 class UserSilencer
 
@@ -59,7 +59,7 @@ class UserSilencer
           silenced_till: @user.silenced_till,
           silenced_at: DateTime.now
         )
-        return true
+        true
       end
     else
       false

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe ReviewablesController do
@@ -36,7 +38,7 @@ describe ReviewablesController do
   end
 
   context "when logged in" do
-    let(:admin) { Fabricate(:admin) }
+    fab!(:admin) { Fabricate(:admin) }
 
     before do
       sign_in(admin)
@@ -166,11 +168,61 @@ describe ReviewablesController do
         expect(json_review['id']).to eq(reviewable.id)
         expect(json_review['user_id']).to eq(user.id)
       end
+
+      context "supports filtering by range" do
+        let(:from) { 3.days.ago.strftime('%F') }
+        let(:to) { 1.day.ago.strftime('%F') }
+
+        let(:reviewables) { ::JSON.parse(response.body)['reviewables'] }
+
+        it 'returns an empty array when no reviewable matches the date range' do
+          reviewable = Fabricate(:reviewable)
+
+          get "/review.json?from_date=#{from}&to_date=#{to}"
+
+          expect(reviewables).to eq([])
+        end
+
+        it 'returns reviewable content that matches the date range' do
+          reviewable = Fabricate(:reviewable, created_at: 2.day.ago)
+
+          get "/review.json?from_date=#{from}&to_date=#{to}"
+
+          json_review = reviewables.first
+          expect(json_review['id']).to eq(reviewable.id)
+        end
+      end
+
+      context "with user custom field" do
+        before do
+          plugin = Plugin::Instance.new
+          plugin.whitelist_public_user_custom_field :public_field
+        end
+
+        after do
+          User.plugin_public_user_custom_fields.clear
+        end
+
+        it "returns user data with custom fields" do
+          user = Fabricate(:user)
+          user.custom_fields["public_field"] = "public"
+          user.custom_fields["private_field"] = "private"
+          user.save!
+
+          reviewable = Fabricate(:reviewable, target_created_by: user)
+
+          get "/review.json"
+          json = response.parsed_body
+          expect(json['users']).to be_present
+          expect(json['users'].any? { |u| u['id'] == reviewable.target_created_by_id && u['custom_fields']['public_field'] == 'public' }).to eq(true)
+          expect(json['users'].any? { |u| u['id'] == reviewable.target_created_by_id && u['custom_fields']['private_field'] == 'private' }).to eq(false)
+        end
+      end
     end
 
     context "#show" do
       context "basics" do
-        let(:reviewable) { Fabricate(:reviewable) }
+        fab!(:reviewable) { Fabricate(:reviewable) }
         before do
           sign_in(Fabricate(:moderator))
         end
@@ -190,9 +242,9 @@ describe ReviewablesController do
       end
 
       context "conversation" do
-        let(:post) { Fabricate(:post) }
-        let(:user) { Fabricate(:user) }
-        let(:admin) { Fabricate(:admin) }
+        fab!(:post) { Fabricate(:post) }
+        fab!(:user) { Fabricate(:user) }
+        fab!(:admin) { Fabricate(:admin) }
         let(:result) { PostActionCreator.notify_moderators(user, post, 'this is the first post') }
         let(:reviewable) { result.reviewable }
 
@@ -234,14 +286,38 @@ describe ReviewablesController do
       end
     end
 
+    context "#explain" do
+      context "basics" do
+        fab!(:reviewable) { Fabricate(:reviewable) }
+
+        before do
+          sign_in(Fabricate(:moderator))
+        end
+
+        it "returns the explanation as json" do
+          get "/review/#{reviewable.id}/explain.json"
+          expect(response.code).to eq("200")
+
+          json = ::JSON.parse(response.body)
+          expect(json['reviewable_explanation']['id']).to eq(reviewable.id)
+          expect(json['reviewable_explanation']['total_score']).to eq(reviewable.score)
+        end
+
+        it "returns 404 for a missing reviewable" do
+          get "/review/123456789/explain.json"
+          expect(response.code).to eq("404")
+        end
+      end
+    end
+
     context "#perform" do
-      let(:reviewable) { Fabricate(:reviewable) }
+      fab!(:reviewable) { Fabricate(:reviewable) }
       before do
         sign_in(Fabricate(:moderator))
       end
 
       it "returns 404 when the reviewable does not exist" do
-        put "/review/12345/perform/approve.json?version=0"
+        put "/review/12345/perform/approve_user.json?version=0"
         expect(response.code).to eq("404")
       end
 
@@ -252,20 +328,22 @@ describe ReviewablesController do
 
       it "ensures the user can see the reviewable" do
         reviewable.update_column(:reviewable_by_moderator, false)
-        put "/review/#{reviewable.id}/perform/approve.json?version=#{reviewable.version}"
+        put "/review/#{reviewable.id}/perform/approve_user.json?version=#{reviewable.version}"
         expect(response.code).to eq("404")
       end
 
       it "can properly return errors" do
         qp = Fabricate(:reviewable_queued_post_topic, topic_id: -100)
-        put "/review/#{qp.id}/perform/approve.json?version=#{qp.version}"
+        version = qp.version
+        put "/review/#{qp.id}/perform/approve_post.json?version=#{version}"
         expect(response.code).to eq("422")
         result = ::JSON.parse(response.body)
         expect(result['errors']).to be_present
+        expect(qp.reload.version).to eq(version)
       end
 
       it "requires a version parameter" do
-        put "/review/#{reviewable.id}/perform/approve.json"
+        put "/review/#{reviewable.id}/perform/approve_user.json"
         expect(response.code).to eq("422")
         result = ::JSON.parse(response.body)
         expect(result['errors']).to be_present
@@ -274,7 +352,7 @@ describe ReviewablesController do
       it "succeeds for a valid action" do
         other_reviewable = Fabricate(:reviewable)
 
-        put "/review/#{reviewable.id}/perform/approve.json?version=#{reviewable.version}"
+        put "/review/#{reviewable.id}/perform/approve_user.json?version=#{reviewable.version}"
         expect(response.code).to eq("200")
         json = ::JSON.parse(response.body)
         expect(json['reviewable_perform_result']['success']).to eq(true)
@@ -288,9 +366,32 @@ describe ReviewablesController do
         expect(other_reviewable.reload.version).to eq(0)
       end
 
+      context "claims" do
+        fab!(:qp) { Fabricate(:reviewable_queued_post) }
+
+        it "fails when reviewables must be claimed" do
+          SiteSetting.reviewable_claiming = 'required'
+          put "/review/#{qp.id}/perform/approve_post.json?version=#{qp.version}"
+          expect(response.code).to eq("422")
+        end
+
+        it "fails when optional claims are claimed by others" do
+          SiteSetting.reviewable_claiming = 'optional'
+          ReviewableClaimedTopic.create!(topic_id: qp.topic_id, user: Fabricate(:admin))
+          put "/review/#{qp.id}/perform/approve_post.json?version=#{qp.version}"
+          expect(response.code).to eq("422")
+        end
+
+        it "works when claims are optional" do
+          SiteSetting.reviewable_claiming = 'optional'
+          put "/review/#{qp.id}/perform/approve_post.json?version=#{qp.version}"
+          expect(response.code).to eq("200")
+        end
+      end
+
       describe "simultaneous perform" do
         it "fails when the version is wrong" do
-          put "/review/#{reviewable.id}/perform/approve.json?version=#{reviewable.version + 1}"
+          put "/review/#{reviewable.id}/perform/approve_user.json?version=#{reviewable.version + 1}"
           expect(response.code).to eq("409")
           json = ::JSON.parse(response.body)
           expect(json['errors']).to be_present
@@ -299,11 +400,11 @@ describe ReviewablesController do
     end
 
     context "#topics" do
-      let(:post0) { Fabricate(:post) }
-      let(:post1) { Fabricate(:post, topic: post0.topic) }
-      let(:post2) { Fabricate(:post) }
-      let(:user0) { Fabricate(:user) }
-      let(:user1) { Fabricate(:user) }
+      fab!(:post0) { Fabricate(:post) }
+      fab!(:post1) { Fabricate(:post, topic: post0.topic) }
+      fab!(:post2) { Fabricate(:post) }
+      fab!(:user0) { Fabricate(:user) }
+      fab!(:user1) { Fabricate(:user) }
 
       it "returns empty json for no reviewables" do
         get "/review/topics.json"
@@ -312,7 +413,23 @@ describe ReviewablesController do
         expect(json['reviewable_topics']).to be_blank
       end
 
-      it "returns json listing the topics " do
+      it "includes claimed information" do
+        SiteSetting.reviewable_claiming = 'optional'
+        PostActionCreator.spam(user0, post0)
+        moderator = Fabricate(:moderator)
+        ReviewableClaimedTopic.create!(user: moderator, topic: post0.topic)
+
+        get "/review/topics.json"
+        expect(response.code).to eq("200")
+        json = ::JSON.parse(response.body)
+        json_topic = json['reviewable_topics'].find { |rt| rt['id'] == post0.topic_id }
+        expect(json_topic['claimed_by_id']).to eq(moderator.id)
+
+        json_user = json['users'].find { |u| u['id'] == json_topic['claimed_by_id'] }
+        expect(json_user).to be_present
+      end
+
+      it "returns json listing the topics" do
         PostActionCreator.spam(user0, post0)
         PostActionCreator.off_topic(user0, post1)
         PostActionCreator.spam(user0, post2)
@@ -344,17 +461,31 @@ describe ReviewablesController do
       end
 
       it "allows the settings to be updated" do
-        put "/review/settings.json", params: { bonuses: { 8 => 3.45 } }
+        put "/review/settings.json", params: { reviewable_priorities: { 8 => Reviewable.priorities[:medium] } }
         expect(response.code).to eq("200")
-        expect(PostActionType.find_by(id: 8).score_bonus).to eq(3.45)
+        pa = PostActionType.find_by(id: 8)
+        expect(pa.reviewable_priority).to eq(Reviewable.priorities[:medium])
+        expect(pa.score_bonus).to eq(5.0)
+
+        put "/review/settings.json", params: { reviewable_priorities: { 8 => Reviewable.priorities[:low] } }
+        expect(response.code).to eq("200")
+        pa = PostActionType.find_by(id: 8)
+        expect(pa.reviewable_priority).to eq(Reviewable.priorities[:low])
+        expect(pa.score_bonus).to eq(0.0)
+
+        put "/review/settings.json", params: { reviewable_priorities: { 8 => Reviewable.priorities[:high] } }
+        expect(response.code).to eq("200")
+        pa = PostActionType.find_by(id: 8)
+        expect(pa.reviewable_priority).to eq(Reviewable.priorities[:high])
+        expect(pa.score_bonus).to eq(10.0)
       end
     end
 
     context "#update" do
-      let(:reviewable) { Fabricate(:reviewable) }
-      let(:reviewable_post) { Fabricate(:reviewable_queued_post) }
-      let(:reviewable_topic) { Fabricate(:reviewable_queued_post_topic) }
-      let(:moderator) { Fabricate(:moderator) }
+      fab!(:reviewable) { Fabricate(:reviewable) }
+      fab!(:reviewable_post) { Fabricate(:reviewable_queued_post) }
+      fab!(:reviewable_topic) { Fabricate(:reviewable_queued_post_topic) }
+      fab!(:moderator) { Fabricate(:moderator) }
 
       before do
         sign_in(moderator)
@@ -458,7 +589,7 @@ describe ReviewablesController do
     end
 
     context "#destroy" do
-      let(:user) { Fabricate(:user) }
+      fab!(:user) { Fabricate(:user) }
 
       before do
         sign_in(user)

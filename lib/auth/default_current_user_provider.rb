@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_dependency "auth/current_user_provider"
-require_dependency "rate_limiter"
-
 class Auth::DefaultCurrentUserProvider
 
   CURRENT_USER_KEY ||= "_DISCOURSE_CURRENT_USER"
@@ -33,7 +30,7 @@ class Auth::DefaultCurrentUserProvider
 
     # bypass if we have the shared session header
     if shared_key = @env['HTTP_X_SHARED_SESSION_KEY']
-      uid = $redis.get("shared_session_key_#{shared_key}")
+      uid = Discourse.redis.get("shared_session_key_#{shared_key}")
       user = nil
       if uid
         user = User.find_by(id: uid.to_i)
@@ -121,10 +118,16 @@ class Auth::DefaultCurrentUserProvider
 
     if current_user && should_update_last_seen?
       u = current_user
+      ip = request.ip
+
       Scheduler::Defer.later "Updating Last Seen" do
         u.update_last_seen!
-        u.update_ip_address!(request.ip)
+        u.update_ip_address!(ip)
       end
+
+      BookmarkReminderNotificationHandler.defer_at_desktop_reminder(
+        user: u, request_user_agent: @request.user_agent
+      )
     end
 
     @env[CURRENT_USER_KEY] = current_user
@@ -145,6 +148,7 @@ class Auth::DefaultCurrentUserProvider
                                client_ip: @request.ip,
                                path: @env['REQUEST_PATH'])
           cookies[TOKEN_COOKIE] = cookie_hash(@user_token.unhashed_auth_token)
+          DiscourseEvent.trigger(:user_session_refreshed, user)
         end
       end
     end
@@ -164,9 +168,12 @@ class Auth::DefaultCurrentUserProvider
       impersonate: opts[:impersonate])
 
     cookies[TOKEN_COOKIE] = cookie_hash(@user_token.unhashed_auth_token)
-    unstage_user(user)
+    user.unstage!
     make_developer_admin(user)
     enable_bootstrap_mode(user)
+
+    UserAuthToken.enforce_session_count_limit!(user.id)
+
     @env[CURRENT_USER_KEY] = user
   end
 
@@ -183,13 +190,6 @@ class Auth::DefaultCurrentUserProvider
     end
 
     hash
-  end
-
-  def unstage_user(user)
-    if user.staged
-      user.unstage
-      user.save
-    end
   end
 
   def make_developer_admin(user)
@@ -249,10 +249,10 @@ class Auth::DefaultCurrentUserProvider
   def should_update_last_seen?
     return false if Discourse.pg_readonly_mode?
 
-    if @request.xhr?
-      @env["HTTP_DISCOURSE_VISIBLE".freeze] == "true".freeze
-    elsif !!(@env[API_KEY_ENV]) || !!(@env[USER_API_KEY_ENV])
-      false
+    api = !!(@env[API_KEY_ENV]) || !!(@env[USER_API_KEY_ENV])
+
+    if @request.xhr? || api
+      @env["HTTP_DISCOURSE_PRESENT"] == "true"
     else
       true
     end
@@ -261,7 +261,7 @@ class Auth::DefaultCurrentUserProvider
   protected
 
   def lookup_user_api_user_and_update_key(user_api_key, client_id)
-    if api_key = UserApiKey.where(key: user_api_key, revoked_at: nil).includes(:user).first
+    if api_key = UserApiKey.active.with_key(user_api_key).includes(:user).first
       unless api_key.allow?(@env)
         raise Discourse::InvalidAccess
       end
@@ -284,27 +284,52 @@ class Auth::DefaultCurrentUserProvider
   end
 
   def lookup_api_user(api_key_value, request)
-    if api_key = ApiKey.where(key: api_key_value).includes(:user).first
+    if api_key = ApiKey.active.with_key(api_key_value).includes(:user).first
       api_username = header_api_key? ? @env[HEADER_API_USERNAME] : request[API_USERNAME]
+
+      if !header_api_key?
+        raise Discourse::InvalidAccess unless is_whitelisted_query_param_auth_route?(request)
+      end
 
       if api_key.allowed_ips.present? && !api_key.allowed_ips.any? { |ip| ip.include?(request.ip) }
         Rails.logger.warn("[Unauthorized API Access] username: #{api_username}, IP address: #{request.ip}")
         return nil
       end
 
-      if api_key.user
-        api_key.user if !api_username || (api_key.user.username_lower == api_username.downcase)
-      elsif api_username
-        User.find_by(username_lower: api_username.downcase)
-      elsif user_id = header_api_key? ? @env[HEADER_API_USER_ID] : request["api_user_id"]
-        User.find_by(id: user_id.to_i)
-      elsif external_id = header_api_key? ? @env[HEADER_API_USER_EXTERNAL_ID] : request["api_user_external_id"]
-        SingleSignOnRecord.find_by(external_id: external_id.to_s).try(:user)
+      user =
+        if api_key.user
+          api_key.user if !api_username || (api_key.user.username_lower == api_username.downcase)
+        elsif api_username
+          User.find_by(username_lower: api_username.downcase)
+        elsif user_id = header_api_key? ? @env[HEADER_API_USER_ID] : request["api_user_id"]
+          User.find_by(id: user_id.to_i)
+        elsif external_id = header_api_key? ? @env[HEADER_API_USER_EXTERNAL_ID] : request["api_user_external_id"]
+          SingleSignOnRecord.find_by(external_id: external_id.to_s).try(:user)
+        end
+
+      if user
+        api_key.update_columns(last_used_at: Time.zone.now)
       end
+
+      user
     end
   end
 
   private
+
+  def is_whitelisted_query_param_auth_route?(request)
+    (is_user_feed?(request) || is_handle_mail?(request))
+  end
+
+  def is_user_feed?(request)
+    return true if request.path.match?(/\/(c|t){1}\/\S*.(rss|json)/) && request.get? # topic or category route
+    return true if request.path.match?(/\/(latest|top|categories).(rss|json)/) && request.get? # specific routes with rss
+    return true if request.path.match?(/\/u\/\S*\/bookmarks.(ics|json)/) && request.get? # specific routes with ics
+  end
+
+  def is_handle_mail?(request)
+    return true if request.path == "/admin/email/handle_mail" && request.post?
+  end
 
   def header_api_key?
     !!@env[HEADER_API_KEY]
@@ -315,7 +340,7 @@ class Auth::DefaultCurrentUserProvider
 
     RateLimiter.new(
       nil,
-      "admin_api_min_#{api_key}",
+      "admin_api_min_#{ApiKey.hash_key(api_key)}",
       GlobalSetting.max_admin_api_reqs_per_key_per_minute,
       60
     ).performed!

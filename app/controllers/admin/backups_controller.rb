@@ -1,4 +1,6 @@
-require "backup_restore/backup_restore"
+# frozen_string_literal: true
+
+require "backup_restore"
 require "backup_restore/backup_store"
 
 class Admin::BackupsController < Admin::AdminController
@@ -150,6 +152,8 @@ class Admin::BackupsController < Admin::AdminController
     chunk_number = params.fetch(:resumableChunkNumber)
     current_chunk_size = params.fetch(:resumableCurrentChunkSize).to_i
 
+    raise Discourse::InvalidParameters.new(:resumableIdentifier) unless valid_filename?(identifier)
+
     # path to chunk file
     chunk = BackupRestore::LocalBackupStore.chunk_path(identifier, filename, chunk_number)
     # check chunk upload status
@@ -161,13 +165,14 @@ class Admin::BackupsController < Admin::AdminController
   def upload_backup_chunk
     filename = params.fetch(:resumableFilename)
     total_size = params.fetch(:resumableTotalSize).to_i
+    identifier = params.fetch(:resumableIdentifier)
 
+    raise Discourse::InvalidParameters.new(:resumableIdentifier) unless valid_filename?(identifier)
     return render status: 415, plain: I18n.t("backup.backup_file_should_be_tar_gz") unless valid_extension?(filename)
     return render status: 415, plain: I18n.t("backup.not_enough_space_on_disk") unless has_enough_space_on_disk?(total_size)
     return render status: 415, plain: I18n.t("backup.invalid_filename") unless valid_filename?(filename)
 
     file = params.fetch(:file)
-    identifier = params.fetch(:resumableIdentifier)
     chunk_number = params.fetch(:resumableChunkNumber).to_i
     chunk_size = params.fetch(:resumableChunkSize).to_i
     current_chunk_size = params.fetch(:resumableCurrentChunkSize).to_i
@@ -199,7 +204,7 @@ class Admin::BackupsController < Admin::AdminController
     begin
       upload_url = store.generate_upload_url(filename)
     rescue BackupRestore::BackupStore::BackupFileExists
-      return render_json_error(I18n("backup.file_exists"))
+      return render_json_error(I18n.t("backup.file_exists"))
     rescue BackupRestore::BackupStore::StorageError => e
       return render_json_error(e)
     end
@@ -210,7 +215,7 @@ class Admin::BackupsController < Admin::AdminController
   private
 
   def has_enough_space_on_disk?(size)
-    `df -Pk #{Rails.root}/public/backups | awk 'NR==2 {print $4 * 1024;}'`.to_i > size
+    DiskSpace.free("#{Rails.root}/public/backups") > size
   end
 
   def ensure_backups_enabled

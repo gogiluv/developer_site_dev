@@ -1,15 +1,41 @@
+.button-count.has-pending {
+  span {
+    background-color: $danger;
+    color: $secondary;
+    border-radius: 10px;
+    padding: 0.25em 0.5em;
+    display: inline-block;
+    font-size: 0.8em;
+  }
+}
+
 .placeholder-avatar {
   display: inline-block;
-  background-color: $primary-low;
   width: 45px;
   height: 45px;
   border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  &:before {
+    animation: placeHolderShimmer 4s linear infinite forwards;
+    position: absolute;
+    left: 0;
+    content: "";
+    background: linear-gradient(
+      to right,
+      $primary-very-low 10%,
+      $primary-low 28%,
+      $primary-very-low 43%
+    );
+    height: 45px;
+    width: 700px;
+  }
 }
 
 .placeholder-text {
+  margin-left: 11px;
   display: inline-block;
-  background-color: $primary-low;
-  width: 100%;
+  width: calc(100% - 11px);
   height: 1.5em;
   margin-bottom: 0.6em;
 }
@@ -27,9 +53,7 @@
     font-size: $font-0;
     margin-right: 8px;
     display: inline-block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    @include ellipsis;
     vertical-align: middle;
     a {
       color: dark-light-choose($primary-high, $secondary-low);
@@ -185,8 +209,7 @@ aside.quote {
     @include post-aside;
 
     color: dark-light-choose($primary-high, $secondary-low);
-    // IE will screw up the blockquote underneath if bottom padding is 0px
-    padding: 12px 12px 1px 12px;
+    padding: 12px 12px 0px 12px;
     // blockquote is underneath this and has top margin
     .avatar {
       margin-right: 7px;
@@ -228,6 +251,7 @@ blockquote {
 }
 
 .post-action {
+  color: $primary-medium;
   .undo-action,
   .act-action {
     margin-left: 5px;
@@ -235,9 +259,12 @@ blockquote {
 }
 
 .post-hidden {
-  opacity: 0.5; // opacity sets a new z-index context,
-  position: relative; // so the positioning is required,
-  z-index: z("base"); // otherwise post controls are stacked too low
+  .topic-avatar,
+  .cooked,
+  .topic-meta-data,
+  .post-actions {
+    opacity: 0.5;
+  }
 }
 
 .topic-post.staged {
@@ -338,6 +365,7 @@ blockquote {
   td {
     vertical-align: top;
     padding: 1px;
+    word-wrap: anywhere;
   }
 
   .topic-links {
@@ -437,7 +465,8 @@ blockquote {
 .user-card-avatar,
 .topic-map .poster,
 .user-profile-avatar,
-.user-image {
+.user-image,
+.latest-topic-list-item {
   .avatar-flair {
     display: flex;
     align-items: center;
@@ -452,7 +481,8 @@ blockquote {
 .topic-avatar .avatar-flair,
 .avatar-flair-preview .avatar-flair,
 .collapsed-info .user-profile-avatar .avatar-flair,
-.user-image .avatar-flair {
+.user-image .avatar-flair,
+.latest-topic-list-item .avatar-flair {
   background-size: 20px 20px;
   width: 20px;
   height: 20px;
@@ -525,8 +555,18 @@ blockquote {
   .cooked {
     overflow: hidden;
   }
+  .group-request {
+    border-top: 1px solid $primary-low;
+    padding-top: 0.5em;
+  }
   &.highlighted {
     animation: background-fade-highlight 2.5s ease-out;
+  }
+  .deleted & {
+    // Disable so the deleted background is visible immediately
+    &.highlighted {
+      animation: none;
+    }
   }
 }
 
@@ -570,13 +610,11 @@ pre {
 }
 
 kbd {
-  background-color: $secondary;
-  border: 1px solid $primary-low;
   border-radius: 3px;
   box-shadow: shadow("kbd");
-  background: dark-light-choose(#fafafa, #333);
-  border: 1px solid dark-light-choose(#ccc, #555);
-  border-bottom: medium none dark-light-choose(#fff, #000);
+  background: dark-light-choose(#fafafa, #303030);
+  border: 1px solid dark-light-choose(#d0d0d0, #505050);
+  border-bottom: none;
 
   color: $primary;
   display: inline-block;
@@ -612,7 +650,8 @@ blockquote > *:last-child {
   font-size: $font-down-1;
 }
 
-.who-liked {
+.who-liked,
+.who-read {
   transition: height 0.5s;
   a {
     margin: 0 0.25em 0.5em 0;
@@ -678,6 +717,7 @@ blockquote > *:last-child {
     font-weight: bold;
     font-size: $font-down-1;
     color: $primary-medium;
+    min-width: 0; // Allows flex container to shrink
 
     .custom-message {
       flex: 1 1 100%;
@@ -685,6 +725,8 @@ blockquote > *:last-child {
       font-weight: normal;
       font-size: $font-up-1;
       order: 12;
+      word-break: break-word;
+      min-width: 0; // Allows content like oneboxes to shrink
       p {
         margin-bottom: 0;
       }
@@ -727,14 +769,34 @@ blockquote > *:last-child {
   }
 }
 
-a.mention,
-a.mention-group {
-  padding: 2px 4px;
-  color: dark-light-choose($primary-high, $secondary-low);
-  background: $primary-low;
-  border-radius: 8px;
+a.mention {
   font-weight: bold;
   font-size: 0.93em;
+  color: $primary;
+  color: dark-light-choose($primary-high, $secondary-low);
+  padding: 2px 4px;
+  background: $primary-low;
+  border-radius: 8px;
+}
+
+span.mention {
+  font-weight: bold;
+  font-size: 0.93em;
+  color: $primary;
+}
+
+a.mention-group {
+  font-weight: bold;
+  font-size: 0.93em;
+  color: $primary;
+
+  &.notify,
+  .small-action-desc & {
+    color: dark-light-choose($primary-high, $secondary-low);
+    padding: 2px 4px;
+    background: $primary-low;
+    border-radius: 8px;
+  }
 }
 
 .popup-menu {
@@ -795,12 +857,14 @@ a.mention-group {
   }
 }
 
-.broken-image,
-.large-image {
+.broken-image {
   color: dark-light-choose($primary-low-mid, $secondary-high);
   border: 1px solid $primary-low;
   font-size: $font-up-5;
-  padding: 16px;
+
+  .d-icon {
+    margin: 16px;
+  }
 }
 
 /* below standard tablet portrait ----------- */
@@ -875,11 +939,15 @@ a.mention-group {
 }
 
 .post-notice {
+  align-items: center;
   background-color: $tertiary-low;
   border-top: 1px solid $primary-low;
-  color: $primary;
+  display: flex;
+  max-width: calc(
+    #{$topic-body-width} + (#{$topic-body-width-padding} * 2) + #{$topic-avatar-width} -
+      (0.8em * 2)
+  );
   padding: 0.8em;
-  max-width: calc(#{$topic-body-width} + #{$topic-avatar-width} - 0.1em);
 
   &.old {
     background-color: unset;
@@ -891,8 +959,6 @@ a.mention-group {
   }
 
   p {
-    display: flex;
-    align-items: center;
     margin: 0;
   }
 
@@ -900,5 +966,14 @@ a.mention-group {
     font-size: 2em;
     color: $primary-high;
     margin-right: 0.65em;
+  }
+}
+
+#topic-footer-buttons {
+  .reason {
+    color: $primary-high;
+    display: inline;
+    margin: 0 0 0 8px;
+    line-height: $line-height-medium;
   }
 }

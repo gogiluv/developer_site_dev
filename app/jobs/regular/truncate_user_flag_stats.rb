@@ -1,4 +1,6 @@
-class Jobs::TruncateUserFlagStats < Jobs::Base
+# frozen_string_literal: true
+
+class Jobs::TruncateUserFlagStats < ::Jobs::Base
 
   def self.truncate_to
     100

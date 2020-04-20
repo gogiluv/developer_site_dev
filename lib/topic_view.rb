@@ -1,10 +1,8 @@
-require_dependency 'guardian'
-require_dependency 'topic_query'
-require_dependency 'filter_best_posts'
-require_dependency 'gaps'
+# frozen_string_literal: true
 
 class TopicView
   MEGA_TOPIC_POSTS_COUNT = 10000
+  MIN_POST_READ_TIME = 4.0
 
   attr_reader(
     :topic,
@@ -15,7 +13,8 @@ class TopicView
     :print,
     :message_bus_last_id,
     :queued_posts_enabled,
-    :personal_message
+    :personal_message,
+    :can_review_topic
   )
 
   attr_accessor(
@@ -36,7 +35,7 @@ class TopicView
   end
 
   def self.default_post_custom_fields
-    @default_post_custom_fields ||= ["action_code_who", "post_notice_type", "post_notice_time"]
+    @default_post_custom_fields ||= [Post::NOTICE_TYPE, Post::NOTICE_ARGS, "action_code_who"]
   end
 
   def self.post_custom_fields_whitelisters
@@ -100,12 +99,25 @@ class TopicView
     @draft_key = @topic.draft_key
     @draft_sequence = DraftSequence.current(@user, @draft_key)
 
+    @can_review_topic = @guardian.can_review_topic?(@topic)
     @queued_posts_enabled = NewPostManager.queue_enabled?
     @personal_message = @topic.private_message?
   end
 
+  def show_read_indicator?
+    return false unless @user || topic.private_message?
+
+    topic.allowed_groups.any? do |group|
+      group.publish_read_state? && group.users.include?(@user)
+    end
+  end
+
   def canonical_path
-    path = relative_url
+    if SiteSetting.embed_set_canonical_url
+      topic_embed = topic.topic_embed
+      return topic_embed.embed_url if topic_embed
+    end
+    path = relative_url.dup
     path <<
       if @page > 1
         "?page=#{@page}"
@@ -144,7 +156,7 @@ class TopicView
 
   def next_page
     @next_page ||= begin
-      if last_post && (@topic.highest_post_number > last_post.post_number)
+      if last_post && highest_post_number && (highest_post_number > last_post.post_number)
         @page + 1
       end
     end
@@ -204,7 +216,13 @@ class TopicView
 
   def read_time
     return nil if @post_number > 1 # only show for topic URLs
-    (@topic.word_count / SiteSetting.read_time_word_count).floor if @topic.word_count
+
+    if @topic.word_count && SiteSetting.read_time_word_count > 0
+      [
+        @topic.word_count / SiteSetting.read_time_word_count,
+        @topic.posts_count * MIN_POST_READ_TIME / 60
+      ].max.ceil
+    end
   end
 
   def like_count
@@ -222,16 +240,8 @@ class TopicView
   end
 
   def image_url
-    if @post_number > 1 && @desired_post.present?
-      if @desired_post.image_url.present?
-        @desired_post.image_url
-      elsif @desired_post.user
-        # show poster avatar
-        @desired_post.user.avatar_template_url.gsub("{size}", "200")
-      end
-    else
-      @topic.image_url
-    end
+    url = desired_post&.image_url if @post_number > 1
+    url || @topic.image_url
   end
 
   def filter_posts(opts = {})
@@ -339,6 +349,15 @@ class TopicView
     end
   end
 
+  def has_bookmarks?
+    return false if @user.blank?
+    @topic.bookmarks.exists?(user_id: @user.id)
+  end
+
+  def first_post_bookmark_reminder_at
+    @topic.first_post.bookmarks.where(user: @user).pluck_first(:reminder_at)
+  end
+
   MAX_PARTICIPANTS = 24
 
   def post_counts_by_user
@@ -412,16 +431,51 @@ class TopicView
     @all_post_actions ||= PostAction.counts_for(@posts, @user)
   end
 
-  def all_active_flags
-    @all_active_flags ||= ReviewableFlaggedPost.counts_for(@posts)
-  end
-
   def links
     @links ||= TopicLink.topic_map(@guardian, @topic.id)
   end
 
+  def user_post_bookmarks
+    @user_post_bookmarks ||= Bookmark.where(user: @user, post_id: unfiltered_post_ids)
+  end
+
+  def reviewable_counts
+    if @reviewable_counts.nil?
+
+      post_ids = @posts.map(&:id)
+
+      sql = <<~SQL
+        SELECT target_id,
+          MAX(r.id) reviewable_id,
+          COUNT(*) total,
+          SUM(CASE WHEN s.status = :pending THEN 1 ELSE 0 END) pending
+        FROM reviewables r
+        JOIN reviewable_scores s ON reviewable_id = r.id
+        WHERE r.target_id IN (:post_ids) AND
+          r.target_type = 'Post'
+        GROUP BY target_id
+      SQL
+
+      @reviewable_counts = {}
+
+      DB.query(
+        sql,
+        pending: ReviewableScore.statuses[:pending],
+        post_ids: post_ids
+      ).each do |row|
+        @reviewable_counts[row.target_id] = {
+          total: row.total,
+          pending: row.pending,
+          reviewable_id: row.reviewable_id
+        }
+      end
+    end
+
+    @reviewable_counts
+  end
+
   def pending_posts
-    ReviewableQueuedPost.pending.where(created_by: @user, topic: @topic).order(:created_at)
+    @pending_posts ||= ReviewableQueuedPost.pending.where(created_by: @user, topic: @topic).order(:created_at)
   end
 
   def actions_summary
@@ -523,7 +577,7 @@ class TopicView
   end
 
   def filtered_post_id(post_number)
-    @filtered_posts.where(post_number: post_number).pluck(:id).first
+    @filtered_posts.where(post_number: post_number).pluck_first(:id)
   end
 
   def is_mega_topic?
@@ -531,11 +585,11 @@ class TopicView
   end
 
   def first_post_id
-    @filtered_posts.order(sort_order: :asc).limit(1).pluck(:id).first
+    @filtered_posts.order(sort_order: :asc).pluck_first(:id)
   end
 
   def last_post_id
-    @filtered_posts.order(sort_order: :desc).limit(1).pluck(:id).first
+    @filtered_posts.order(sort_order: :desc).pluck_first(:id)
   end
 
   def current_post_number
@@ -546,6 +600,10 @@ class TopicView
 
   def queued_posts_count
     ReviewableQueuedPost.viewable_by(@user).where(topic_id: @topic.id).pending.count
+  end
+
+  def published_page
+    @topic.published_page
   end
 
   protected

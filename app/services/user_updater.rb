@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class UserUpdater
 
   CATEGORY_IDS = {
@@ -22,6 +24,7 @@ class UserUpdater
     :email_messages_level,
     :external_links_in_new_tab,
     :enable_quoting,
+    :enable_defer,
     :dynamic_favicon,
     :automatically_unpin_topics,
     :digest_after_minutes,
@@ -37,7 +40,8 @@ class UserUpdater
     :homepage_id,
     :hide_profile_and_presence,
     :text_size,
-    :title_count_mode
+    :title_count_mode,
+    :timezone
   ]
 
   def initialize(actor, user)
@@ -54,8 +58,18 @@ class UserUpdater
     unless SiteSetting.enable_sso && SiteSetting.sso_overrides_bio
       user_profile.bio_raw = attributes.fetch(:bio_raw) { user_profile.bio_raw }
     end
-    user_profile.profile_background = attributes.fetch(:profile_background) { user_profile.profile_background }
-    user_profile.card_background = attributes.fetch(:card_background) { user_profile.card_background }
+
+    if attributes[:profile_background_upload_url] == ""
+      user_profile.profile_background_upload_id = nil
+    elsif upload = Upload.get_from_url(attributes[:profile_background_upload_url])
+      user_profile.profile_background_upload_id = upload.id
+    end
+
+    if attributes[:card_background_upload_url] == ""
+      user_profile.card_background_upload_id = nil
+    elsif upload = Upload.get_from_url(attributes[:card_background_upload_url])
+      user_profile.card_background_upload_id = upload.id
+    end
 
     old_user_name = user.name.present? ? user.name : ""
     user.name = attributes.fetch(:name) { user.name }
@@ -67,6 +81,19 @@ class UserUpdater
       attributes[:title] != user.title &&
       guardian.can_grant_title?(user, attributes[:title])
       user.title = attributes[:title]
+    end
+
+    if SiteSetting.user_selected_primary_groups &&
+      attributes[:primary_group_id] &&
+      attributes[:primary_group_id] != user.primary_group_id &&
+      guardian.can_use_primary_group?(user, attributes[:primary_group_id])
+
+      user.primary_group_id = attributes[:primary_group_id]
+    elsif SiteSetting.user_selected_primary_groups &&
+      attributes[:primary_group_id] &&
+      attributes[:primary_group_id].blank?
+
+      user.primary_group_id = nil
     end
 
     CATEGORY_IDS.each do |attribute, level|
@@ -103,11 +130,11 @@ class UserUpdater
       if attributes.key?(attribute)
         save_options = true
 
-        if [true, false].include?(user.user_option.send(attribute))
+        if [true, false].include?(user.user_option.public_send(attribute))
           val = attributes[attribute].to_s == 'true'
-          user.user_option.send("#{attribute}=", val)
+          user.user_option.public_send("#{attribute}=", val)
         else
-          user.user_option.send("#{attribute}=", attributes[attribute])
+          user.user_option.public_send("#{attribute}=", attributes[attribute])
         end
       end
     end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe CspReportsController do
@@ -27,7 +29,7 @@ describe CspReportsController do
           "line-number": 25,
           "source-file": "http://localhost:3000/",
           "status-code": 200,
-          "script-sample": ""
+          "script-sample": "console.log('unsafe')"
         }
       }.to_json, headers: { "Content-Type": "application/csp-report" }
     end
@@ -50,7 +52,7 @@ describe CspReportsController do
 
     it 'logs the violation report' do
       send_report
-      expect(Rails.logger.warnings).to include("CSP Violation: 'http://suspicio.us/assets.js'")
+      expect(Rails.logger.warnings).to include("CSP Violation: 'http://suspicio.us/assets.js' \n\nconsole.log('unsafe')")
     end
   end
 end

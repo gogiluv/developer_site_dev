@@ -1,6 +1,4 @@
-require_dependency 'enum'
-require_dependency 'distributed_cache'
-require_dependency 'flag_settings'
+# frozen_string_literal: true
 
 class PostActionType < ActiveRecord::Base
   after_save :expire_cache
@@ -125,12 +123,13 @@ end
 #
 # Table name: post_action_types
 #
-#  name_key    :string(50)       not null
-#  is_flag     :boolean          default(FALSE), not null
-#  icon        :string(20)
-#  created_at  :datetime         not null
-#  updated_at  :datetime         not null
-#  id          :integer          not null, primary key
-#  position    :integer          default(0), not null
-#  score_bonus :float            default(0.0), not null
+#  name_key            :string(50)       not null
+#  is_flag             :boolean          default(FALSE), not null
+#  icon                :string(20)
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  id                  :integer          not null, primary key
+#  position            :integer          default(0), not null
+#  score_bonus         :float            default(0.0), not null
+#  reviewable_priority :integer          default(0), not null
 #

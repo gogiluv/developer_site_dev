@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class NotificationEmailer
 
   class EmailUser
@@ -88,6 +90,7 @@ class NotificationEmailer
       user = notification.user
       return unless user.active? || user.staged?
       return if SiteSetting.must_approve_users? && !user.approved? && !user.staged?
+      return if user.staged? && (type == :user_linked || type == :user_quoted)
 
       return unless EMAILABLE_POST_TYPES.include?(post_type)
 
@@ -126,7 +129,7 @@ class NotificationEmailer
     email_user   = EmailUser.new(notification)
     email_method = Notification.types[notification.notification_type]
 
-    email_user.send(email_method) if email_user.respond_to? email_method
+    email_user.public_send(email_method) if email_user.respond_to? email_method
   end
 
 end

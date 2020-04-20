@@ -1,11 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe EmailValidator do
-
-  let(:record) {}
-  let(:validator) { described_class.new(attributes: :email) }
-  subject(:validate) { validator.validate_each(record, :email, record.email) }
-
   def blocks?(email)
     user = Fabricate.build(:user, email: email)
     validator = EmailValidator.new(attributes: :email)
@@ -41,6 +38,23 @@ describe EmailValidator do
       expect(blocks?('sam@e-mail.com')).to eq(true)
       expect(blocks?('sam@googlemail.com')).to eq(false)
       expect(blocks?('sam@email.computers.are.evil.com')).to eq(true)
+    end
+  end
+
+  context "auto approve email domains" do
+    it "works as expected" do
+      SiteSetting.auto_approve_email_domains = "example.com"
+
+      expect(EmailValidator.can_auto_approve_user?("foobar@example.com.fr")).to eq(false)
+      expect(EmailValidator.can_auto_approve_user?("foobar@example.com")).to eq(true)
+    end
+
+    it "returns false if domain not present in email_domains_whitelist" do
+      SiteSetting.email_domains_whitelist = "googlemail.com"
+      SiteSetting.auto_approve_email_domains = "example.com|googlemail.com"
+
+      expect(EmailValidator.can_auto_approve_user?("foobar@example.com")).to eq(false)
+      expect(EmailValidator.can_auto_approve_user?("foobar@googlemail.com")).to eq(true)
     end
   end
 

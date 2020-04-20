@@ -1,4 +1,4 @@
-require_dependency 'enum'
+# frozen_string_literal: true
 
 class SearchLog < ActiveRecord::Base
   validates_presence_of :term
@@ -39,8 +39,8 @@ class SearchLog < ActiveRecord::Base
 
   # for testing
   def self.clear_debounce_cache!
-    $redis.keys("__SEARCH__LOG_*").each do |k|
-      $redis.del(k)
+    Discourse.redis.keys("__SEARCH__LOG_*").each do |k|
+      Discourse.redis.del(k)
     end
   end
 
@@ -56,7 +56,7 @@ class SearchLog < ActiveRecord::Base
 
     result = nil
 
-    if existing = $redis.get(key)
+    if existing = Discourse.redis.get(key)
       id, old_term = existing.split(",", 2)
 
       if term.start_with?(old_term)
@@ -80,7 +80,7 @@ class SearchLog < ActiveRecord::Base
       result = [:created, log.id]
     end
 
-    $redis.setex(key, 5, "#{result[1]},#{term}")
+    Discourse.redis.setex(key, 5, "#{result[1]},#{term}")
 
     result
   end
@@ -104,7 +104,7 @@ class SearchLog < ActiveRecord::Base
         details << { x: Date.parse(record['date'].to_s), y: record['count'] }
       end
 
-    return {
+    {
       type: "search_log_term",
       title: I18n.t("search_logs.graph_title"),
       start_date: start_of(period),

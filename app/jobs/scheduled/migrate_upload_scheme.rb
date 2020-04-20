@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 module Jobs
 
-  class MigrateUploadScheme < Jobs::Scheduled
+  class MigrateUploadScheme < ::Jobs::Scheduled
     every 10.minutes
     sidekiq_options retry: false
 
@@ -16,7 +18,7 @@ module Jobs
       end
 
       # migrate uploads to new scheme
-      problems = Upload.migrate_to_new_scheme(50)
+      problems = Upload.migrate_to_new_scheme(limit: 50)
 
       problems.each do |hash|
         upload_id = hash[:upload].id

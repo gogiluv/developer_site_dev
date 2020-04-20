@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe SearchIndexer do
@@ -13,6 +15,16 @@ describe SearchIndexer do
 
   def scrub(html, strip_diacritics: false)
     SearchIndexer.scrub_html_for_search(html, strip_diacritics: strip_diacritics)
+  end
+
+  it 'can correctly inject if http or https links exist' do
+
+    val = "a https://cnn.com?bob=1, http://stuff.com.au?bill=1 b abc.net/xyz=1"
+    result = SearchIndexer.inject_extra_terms(val)
+
+    expected = "a https://cnn.com?bob=1, cnn com bob=1 http://stuff.com.au?bill=1 stuff com au bill=1 b abc.net/xyz=1 net xyz=1"
+
+    expect(result).to eq(expected)
   end
 
   it 'correctly indexes chinese' do
@@ -36,6 +48,24 @@ describe SearchIndexer do
     html = "<a href='http://meta.discourse.org/'>link</a>"
     scrubbed = scrub(html)
     expect(scrubbed).to eq("http://meta.discourse.org/ link")
+  end
+
+  it 'extracts @username from mentions' do
+    html = '<p><a class="mention" href="/u/%E7%8B%AE%E5%AD%90">@狮子</a> <a class="mention" href="/u/foo">@foo</a></p>'
+    scrubbed = scrub(html)
+    expect(scrubbed).to eq('@狮子 @foo')
+  end
+
+  it 'extracts @groupname from group mentions' do
+    html = '<p><a class="mention-group" href="/groups/%D0%B0%D0%B2%D1%82%D0%BE%D0%BC%D0%BE%D0%B1%D0%B8%D0%BB%D0%B8%D1%81%D1%82">@автомобилист</a></p>'
+    scrubbed = scrub(html)
+    expect(scrubbed).to eq('@автомобилист')
+  end
+
+  it 'extracts emoji name from emoji image' do
+    html = %Q|<img src="#{Discourse.base_url_no_prefix}/images/emoji/twitter/wink.png?v=9" title=":wink:" class="emoji" alt=":wink:">|
+    scrubbed = scrub(html)
+    expect(scrubbed).to eq(':wink:')
   end
 
   it 'uses ignore_accent setting to strip diacritics' do
@@ -75,14 +105,14 @@ describe SearchIndexer do
   it 'correctly indexes a post according to version' do
     # Preparing so that they can be indexed to right version
     SearchIndexer.update_posts_index(post_id, "dummy", "", nil, nil)
-    PostSearchData.find_by(post_id: post_id).update_attributes!(version: -1)
+    PostSearchData.find_by(post_id: post_id).update!(version: -1)
 
     data = "<a>This</a> is a test"
     SearchIndexer.update_posts_index(post_id, "", "", nil, data)
 
     raw_data, locale, version = PostSearchData.where(post_id: post_id).pluck(:raw_data, :locale, :version)[0]
     expect(raw_data).to eq("This is a test")
-    expect(locale).to eq("en")
+    expect(locale).to eq(SiteSetting.default_locale)
     expect(version).to eq(SearchIndexer::INDEX_VERSION)
 
     SearchIndexer.update_posts_index(post_id, "tester", "", nil, nil)
@@ -121,7 +151,7 @@ describe SearchIndexer do
       topic = post.topic
 
       expect(post.post_search_data.raw_data).to eq(
-        "#{topic.title} #{topic.category.name} https://meta.discourse.org/some.png meta discourse org"
+        "#{topic.title} #{topic.category.name} https://meta.discourse.org/some.png meta discourse org some png"
       )
     end
 

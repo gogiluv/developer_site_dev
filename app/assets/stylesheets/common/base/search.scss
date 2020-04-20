@@ -2,6 +2,12 @@
   display: flex;
   justify-content: space-between;
 
+  .warning {
+    background-color: $danger-medium;
+    padding: 5px 8px;
+    color: $secondary;
+  }
+
   .search-bar {
     display: flex;
     justify-content: space-between;
@@ -186,6 +192,8 @@
 
 .fps-result {
   display: flex;
+  padding: 0 0.5em;
+
   .author {
     display: inline-block;
     vertical-align: top;

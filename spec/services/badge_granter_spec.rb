@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe BadgeGranter do
 
-  let(:badge) { Fabricate(:badge) }
-  let(:user) { Fabricate(:user) }
+  fab!(:badge) { Fabricate(:badge) }
+  fab!(:user) { Fabricate(:user) }
 
   describe 'revoke_titles' do
     it 'can correctly revoke titles' do
@@ -44,6 +46,11 @@ describe BadgeGranter do
 
       expect(result[:grant_count]).to eq(1)
       expect(result[:query_plan]).to be_present
+    end
+
+    it 'with badges containing trailing comments do not break generated SQL' do
+      query = Badge.find(1).query + "\n-- a comment"
+      expect(BadgeGranter.preview(query)[:errors]).to be_nil
     end
   end
 
@@ -112,26 +119,30 @@ describe BadgeGranter do
 
       expect(notification_badge_name).not_to eq(name_english)
     end
+
+    it 'with badges containing trailing comments do not break generated SQL' do
+      badge = Fabricate(:badge)
+      badge.query = Badge.find(1).query + "\n-- a comment"
+      expect { BadgeGranter.backfill(badge) }.not_to raise_error
+    end
   end
 
   describe 'grant' do
 
     it 'allows overriding of granted_at does not notify old bronze' do
+      freeze_time
       badge = Badge.create!(name: 'a badge', badge_type_id: BadgeType::Bronze)
+      user_badge = BadgeGranter.grant(badge, user, created_at: 1.year.ago)
 
-      time = 1.year.ago
-
-      user_badge = BadgeGranter.grant(badge, user, created_at: time)
-
-      expect(user_badge.granted_at).to eq(time)
+      expect(user_badge.granted_at).to eq_time(1.year.ago)
       expect(Notification.where(user_id: user.id).count).to eq(0)
     end
 
     it "doesn't grant disabled badges" do
+      freeze_time
       badge = Fabricate(:badge, badge_type_id: BadgeType::Bronze, enabled: false)
-      time = 1.year.ago
 
-      user_badge = BadgeGranter.grant(badge, user, created_at: time)
+      user_badge = BadgeGranter.grant(badge, user, created_at: 1.year.ago)
       expect(user_badge).to eq(nil)
     end
 
@@ -145,11 +156,10 @@ describe BadgeGranter do
     end
 
     it 'sets granted_at' do
-      time = 1.day.ago
-      freeze_time time
-
+      day_ago = freeze_time 1.day.ago
       user_badge = BadgeGranter.grant(badge, user)
-      expect(user_badge.granted_at).to be_within(1.second).of(time)
+
+      expect(user_badge.granted_at).to eq_time(day_ago)
     end
 
     it 'sets granted_by if the option is present' do
@@ -180,7 +190,7 @@ describe BadgeGranter do
 
   describe 'revoke' do
 
-    let(:admin) { Fabricate(:admin) }
+    fab!(:admin) { Fabricate(:admin) }
     let!(:user_badge) { BadgeGranter.grant(badge, user) }
 
     it 'revokes the badge and does necessary cleanup' do
@@ -194,11 +204,70 @@ describe BadgeGranter do
       expect(user.reload.title).to eq(nil)
     end
 
+    context 'when the badge name is customized, and the customized name is the same as the user title' do
+      let(:customized_badge_name) { 'Merit Badge' }
+
+      before do
+        TranslationOverride.upsert!(I18n.locale, Badge.i18n_key(badge.name), customized_badge_name)
+      end
+
+      it 'revokes the badge and title and does necessary cleanup' do
+        user.title = customized_badge_name; user.save!
+        expect(badge.reload.grant_count).to eq(1)
+        StaffActionLogger.any_instance.expects(:log_badge_revoke).with(user_badge)
+        StaffActionLogger.any_instance.expects(:log_title_revoke).with(
+          user,
+          revoke_reason: 'user title was same as revoked badge name or custom badge name',
+          previous_value: user_badge.user.title
+        )
+        BadgeGranter.revoke(user_badge, revoked_by: admin)
+        expect(UserBadge.find_by(user: user, badge: badge)).not_to be_present
+        expect(badge.reload.grant_count).to eq(0)
+        expect(user.notifications.where(notification_type: Notification.types[:granted_badge])).to be_empty
+        expect(user.reload.title).to eq(nil)
+      end
+
+      after do
+        TranslationOverride.revert!(I18n.locale, Badge.i18n_key(badge.name))
+      end
+    end
+  end
+
+  describe 'revoke_all' do
+    it 'deletes every user_badge record associated with that badge' do
+      described_class.grant(badge, user)
+      described_class.revoke_all(badge)
+
+      expect(UserBadge.exists?(badge: badge, user: user)).to eq(false)
+    end
+
+    it 'removes titles' do
+      another_title = 'another title'
+      described_class.grant(badge, user)
+      user.update!(title: badge.name)
+      user2 = Fabricate(:user, title: another_title)
+
+      described_class.revoke_all(badge)
+
+      expect(user.reload.title).to be_nil
+      expect(user2.reload.title).to eq(another_title)
+    end
+
+    it 'removes custom badge titles' do
+      custom_badge_title = 'this is a badge title'
+      TranslationOverride.create!(translation_key: badge.translation_key, value: custom_badge_title, locale: 'en_US')
+      described_class.grant(badge, user)
+      user.update!(title: custom_badge_title)
+
+      described_class.revoke_all(badge)
+
+      expect(user.reload.title).to be_nil
+    end
   end
 
   context "update_badges" do
-    let(:user) { Fabricate(:user) }
-    let(:liker) { Fabricate(:user) }
+    fab!(:user) { Fabricate(:user) }
+    fab!(:liker) { Fabricate(:user) }
 
     before do
       BadgeGranter.clear_queue!
@@ -266,7 +335,7 @@ describe BadgeGranter do
       action = PostActionCreator.like(liker, post).post_action
 
       # Nice post badge
-      post.update_attributes like_count: 10
+      post.update like_count: 10
 
       BadgeGranter.queue_badge_grant(Badge::Trigger::PostAction, post_action: action)
       BadgeGranter.process_queue!
@@ -275,22 +344,38 @@ describe BadgeGranter do
       expect(UserBadge.where(user_id: user.id, badge_id: Badge::NicePost).count).to eq(1)
 
       # Good post badge
-      post.update_attributes like_count: 25
+      post.update like_count: 25
       BadgeGranter.queue_badge_grant(Badge::Trigger::PostAction, post_action: action)
       BadgeGranter.process_queue!
       expect(UserBadge.find_by(user_id: user.id, badge_id: Badge::GoodPost)).not_to eq(nil)
 
       # Great post badge
-      post.update_attributes like_count: 50
+      post.update like_count: 50
       BadgeGranter.queue_badge_grant(Badge::Trigger::PostAction, post_action: action)
       BadgeGranter.process_queue!
       expect(UserBadge.find_by(user_id: user.id, badge_id: Badge::GreatPost)).not_to eq(nil)
 
       # Revoke badges on unlike
-      post.update_attributes like_count: 49
+      post.update like_count: 49
       BadgeGranter.backfill(Badge.find(Badge::GreatPost))
       expect(UserBadge.find_by(user_id: user.id, badge_id: Badge::GreatPost)).to eq(nil)
     end
   end
 
+  context 'notification locales' do
+    it 'is using default locales when user locales are not set' do
+      SiteSetting.allow_user_locale = true
+      expect(BadgeGranter.notification_locale('')).to eq(SiteSetting.default_locale)
+    end
+
+    it 'is using default locales when user locales are set but is not allowed' do
+      SiteSetting.allow_user_locale = false
+      expect(BadgeGranter.notification_locale('pl_PL')).to eq(SiteSetting.default_locale)
+    end
+
+    it 'is using user locales when set and allowed' do
+      SiteSetting.allow_user_locale = true
+      expect(BadgeGranter.notification_locale('pl_PL')).to eq('pl_PL')
+    end
+  end
 end

@@ -1,10 +1,11 @@
-require_dependency 'new_post_manager'
+# frozen_string_literal: true
 
 class CurrentUserSerializer < BasicUserSerializer
 
   attributes :name,
              :unread_notifications,
              :unread_private_messages,
+             :unread_high_priority_notifications,
              :read_first_notification?,
              :admin?,
              :notification_channel_position,
@@ -14,6 +15,7 @@ class CurrentUserSerializer < BasicUserSerializer
              :reply_count,
              :topic_count,
              :enable_quoting,
+             :enable_defer,
              :external_links_in_new_tab,
              :dynamic_favicon,
              :trust_level,
@@ -26,6 +28,7 @@ class CurrentUserSerializer < BasicUserSerializer
              :redirected_to_top,
              :custom_fields,
              :muted_category_ids,
+             :muted_tag_ids,
              :dismissed_banner_key,
              :is_anonymous,
              :reviewable_count,
@@ -43,7 +46,9 @@ class CurrentUserSerializer < BasicUserSerializer
              :groups,
              :second_factor_enabled,
              :ignored_users,
-             :title_count_mode
+             :title_count_mode,
+             :timezone,
+             :featured_topic
 
   def groups
     object.visible_groups.pluck(:id, :name).map { |id, name| { id: id, name: name.downcase } }
@@ -77,6 +82,10 @@ class CurrentUserSerializer < BasicUserSerializer
     object.user_option.enable_quoting
   end
 
+  def enable_defer
+    object.user_option.enable_defer
+  end
+
   def external_links_in_new_tab
     object.user_option.external_links_in_new_tab
   end
@@ -99,6 +108,10 @@ class CurrentUserSerializer < BasicUserSerializer
 
   def redirected_to_top
     object.user_option.redirected_to_top
+  end
+
+  def timezone
+    object.user_option.timezone
   end
 
   def can_send_private_email_messages
@@ -158,6 +171,10 @@ class CurrentUserSerializer < BasicUserSerializer
     CategoryUser.lookup(object, :muted).pluck(:category_id)
   end
 
+  def muted_tag_ids
+    TagUser.lookup(object, :muted).pluck(:tag_id)
+  end
+
   def ignored_users
     IgnoredUser.where(user: object.id).joins(:ignored_user).pluck(:username)
   end
@@ -205,6 +222,10 @@ class CurrentUserSerializer < BasicUserSerializer
   end
 
   def second_factor_enabled
-    object.totp_enabled?
+    object.totp_enabled? || object.security_keys_enabled?
+  end
+
+  def featured_topic
+    object.user_profile.featured_topic
   end
 end

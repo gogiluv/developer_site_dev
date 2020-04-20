@@ -1,5 +1,8 @@
-require_relative '../base.rb'
+# frozen_string_literal: true
+
+require_relative '../base'
 require_relative './redis'
+require_relative './mongo'
 
 class ImportScripts::NodeBB < ImportScripts::Base
   # CHANGE THESE BEFORE RUNNING THE IMPORTER
@@ -10,8 +13,10 @@ class ImportScripts::NodeBB < ImportScripts::Base
   def initialize
     super
 
-    adapter = NodeBB::Redis
+    # adapter = NodeBB::Mongo
+    # @client = adapter.new('mongodb://127.0.0.1:27017/nodebb')
 
+    adapter = NodeBB::Redis
     @client = adapter.new(
       host: "localhost",
       port: "6379",
@@ -281,7 +286,7 @@ class ImportScripts::NodeBB < ImportScripts::Base
 
     return if !upload.persisted?
 
-    imported_user.user_profile.update(profile_background: upload.url)
+    imported_user.user_profile.upload_profile_background(upload)
   ensure
     string_io.close rescue nil
     file.close rescue nil

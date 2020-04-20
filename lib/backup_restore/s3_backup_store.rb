@@ -1,9 +1,7 @@
-require_dependency "backup_restore/backup_store"
-require_dependency "s3_helper"
+# frozen_string_literal: true
 
 module BackupRestore
   class S3BackupStore < BackupStore
-    DOWNLOAD_URL_EXPIRES_AFTER_SECONDS ||= 15
     UPLOAD_URL_EXPIRES_AFTER_SECONDS ||= 21_600 # 6 hours
     MULTISITE_PREFIX = "backups"
 
@@ -72,11 +70,12 @@ module BackupRestore
     end
 
     def create_file_from_object(obj, include_download_source = false)
+      expires = S3Helper::DOWNLOAD_URL_EXPIRES_AFTER_SECONDS
       BackupFile.new(
         filename: File.basename(obj.key),
         size: obj.size,
         last_modified: obj.last_modified,
-        source: include_download_source ? presigned_url(obj, :get, DOWNLOAD_URL_EXPIRES_AFTER_SECONDS) : nil
+        source: include_download_source ? presigned_url(obj, :get, expires) : nil
       )
     end
 

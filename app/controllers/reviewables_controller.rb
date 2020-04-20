@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ReviewablesController < ApplicationController
   requires_login
 
@@ -6,7 +8,6 @@ class ReviewablesController < ApplicationController
   before_action :version_required, only: [:update, :perform]
 
   def index
-    min_score = params[:min_score].nil? ? SiteSetting.min_score_default_visibility : params[:min_score].to_f
     offset = params[:offset].to_i
 
     if params[:type].present?
@@ -19,24 +20,36 @@ class ReviewablesController < ApplicationController
     topic_id = params[:topic_id] ? params[:topic_id].to_i : nil
     category_id = params[:category_id] ? params[:category_id].to_i : nil
 
+    custom_keys = Reviewable.custom_filters.map(&:first)
+    additional_filters = JSON.parse(params.fetch(:additional_filters, {}), symbolize_names: true).slice(*custom_keys)
     filters = {
       status: status,
       category_id: category_id,
       topic_id: topic_id,
-      min_score: min_score,
-      username: params[:username],
-      type: params[:type]
+      additional_filters: additional_filters.reject { |_, v| v.blank? }
     }
 
-    total_rows = Reviewable.list_for(current_user, filters).count
-    reviewables = Reviewable.list_for(current_user, filters.merge(limit: PER_PAGE, offset: offset)).to_a
+    %i[priority username from_date to_date type sort_order].each do |filter_key|
+      filters[filter_key] = params[filter_key]
+    end
+
+    total_rows = Reviewable.list_for(current_user, **filters).count
+    reviewables = Reviewable.list_for(current_user, **filters.merge(limit: PER_PAGE, offset: offset)).to_a
+
+    claimed_topics = ReviewableClaimedTopic.claimed_hash(reviewables.map { |r| r.topic_id }.uniq)
 
     # This is a bit awkward, but ActiveModel serializers doesn't seem to serialize STI. Note `hash`
     # is mutated by the serializer and contains the side loaded records which must be merged in the end.
     hash = {}
     json = {
       reviewables: reviewables.map! do |r|
-        result = r.serializer.new(r, root: nil, hash: hash, scope: guardian).as_json
+        result = r.serializer.new(
+          r,
+          root: nil,
+          hash: hash,
+          scope: guardian,
+          claimed_topics: claimed_topics
+        ).as_json
         hash[:bundled_actions].uniq!
         (hash['actions'] || []).uniq!
         result
@@ -63,7 +76,7 @@ class ReviewablesController < ApplicationController
     # topics isn't indexed on `reviewable_score` and doesn't know what the current user can see,
     # so let's query from the inside out.
     pending = Reviewable.viewable_by(current_user).pending
-    pending = pending.where("score >= ?", SiteSetting.min_score_default_visibility)
+    pending = pending.where("score >= ?", Reviewable.min_score_for_priority)
 
     pending.each do |r|
       topic_ids << r.topic_id
@@ -79,7 +92,28 @@ class ReviewablesController < ApplicationController
     end
 
     topics = Topic.where(id: topic_ids).order('reviewable_score DESC')
-    render_serialized(topics, ReviewableTopicSerializer, root: 'reviewable_topics', stats: stats)
+    render_serialized(
+      topics,
+      ReviewableTopicSerializer,
+      root: 'reviewable_topics',
+      stats: stats,
+      claimed_topics: ReviewableClaimedTopic.claimed_hash(topic_ids),
+      rest_serializer: true,
+      meta: {
+        types: meta_types
+      }
+    )
+  end
+
+  def explain
+    reviewable = find_reviewable
+
+    render_serialized(
+      { reviewable: reviewable, scores: reviewable.explain_score },
+      ReviewableExplanationSerializer,
+      rest_serializer: true,
+      root: 'reviewable_explanation'
+    )
   end
 
   def show
@@ -89,6 +123,7 @@ class ReviewablesController < ApplicationController
       reviewable,
       reviewable.serializer,
       rest_serializer: true,
+      claimed_topics: ReviewableClaimedTopic.claimed_hash([reviewable.topic_id]),
       root: 'reviewable',
       meta: {
         types: meta_types
@@ -107,6 +142,10 @@ class ReviewablesController < ApplicationController
 
   def update
     reviewable = find_reviewable
+    if error = claim_error?(reviewable)
+      return render_json_error(error)
+    end
+
     editable = reviewable.editable_for(guardian)
     raise Discourse::InvalidAccess.new unless editable.present?
 
@@ -130,15 +169,22 @@ class ReviewablesController < ApplicationController
         render_json_error(reviewable.errors)
       end
     rescue Reviewable::UpdateConflict
-      return render_json_error(I18n.t('reviewables.conflict'), status: 409)
+      render_json_error(I18n.t('reviewables.conflict'), status: 409)
     end
   end
 
   def perform
     args = { version: params[:version].to_i }
 
+    result = nil
     begin
-      result = find_reviewable.perform(current_user, params[:action_id].to_sym, args)
+      reviewable = find_reviewable
+
+      if error = claim_error?(reviewable)
+        return render_json_error(error)
+      end
+
+      result = reviewable.perform(current_user, params[:action_id].to_sym, args)
     rescue Reviewable::InvalidAction => e
       # Consider InvalidAction an InvalidAccess
       raise Discourse::InvalidAccess.new(e.message)
@@ -157,18 +203,36 @@ class ReviewablesController < ApplicationController
     raise Discourse::InvalidAccess.new unless current_user.admin?
 
     post_action_types = PostActionType.where(id: PostActionType.flag_types.values).order('id')
-    data = { reviewable_score_types: post_action_types }
 
     if request.put?
-      params[:bonuses].each do |id, bonus|
-        PostActionType.where(id: id).update_all(score_bonus: bonus.to_f)
+      params[:reviewable_priorities].each do |id, priority|
+        if !priority.nil? && Reviewable.priorities.has_value?(priority.to_i)
+          # For now, the score bonus is equal to the priority. In the future we might want
+          # to calculate it a different way.
+          PostActionType.where(id: id).update_all(
+            reviewable_priority: priority.to_i,
+            score_bonus: priority.to_f
+          )
+        end
       end
     end
 
+    data = { reviewable_score_types: post_action_types }
     render_serialized(data, ReviewableSettingsSerializer, rest_serializer: true)
   end
 
 protected
+
+  def claim_error?(reviewable)
+    return if SiteSetting.reviewable_claiming == "disabled" || reviewable.topic_id.blank?
+
+    claimed_by_id = ReviewableClaimedTopic.where(topic_id: reviewable.topic_id).pluck(:user_id)[0]
+    if SiteSetting.reviewable_claiming == "required" && claimed_by_id.blank?
+      return I18n.t('reviewables.must_claim')
+    end
+
+    claimed_by_id.present? && claimed_by_id != current_user.id
+  end
 
   def find_reviewable
     reviewable = Reviewable.viewable_by(current_user).where(id: params[:reviewable_id]).first
@@ -190,7 +254,8 @@ protected
     {
       created_by: 'user',
       target_created_by: 'user',
-      reviewed_by: 'user'
+      reviewed_by: 'user',
+      claimed_by: 'user'
     }
   end
 

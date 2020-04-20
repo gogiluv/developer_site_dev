@@ -1,6 +1,6 @@
-require 'rails_helper'
+# frozen_string_literal: true
 
-require_dependency 'jobs/scheduled/ignored_users_summary'
+require 'rails_helper'
 
 describe Jobs::IgnoredUsersSummary do
   before do
@@ -18,9 +18,9 @@ describe Jobs::IgnoredUsersSummary do
   end
 
   context "when some ignored users exist" do
-    let(:tarek) { Fabricate(:user, username: "tarek") }
-    let(:matt) { Fabricate(:user, username: "matt") }
-    let(:john) { Fabricate(:user, username: "john") }
+    fab!(:tarek) { Fabricate(:user, username: "tarek") }
+    fab!(:matt) { Fabricate(:user, username: "matt") }
+    fab!(:john) { Fabricate(:user, username: "john") }
 
     before do
       Fabricate(:ignored_user, user: tarek, ignored_user: matt)

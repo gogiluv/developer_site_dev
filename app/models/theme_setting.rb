@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ThemeSetting < ActiveRecord::Base
   belongs_to :theme
 
@@ -14,7 +16,7 @@ class ThemeSetting < ActiveRecord::Base
   end
 
   def self.types
-    @types ||= Enum.new(integer: 0, float: 1, string: 2, bool: 3, list: 4, enum: 5)
+    @types ||= Enum.new(integer: 0, float: 1, string: 2, bool: 3, list: 4, enum: 5, upload: 6)
   end
 
   def self.acceptable_value_for_type?(value, type)
@@ -58,7 +60,7 @@ end
 #
 # Table name: theme_settings
 #
-#  id         :bigint(8)        not null, primary key
+#  id         :bigint           not null, primary key
 #  name       :string(255)      not null
 #  data_type  :integer          not null
 #  value      :text

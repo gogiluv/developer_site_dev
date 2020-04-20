@@ -1,4 +1,4 @@
-require_dependency 'admin_user_list_serializer'
+# frozen_string_literal: true
 
 class AdminUserSerializer < AdminUserListSerializer
 
@@ -14,8 +14,7 @@ class AdminUserSerializer < AdminUserListSerializer
   has_one :single_sign_on_record, serializer: SingleSignOnRecordSerializer, embed: :objects
 
   def can_approve
-    reviewable = ReviewableUser.find_by(target: object)
-    reviewable.present? && reviewable.actions_for(scope).has?(:approve)
+    scope.can_approve?(object)
   end
 
   def include_can_approve?

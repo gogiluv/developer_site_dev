@@ -1,9 +1,7 @@
+# frozen_string_literal: true
+
 # Post processing that we can do after a post has already been cooked.
 # For example, inserting the onebox content, or image sizes/thumbnails.
-
-require_dependency 'url_helper'
-require_dependency 'pretty_text'
-require_dependency 'quote_comparer'
 
 class CookedPostProcessor
   INLINE_ONEBOX_LOADING_CSS_CLASS = "inline-onebox-loading"
@@ -25,21 +23,24 @@ class CookedPostProcessor
     @cooking_options[:topic_id] = post.topic_id
     @cooking_options = @cooking_options.symbolize_keys
 
-    @doc = Nokogiri::HTML::fragment(post.cook(post.raw, @cooking_options))
+    cooked = post.cook(post.raw, @cooking_options)
+    @doc = Nokogiri::HTML::fragment(cooked)
     @has_oneboxes = post.post_analyzer.found_oneboxes?
     @size_cache = {}
 
     @disable_loading_image = !!opts[:disable_loading_image]
+    @omit_nofollow = post.omit_nofollow?
   end
 
   def post_process(bypass_bump: false, new_post: false)
-    DistributedMutex.synchronize("post_process_#{@post.id}") do
+    DistributedMutex.synchronize("post_process_#{@post.id}", validity: 10.minutes) do
       DiscourseEvent.trigger(:before_post_process_cooked, @doc, @post)
-      removed_direct_reply_full_quotes if new_post
+      remove_full_quote_on_direct_reply if new_post
       post_process_oneboxes
       post_process_images
       post_process_quotes
       optimize_urls
+      remove_user_ids
       update_post_image
       enforce_nofollow
       pull_hotlinked_images(bypass_bump)
@@ -55,20 +56,11 @@ class CookedPostProcessor
   end
 
   def grant_badges
-    return unless Guardian.new.can_see?(@post)
+    return if @post.user.blank? || !Guardian.new.can_see?(@post)
 
     BadgeGranter.grant(Badge.find(Badge::FirstEmoji), @post.user, post_id: @post.id) if has_emoji?
     BadgeGranter.grant(Badge.find(Badge::FirstOnebox), @post.user, post_id: @post.id) if @has_oneboxes
     BadgeGranter.grant(Badge.find(Badge::FirstReplyByEmail), @post.user, post_id: @post.id) if @post.is_reply_by_email?
-  end
-
-  def post_process_images
-    extract_images.each do |img|
-      unless add_image_placeholder!(img)
-        limit_size!(img)
-        convert_to_link!(img)
-      end
-    end
   end
 
   def post_process_quotes
@@ -89,22 +81,34 @@ class CookedPostProcessor
     end
   end
 
-  def removed_direct_reply_full_quotes
-    return if !SiteSetting.remove_full_quote || @post.post_number == 1
+  def remove_full_quote_on_direct_reply
+    return if !SiteSetting.remove_full_quote
+    return if @post.post_number == 1
+    return if @doc.xpath("aside[contains(@class, 'quote')]").size != 1
 
-    num_quotes = @doc.css("aside.quote").size
-    return if num_quotes != 1
+    previous = Post
+      .where("post_number < ? AND topic_id = ? AND post_type = ? AND NOT hidden", @post.post_number, @post.topic_id, Post.types[:regular])
+      .order("post_number DESC")
+      .limit(1)
+      .pluck(:cooked)
+      .first
 
-    prev = Post.where('post_number < ? AND topic_id = ? AND post_type = ? AND not hidden', @post.post_number, @post.topic_id, Post.types[:regular]).order('post_number desc').limit(1).pluck(:raw).first
-    return if !prev
+    return if previous.blank?
 
-    new_raw = @post.raw.gsub(/\A\s*\[quote[^\]]*\]\s*#{Regexp.quote(prev.strip)}\s*\[\/quote\]/, '')
-    return if @post.raw == new_raw
+    previous_text = Nokogiri::HTML::fragment(previous).text.strip
+    quoted_text = @doc.css("aside.quote:first-child blockquote").first&.text&.strip || ""
+
+    return if previous_text.gsub(/(\s){2,}/, '\1') != quoted_text.gsub(/(\s){2,}/, '\1')
+
+    quote_regexp = /\A\s*\[quote.+\[\/quote\]/im
+    quoteless_raw = @post.raw.sub(quote_regexp, "").strip
+
+    return if @post.raw.strip == quoteless_raw
 
     PostRevisor.new(@post).revise!(
       Discourse.system_user,
       {
-        raw: new_raw.strip,
+        raw: quoteless_raw,
         edit_reason: I18n.t(:removed_direct_reply_full_quotes)
       },
       skip_validations: true,
@@ -203,11 +207,7 @@ class CookedPostProcessor
     # minus data images
     @doc.css("img[src^='data']") -
     # minus emojis
-    @doc.css("img.emoji") -
-    # minus oneboxed images
-    oneboxed_images -
-    # minus images inside quotes
-    @doc.css(".quote img")
+    @doc.css("img.emoji")
   end
 
   def extract_images_for_post
@@ -216,7 +216,9 @@ class CookedPostProcessor
     # minus emojis
     @doc.css("img.emoji") -
     # minus images inside quotes
-    @doc.css(".quote img")
+    @doc.css(".quote img") -
+    # minus onebox site icons
+    @doc.css("img.site-icon")
   end
 
   def oneboxed_images
@@ -266,6 +268,7 @@ class CookedPostProcessor
         return [size["width"], size["height"]]
       end
     end
+    nil
   end
 
   def add_to_size_cache(url, w, h)
@@ -282,6 +285,13 @@ class CookedPostProcessor
 
     # FastImage fails when there's no scheme
     absolute_url = SiteSetting.scheme + ":" + absolute_url if absolute_url.start_with?("//")
+
+    # we can't direct FastImage to our secure-media-uploads url because it bounces
+    # anonymous requests with a 404 error
+    if url && Upload.secure_media_url?(url)
+      absolute_url = Upload.signed_url_from_secure_media_url(absolute_url)
+    end
+
     return unless is_valid_image_url?(absolute_url)
 
     # we can *always* crawl our own images
@@ -299,32 +309,43 @@ class CookedPostProcessor
   end
 
   def convert_to_link!(img)
+    w, h = img["width"].to_i, img["height"].to_i
+    user_width, user_height = (w > 0 && h > 0 && [w, h]) ||
+                              get_size_from_attributes(img) ||
+                              get_size_from_image_sizes(img["src"], @opts[:image_sizes])
+
+    limit_size!(img)
+
     src = img["src"]
     return if src.blank? || is_a_hyperlink?(img) || is_svg?(img)
 
-    width, height = img["width"].to_i, img["height"].to_i
-    # TODO: store original dimentions in db
     original_width, original_height = (get_size(src) || [0, 0]).map(&:to_i)
-
-    # can't reach the image...
     if original_width == 0 || original_height == 0
       Rails.logger.info "Can't reach '#{src}' to get its dimension."
       return
     end
 
-    return if original_width <= width && original_height <= height
     return if original_width <= SiteSetting.max_image_width && original_height <= SiteSetting.max_image_height
 
-    crop   = SiteSetting.min_ratio_to_crop > 0
-    crop &&= original_width.to_f / original_height.to_f < SiteSetting.min_ratio_to_crop
+    user_width, user_height = [original_width, original_height] if user_width.to_i <= 0 && user_height.to_i <= 0
+    width, height = user_width, user_height
+
+    crop = SiteSetting.min_ratio_to_crop > 0 && width.to_f / height.to_f < SiteSetting.min_ratio_to_crop
 
     if crop
-      width, height = ImageSizer.crop(original_width, original_height)
-      img["width"] = width
-      img["height"] = height
+      width, height = ImageSizer.crop(width, height)
+      img["width"], img["height"] = width, height
+    else
+      width, height = ImageSizer.resize(width, height)
     end
 
-    if upload = Upload.get_from_url(src)
+    # if the upload already exists and is attached to a different post,
+    # or the original_sha1 is missing meaning it was created before secure
+    # media was enabled. we want to re-thumbnail and re-optimize in this case
+    # to avoid using uploads linked to many other posts
+    upload = Upload.consider_for_reuse(Upload.get_from_url(src), @post)
+
+    if upload.present?
       upload.create_thumbnail!(width, height, crop: crop)
 
       each_responsive_ratio do |ratio|
@@ -341,7 +362,13 @@ class CookedPostProcessor
       end
     end
 
-    add_lightbox!(img, original_width, original_height, upload, cropped: crop)
+    if img.ancestors('.onebox, .onebox-body, .quote').blank? && !img.classes.include?("onebox")
+      add_lightbox!(img, original_width, original_height, upload, cropped: crop)
+    end
+
+    if upload.present?
+      optimize_image!(img, upload, cropped: crop)
+    end
   end
 
   def loading_image(upload)
@@ -366,6 +393,39 @@ class CookedPostProcessor
       .each { |r| yield r if r > 1 }
   end
 
+  def optimize_image!(img, upload, cropped: false)
+    w, h = img["width"].to_i, img["height"].to_i
+
+    # note: optimize_urls cooks the src and data-small-upload further after this
+    thumbnail = upload.thumbnail(w, h)
+    if thumbnail && thumbnail.filesize.to_i < upload.filesize
+      img["src"] = thumbnail.url
+
+      srcset = +""
+
+      each_responsive_ratio do |ratio|
+        resized_w = (w * ratio).to_i
+        resized_h = (h * ratio).to_i
+
+        if !cropped && upload.width && resized_w > upload.width
+          cooked_url = UrlHelper.cook_url(upload.url, secure: @post.with_secure_media?)
+          srcset << ", #{cooked_url} #{ratio.to_s.sub(/\.0$/, "")}x"
+        elsif t = upload.thumbnail(resized_w, resized_h)
+          cooked_url = UrlHelper.cook_url(t.url, secure: @post.with_secure_media?)
+          srcset << ", #{cooked_url} #{ratio.to_s.sub(/\.0$/, "")}x"
+        end
+
+        img["srcset"] = "#{UrlHelper.cook_url(img["src"], secure: @post.with_secure_media?)}#{srcset}" if srcset.present?
+      end
+    else
+      img["src"] = upload.url
+    end
+
+    if small_upload = loading_image(upload)
+      img["data-small-upload"] = small_upload.url
+    end
+  end
+
   def add_lightbox!(img, original_width, original_height, upload, cropped: false)
     # first, create a div to hold our lightbox
     lightbox = create_node("div", LIGHTBOX_WRAPPER_CSS_CLASS)
@@ -373,57 +433,25 @@ class CookedPostProcessor
     lightbox.add_child(img)
 
     # then, the link to our larger image
-    a = create_link_node("lightbox", img["src"])
+    src = UrlHelper.cook_url(img["src"], secure: @post.with_secure_media?)
+    a = create_link_node("lightbox", src)
     img.add_next_sibling(a)
 
-    if upload && Discourse.store.internal?
+    if upload
       a["data-download-href"] = Discourse.store.download_url(upload)
     end
 
     a.add_child(img)
-
-    # replace the image by its thumbnail
-    w, h = img["width"].to_i, img["height"].to_i
-
-    if upload
-      thumbnail = upload.thumbnail(w, h)
-      if thumbnail && thumbnail.filesize.to_i < upload.filesize
-        img["src"] = thumbnail.url
-
-        srcset = +""
-
-        each_responsive_ratio do |ratio|
-          resized_w = (w * ratio).to_i
-          resized_h = (h * ratio).to_i
-
-          if !cropped && upload.width && resized_w > upload.width
-            cooked_url = UrlHelper.cook_url(upload.url)
-            srcset << ", #{cooked_url} #{ratio.to_s.sub(/\.0$/, "")}x"
-          elsif t = upload.thumbnail(resized_w, resized_h)
-            cooked_url = UrlHelper.cook_url(t.url)
-            srcset << ", #{cooked_url} #{ratio.to_s.sub(/\.0$/, "")}x"
-          end
-
-          img["srcset"] = "#{UrlHelper.cook_url(img["src"])}#{srcset}" if srcset.present?
-        end
-      else
-        img["src"] = upload.url
-      end
-
-      if small_upload = loading_image(upload)
-        img["data-small-upload"] = small_upload.url
-      end
-    end
 
     # then, some overlay informations
     meta = create_node("div", "meta")
     img.add_next_sibling(meta)
 
     filename = get_filename(upload, img["src"])
-    informations = "#{original_width}×#{original_height}"
+    informations = +"#{original_width}×#{original_height}"
     informations << " #{upload.human_filesize}" if upload
 
-    a["title"] = CGI.escapeHTML(img["title"] || filename)
+    a["title"] = CGI.escapeHTML(img["title"] || img["alt"] || filename)
 
     meta.add_child create_icon_node("far-image")
     meta.add_child create_span_node("filename", a["title"])
@@ -434,7 +462,7 @@ class CookedPostProcessor
   def get_filename(upload, src)
     return File.basename(src) unless upload
     return upload.original_filename unless upload.original_filename =~ /^blob(\.png)?$/i
-    return I18n.t("upload.pasted_image_filename")
+    I18n.t("upload.pasted_image_filename")
   end
 
   def create_node(tag_name, klass)
@@ -468,7 +496,11 @@ class CookedPostProcessor
 
   def update_post_image
     img = extract_images_for_post.first
-    return if img.blank?
+    if img.blank?
+      @post.update_column(:image_url, nil) if @post.image_url
+      @post.topic.update_column(:image_url, nil) if @post.topic.image_url && @post.is_first_post?
+      return
+    end
 
     if img["src"].present?
       @post.update_column(:image_url, img["src"][0...255]) # post
@@ -500,13 +532,14 @@ class CookedPostProcessor
       map[url] = true
 
       if is_onebox
-        @has_oneboxes = true
-
-        Oneboxer.onebox(url,
+        onebox = Oneboxer.onebox(url,
           invalidate_oneboxes: !!@opts[:invalidate_oneboxes],
           user_id: @post&.user_id,
           category_id: @post&.topic&.category_id
         )
+
+        @has_oneboxes = true if onebox.present?
+        onebox
       else
         process_inline_onebox(element)
         false
@@ -530,7 +563,10 @@ class CookedPostProcessor
 
       upload_id = downloaded_images[src]
       upload = Upload.find_by_id(upload_id) if upload_id
-      img["src"] = upload.url if upload.present?
+
+      if upload.present?
+        img["src"] = UrlHelper.cook_url(upload.url, secure: @post.with_secure_media?)
+      end
 
       # make sure we grab dimensions for oneboxed images
       # and wrap in a div
@@ -538,6 +574,7 @@ class CookedPostProcessor
 
       next if img["class"]&.include?('onebox-avatar')
 
+      parent = parent&.parent if parent&.name == "a"
       parent_class = parent && parent["class"]
       width = img["width"].to_i
       height = img["height"].to_i
@@ -571,12 +608,12 @@ class CookedPostProcessor
       elsif (parent_class&.include?("instagram-images") || parent_class&.include?("tweet-images") || parent_class&.include?("scale-images")) && width > 0 && height > 0
         img.remove_attribute("width")
         img.remove_attribute("height")
-        img.parent["class"] = "aspect-image-full-size"
-        img.parent["style"] = "--aspect-ratio:#{width}/#{height};"
+        parent["class"] = "aspect-image-full-size"
+        parent["style"] = "--aspect-ratio:#{width}/#{height};"
       end
     end
 
-    if @cooking_options[:omit_nofollow] || !SiteSetting.add_rel_nofollow_to_user_content
+    if @omit_nofollow || !SiteSetting.add_rel_nofollow_to_user_content
       @doc.css(".onebox-body a, .onebox a").each { |a| a.remove_attribute("rel") }
     end
   end
@@ -590,22 +627,37 @@ class CookedPostProcessor
 
     %w{src data-small-upload}.each do |selector|
       @doc.css("img[#{selector}]").each do |img|
-        img[selector] = UrlHelper.cook_url(img[selector].to_s)
+        img[selector] = UrlHelper.cook_url(img[selector].to_s, secure: @post.with_secure_media?)
       end
     end
   end
 
+  def remove_user_ids
+    @doc.css("a[href]").each do |a|
+      uri = begin
+        URI(a["href"])
+      rescue URI::Error
+        next
+      end
+      next if uri.hostname != Discourse.current_hostname
+
+      query = Rack::Utils.parse_nested_query(uri.query)
+      next if !query.delete("u")
+
+      uri.query = query.map { |k, v| "#{k}=#{v}" }.join("&").presence
+      a["href"] = uri.to_s
+    end
+  end
+
   def enforce_nofollow
-    if !@cooking_options[:omit_nofollow] && SiteSetting.add_rel_nofollow_to_user_content
+    if !@omit_nofollow && SiteSetting.add_rel_nofollow_to_user_content
       PrettyText.add_rel_nofollow_to_user_content(@doc)
     end
   end
 
   def pull_hotlinked_images(bypass_bump = false)
-    # is the job enabled?
-    return unless SiteSetting.download_remote_images_to_local?
     # have we enough disk space?
-    return if disable_if_low_on_disk_space
+    disable_if_low_on_disk_space # But still enqueue the job
     # don't download remote images for posts that are more than n days old
     return unless @post.created_at > (Date.today - SiteSetting.download_remote_images_max_days_old)
     # we only want to run the job whenever it's changed by a user
@@ -618,6 +670,8 @@ class CookedPostProcessor
   end
 
   def disable_if_low_on_disk_space
+    return false if Discourse.store.external?
+    return false if !SiteSetting.download_remote_images_to_local
     return false if available_disk_space >= SiteSetting.download_remote_images_threshold
 
     SiteSetting.download_remote_images_to_local = false
@@ -637,7 +691,7 @@ class CookedPostProcessor
   end
 
   def available_disk_space
-    100 - `df -P #{Rails.root}/public/uploads | tail -1 | tr -s ' ' | cut -d ' ' -f 5`.to_i
+    100 - DiskSpace.percent_free("#{Rails.root}/public/uploads")
   end
 
   def dirty?
@@ -650,10 +704,18 @@ class CookedPostProcessor
 
   private
 
+  def post_process_images
+    extract_images.each do |img|
+      convert_to_link!(img) unless add_image_placeholder!(img)
+    end
+  end
+
   def process_inline_onebox(element)
     inline_onebox = InlineOneboxer.lookup(
       element.attributes["href"].value,
-      invalidate: !!@opts[:invalidate_oneboxes]
+      invalidate: !!@opts[:invalidate_oneboxes],
+      user_id: @post&.user_id,
+      category_id: @post&.topic&.category_id
     )
 
     if title = inline_onebox&.dig(:title)

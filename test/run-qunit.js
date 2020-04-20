@@ -36,7 +36,14 @@ if (QUNIT_RESULT) {
 async function runAllTests() {
   function launchChrome() {
     const options = {
-      chromeFlags: ["--disable-gpu", "--headless", "--no-sandbox"]
+      chromeFlags: [
+        "--disable-gpu",
+        "--headless",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--mute-audio",
+        "--window-size=1440,900"
+      ]
     };
 
     if (process.env.REMOTE_DEBUG) {
@@ -47,11 +54,39 @@ async function runAllTests() {
   }
 
   let chrome = await launchChrome();
-  let protocol = await CDP({ port: chrome.port });
 
-  const { Page, Runtime } = protocol;
+  let protocol = null;
+  let connectAttempts = 0;
+  while (!protocol) {
+    // Workaround for intermittent CI error caused by
+    // https://github.com/GoogleChrome/chrome-launcher/issues/145
+    try {
+      protocol = await CDP({ port: chrome.port });
+    } catch (e) {
+      if (e.message === "No inspectable targets" && connectAttempts < 50) {
+        connectAttempts++;
+        console.log(
+          "Unable to establish connection to chrome target - trying again..."
+        );
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        throw e;
+      }
+    }
+  }
 
-  await Promise.all([Page.enable(), Runtime.enable()]);
+  const { Inspector, Page, Runtime } = protocol;
+
+  await Promise.all([Inspector.enable(), Page.enable(), Runtime.enable()]);
+
+  Inspector.targetCrashed(entry => {
+    console.log("Chrome target crashed:");
+    console.log(entry);
+  });
+
+  Runtime.exceptionThrown(exceptionInfo => {
+    console.log(exceptionInfo.exceptionDetails.exception.description);
+  });
 
   Runtime.consoleAPICalled(response => {
     const message = response["args"][0].value;
@@ -74,7 +109,15 @@ async function runAllTests() {
   Page.navigate({ url: args[0] });
 
   Page.loadEventFired(async () => {
-    await Runtime.evaluate({ expression: `(${qunit_script})()` });
+    await Runtime.evaluate({
+      expression: `(${qunit_script})()`
+    });
+
+    if (args[0].indexOf("report_requests=1") > -1) {
+      await Runtime.evaluate({
+        expression: "QUnit.config.logAllRequests = true"
+      });
+    }
 
     const timeout = parseInt(args[1] || 300000, 10);
     var start = Date.now();
@@ -110,12 +153,10 @@ async function runAllTests() {
   });
 }
 
-try {
-  runAllTests();
-} catch (e) {
+runAllTests().catch(e => {
   console.log("Failed to run tests: " + e);
   process.exit(1);
-}
+});
 
 // The following functions are converted to strings
 // And then sent to chrome to be evalaluated
@@ -137,6 +178,10 @@ function logQUnit() {
   });
 
   let durations = {};
+
+  QUnit.testStart(function(context) {
+    console.log("\n" + context.module + "::" + context.name);
+  });
 
   QUnit.testDone(function(context) {
     durations[context.module + "::" + context.name] = context.runtime;

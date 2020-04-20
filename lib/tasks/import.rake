@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Use http://tatiyants.com/pev/#/plans/new if you want to optimize a query
 
 task "import:ensure_consistency" => :environment do
@@ -43,7 +45,7 @@ def insert_post_replies
   log "Inserting post replies..."
 
   DB.exec <<-SQL
-    INSERT INTO post_replies (post_id, reply_id, created_at, updated_at)
+    INSERT INTO post_replies (post_id, reply_post_id, created_at, updated_at)
          SELECT p2.id, p.id, p.created_at, p.created_at
            FROM posts p
      INNER JOIN posts p2 ON p2.post_number = p.reply_to_post_number AND p2.topic_id = p.topic_id
@@ -298,7 +300,7 @@ def update_posts
   # WITH X AS (
   #   SELECT pr.post_id, p.user_id
   #     FROM post_replies pr
-  #     JOIN posts p ON p.id = pr.reply_id
+  #     JOIN posts p ON p.id = pr.reply_post_id
   # )
   # UPDATE posts
   #    SET reply_to_user_id = X.user_id
@@ -382,14 +384,15 @@ end
 def update_users
   log "Updating users..."
 
-  DB.exec <<-SQL
+  DB.exec(<<~SQL, Archetype.private_message)
     WITH X AS (
-        SELECT user_id
-             , MIN(created_at) min_created_at
-             , MAX(created_at) max_created_at
-          FROM posts
-         WHERE deleted_at IS NULL
-      GROUP BY user_id
+        SELECT p.user_id
+             , MIN(p.created_at) min_created_at
+             , MAX(p.created_at) max_created_at
+          FROM posts p
+          JOIN topics t ON t.id = p.topic_id AND t.archetype <> ?
+         WHERE p.deleted_at IS NULL
+      GROUP BY p.user_id
     )
     UPDATE users
        SET first_seen_at  = X.min_created_at
@@ -426,7 +429,7 @@ end
 
 def create_category_definitions
   log "Creating category definitions"
-  Category.where(topic_id: nil).each(&:create_category_definition)
+  Category.ensure_consistency!
 end
 
 def log(message)
@@ -505,7 +508,7 @@ end
 
 desc 'Import existing exported file'
 task 'import:file', [:file_name] => [:environment] do |_, args|
-  require "import_export/import_export"
+  require "import_export"
 
   ImportExport.import(args[:file_name])
   puts "", "Done", ""

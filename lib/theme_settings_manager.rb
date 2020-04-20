@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ThemeSettingsManager
   attr_reader :name, :theme, :default
 
@@ -32,7 +34,7 @@ class ThemeSettingsManager
   end
 
   def description
-    @opts[:description]
+    @opts[:description] # Old method of specifying description. Is now overridden by locale file
   end
 
   def value=(new_value)
@@ -164,5 +166,8 @@ class ThemeSettingsManager
     def choices
       @opts[:choices]
     end
+  end
+
+  class Upload < self
   end
 end

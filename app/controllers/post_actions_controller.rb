@@ -1,4 +1,4 @@
-require_dependency 'discourse'
+# frozen_string_literal: true
 
 class PostActionsController < ApplicationController
   requires_login
@@ -47,16 +47,6 @@ class PostActionsController < ApplicationController
     else
       render_post_json(result.post, add_raw: false)
     end
-  end
-
-  def defer_flags
-    guardian.ensure_can_defer_flags!(@post)
-
-    if reviewable = @post.reviewable_flag
-      reviewable.perform(current_user, :ignore)
-    end
-
-    render json: { success: true }
   end
 
   private

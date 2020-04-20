@@ -1,13 +1,14 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe Reviewable, type: :model do
 
   context ".create" do
-    let(:admin) { Fabricate(:admin) }
-    let(:user) { Fabricate(:user) }
+    fab!(:admin) { Fabricate(:admin) }
+    fab!(:user) { Fabricate(:user) }
 
     let(:reviewable) { Fabricate.build(:reviewable, created_by: admin) }
-    let(:queued_post) { Fabricate.build(:reviewable_queued_post) }
 
     it "can create a reviewable object" do
       expect(reviewable).to be_present
@@ -33,8 +34,8 @@ RSpec.describe Reviewable, type: :model do
   end
 
   context ".needs_review!" do
-    let(:admin) { Fabricate(:admin) }
-    let(:user) { Fabricate(:user) }
+    fab!(:admin) { Fabricate(:admin) }
+    fab!(:user) { Fabricate(:user) }
 
     it "will return a new reviewable the first them, and re-use the second time" do
       r0 = ReviewableUser.needs_review!(target: user, created_by: admin)
@@ -54,6 +55,17 @@ RSpec.describe Reviewable, type: :model do
       expect(reviewable.category).to eq(post.topic.category)
     end
 
+    it "will update the category if the topic category changes" do
+      post = Fabricate(:post)
+      moderator = Fabricate(:moderator)
+      reviewable = PostActionCreator.spam(moderator, post).reviewable
+      expect(reviewable.category).to eq(post.topic.category)
+      new_cat = Fabricate(:category)
+      PostRevisor.new(post).revise!(moderator, category_id: new_cat.id)
+      expect(post.topic.reload.category).to eq(new_cat)
+      expect(reviewable.reload.category).to eq(new_cat)
+    end
+
     it "can create multiple objects with a NULL target" do
       r0 = ReviewableQueuedPost.needs_review!(created_by: admin, payload: { raw: 'hello world I am a post' })
       expect(r0).to be_present
@@ -69,14 +81,14 @@ RSpec.describe Reviewable, type: :model do
   end
 
   context ".list_for" do
-    let(:user) { Fabricate(:user) }
+    fab!(:user) { Fabricate(:user) }
 
     it "returns an empty list for nil user" do
       expect(Reviewable.list_for(nil)).to eq([])
     end
 
     context "with a pending item" do
-      let(:post) { Fabricate(:post) }
+      fab!(:post) { Fabricate(:post) }
       let(:reviewable) { Fabricate(:reviewable, target: post) }
 
       it "works with the reviewable by moderator flag" do
@@ -93,6 +105,7 @@ RSpec.describe Reviewable, type: :model do
       end
 
       it "works with the reviewable by group" do
+        SiteSetting.enable_category_group_review = true
         group = Fabricate(:group)
         reviewable.reviewable_by_group_id = group.id
         reviewable.save!
@@ -105,6 +118,16 @@ RSpec.describe Reviewable, type: :model do
         gu.destroy
         user.update_columns(moderator: false, admin: true)
         expect(Reviewable.list_for(user, status: :pending)).to eq([reviewable])
+      end
+
+      it "doesn't allow review by group when disabled" do
+        SiteSetting.enable_category_group_review = false
+        group = Fabricate(:group)
+        reviewable.reviewable_by_group_id = group.id
+        reviewable.save!
+
+        GroupUser.create!(group_id: group.id, user_id: user.id)
+        expect(Reviewable.list_for(user, status: :pending)).to be_blank
       end
 
       context 'Reviewing as an admin' do
@@ -128,20 +151,60 @@ RSpec.describe Reviewable, type: :model do
 
         it 'Does not filter by status when status parameter is set to all' do
           rejected_reviewable = Fabricate(:reviewable, target: post, status: Reviewable.statuses[:rejected])
-
           reviewables = Reviewable.list_for(user, status: :all)
-
           expect(reviewables).to match_array [reviewable, rejected_reviewable]
+        end
+
+        it "supports sorting" do
+          r0 = Fabricate(:reviewable, score: 100, created_at: 3.months.ago)
+          r1 = Fabricate(:reviewable, score: 999, created_at: 1.month.ago)
+
+          list = Reviewable.list_for(user, sort_order: 'priority')
+          expect(list[0].id).to eq(r1.id)
+          expect(list[1].id).to eq(r0.id)
+
+          list = Reviewable.list_for(user, sort_order: 'priority_asc')
+          expect(list[0].id).to eq(r0.id)
+          expect(list[1].id).to eq(r1.id)
+
+          list = Reviewable.list_for(user, sort_order: 'created_at')
+          expect(list[0].id).to eq(r1.id)
+          expect(list[1].id).to eq(r0.id)
+
+          list = Reviewable.list_for(user, sort_order: 'created_at_asc')
+          expect(list[0].id).to eq(r0.id)
+          expect(list[1].id).to eq(r1.id)
+        end
+
+        describe "Including pending queued posts even if they don't pass the minimum priority threshold" do
+          before do
+            SiteSetting.reviewable_default_visibility = :high
+            Reviewable.set_priorities(high: 10)
+            @queued_post = Fabricate(:reviewable_queued_post, score: 0, target: post)
+            @queued_user = Fabricate(:reviewable_user, score: 0)
+          end
+
+          it 'includes queued posts when searching for pending reviewables' do
+            expect(Reviewable.list_for(user)).to contain_exactly(@queued_post, @queued_user)
+          end
+
+          it 'excludes pending queued posts when applying a different status filter' do
+            expect(Reviewable.list_for(user, status: :deleted)).to be_empty
+          end
+
+          it 'excludes pending queued posts when applying a different type filter' do
+            expect(Reviewable.list_for(user, type: ReviewableFlaggedPost.name)).to be_empty
+          end
         end
       end
     end
 
     context "with a category restriction" do
-      let(:category) { Fabricate(:category, read_restricted: true) }
+      fab!(:category) { Fabricate(:category, read_restricted: true) }
       let(:topic) { Fabricate(:topic, category: category) }
       let(:post) { Fabricate(:post, topic: topic) }
-      let!(:moderator) { Fabricate(:moderator) }
-      let(:admin) { Fabricate(:admin) }
+      fab!(:moderator) { Fabricate(:moderator) }
+      fab!(:admin) { Fabricate(:admin) }
 
       it "respects category id on the reviewable" do
         Group.refresh_automatic_group!(:staff)
@@ -161,7 +224,6 @@ RSpec.describe Reviewable, type: :model do
         expect(Reviewable.list_for(moderator)).to include(reviewable)
       end
     end
-
   end
 
   it "valid_types returns the appropriate types" do
@@ -194,41 +256,72 @@ RSpec.describe Reviewable, type: :model do
   end
 
   context "message bus notifications" do
-    let(:moderator) { Fabricate(:moderator) }
+    fab!(:moderator) { Fabricate(:moderator) }
+    let(:post) { Fabricate(:post) }
 
     it "triggers a notification on create" do
-      Jobs.expects(:enqueue).with(:notify_reviewable, has_key(:reviewable_id))
-      Fabricate(:reviewable_queued_post)
+      reviewable = Fabricate(:reviewable_queued_post)
+      job = Jobs::NotifyReviewable.jobs.last
+
+      expect(job["args"].first["reviewable_id"]).to eq(reviewable.id)
+    end
+
+    it "triggers a notification on update" do
+      reviewable = PostActionCreator.create(moderator, post, :inappropriate).reviewable
+      reviewable.perform(moderator, :disagree)
+
+      expect { PostActionCreator.spam(Fabricate(:user), post) }
+        .to change { reviewable.reload.status }
+        .from(Reviewable.statuses[:rejected])
+        .to(Reviewable.statuses[:pending])
+        .and change { Jobs::NotifyReviewable.jobs.size }
+        .by(1)
     end
 
     it "triggers a notification on pending -> approve" do
       reviewable = Fabricate(:reviewable_queued_post)
-      Jobs.expects(:enqueue).with(:notify_reviewable, has_key(:reviewable_id))
-      reviewable.perform(moderator, :approve)
+
+      expect do
+        reviewable.perform(moderator, :approve_post)
+      end.to change { Jobs::NotifyReviewable.jobs.size }.by(1)
+
+      job = Jobs::NotifyReviewable.jobs.last
+
+      expect(job["args"].first["reviewable_id"]).to eq(reviewable.id)
     end
 
     it "triggers a notification on pending -> reject" do
       reviewable = Fabricate(:reviewable_queued_post)
-      Jobs.expects(:enqueue).with(:notify_reviewable, has_key(:reviewable_id))
-      reviewable.perform(moderator, :reject)
+
+      expect do
+        reviewable.perform(moderator, :reject_post)
+      end.to change { Jobs::NotifyReviewable.jobs.size }.by(1)
+
+      job = Jobs::NotifyReviewable.jobs.last
+
+      expect(job["args"].first["reviewable_id"]).to eq(reviewable.id)
     end
 
     it "doesn't trigger a notification on approve -> reject" do
       reviewable = Fabricate(:reviewable_queued_post, status: Reviewable.statuses[:approved])
-      Jobs.expects(:enqueue).with(:notify_reviewable, has_key(:reviewable_id)).never
-      reviewable.perform(moderator, :reject)
+
+      expect do
+        reviewable.perform(moderator, :reject_post)
+      end.to_not change { Jobs::NotifyReviewable.jobs.size }
     end
 
     it "doesn't trigger a notification on reject -> approve" do
-      reviewable = Fabricate(:reviewable_queued_post, status: Reviewable.statuses[:approved])
-      Jobs.expects(:enqueue).with(:notify_reviewable, has_key(:reviewable_id)).never
-      reviewable.perform(moderator, :reject)
+      reviewable = Fabricate(:reviewable_queued_post, status: Reviewable.statuses[:rejected])
+
+      expect do
+        reviewable.perform(moderator, :approve_post)
+      end.to_not change { Jobs::NotifyReviewable.jobs.size }
     end
   end
 
   describe "flag_stats" do
-    let(:user) { Fabricate(:user) }
-    let(:post) { Fabricate(:post) }
+    fab!(:user) { Fabricate(:user) }
+    fab!(:post) { Fabricate(:post) }
     let(:reviewable) { PostActionCreator.spam(user, post).reviewable }
 
     it "increases flags_agreed when agreed" do
@@ -255,6 +348,144 @@ RSpec.describe Reviewable, type: :model do
       self_flag = PostActionCreator.spam(user, user_post).reviewable
       self_flag.perform(Discourse.system_user, :agree_and_keep)
       expect(user.user_stat.reload.flags_agreed).to eq(0)
+    end
+  end
+
+  context ".score_required_to_hide_post" do
+
+    it "will return the default visibility if it's higher" do
+      Reviewable.set_priorities(low: 40.0, high: 100.0)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:high]
+      expect(Reviewable.score_required_to_hide_post).to eq(40.0)
+    end
+
+    it "returns a default if we can't calculated any percentiles" do
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:low]
+      expect(Reviewable.score_required_to_hide_post).to eq(12.5)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:medium]
+      expect(Reviewable.score_required_to_hide_post).to eq(8.33)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:high]
+      expect(Reviewable.score_required_to_hide_post).to eq(4.16)
+    end
+
+    it "returns a fraction of the high percentile" do
+      Reviewable.set_priorities(high: 100.0)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:disabled]
+      expect(Reviewable.score_required_to_hide_post.to_f.truncate(2)).to eq(Float::MAX)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:low]
+      expect(Reviewable.score_required_to_hide_post.to_f.truncate(2)).to eq(100.0)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:medium]
+      expect(Reviewable.score_required_to_hide_post.to_f.truncate(2)).to eq(66.66)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:high]
+      expect(Reviewable.score_required_to_hide_post.to_f.truncate(2)).to eq(33.33)
+    end
+  end
+
+  context ".spam_score_to_silence_new_user" do
+    it "returns a default value if we can't calculated any percentiles" do
+      SiteSetting.silence_new_user_sensitivity = Reviewable.sensitivity[:low]
+      expect(Reviewable.spam_score_to_silence_new_user).to eq(7.5)
+      SiteSetting.silence_new_user_sensitivity = Reviewable.sensitivity[:medium]
+      expect(Reviewable.spam_score_to_silence_new_user).to eq(4.99)
+      SiteSetting.silence_new_user_sensitivity = Reviewable.sensitivity[:high]
+      expect(Reviewable.spam_score_to_silence_new_user).to eq(2.49)
+    end
+
+    it "returns a fraction of the high percentile" do
+      Reviewable.set_priorities(high: 100.0)
+      SiteSetting.silence_new_user_sensitivity = Reviewable.sensitivity[:disabled]
+      expect(Reviewable.spam_score_to_silence_new_user.to_f).to eq(Float::MAX)
+      SiteSetting.silence_new_user_sensitivity = Reviewable.sensitivity[:low]
+      expect(Reviewable.spam_score_to_silence_new_user.to_f).to eq(60.0)
+      SiteSetting.silence_new_user_sensitivity = Reviewable.sensitivity[:medium]
+      expect(Reviewable.spam_score_to_silence_new_user.to_f).to eq(39.99)
+      SiteSetting.silence_new_user_sensitivity = Reviewable.sensitivity[:high]
+      expect(Reviewable.spam_score_to_silence_new_user.to_f).to eq(19.99)
+    end
+  end
+
+  context ".score_to_auto_close_topic" do
+
+    it "returns the default if we can't calculated any percentiles" do
+      SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:low]
+      expect(Reviewable.score_to_auto_close_topic).to eq(31.25)
+      SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:medium]
+      expect(Reviewable.score_to_auto_close_topic).to eq(20.83)
+      SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:high]
+      expect(Reviewable.score_to_auto_close_topic).to eq(10.41)
+    end
+
+    it "returns a fraction of the high percentile" do
+      Reviewable.set_priorities(high: 100.0)
+      SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:disabled]
+      expect(Reviewable.score_to_auto_close_topic.to_f.truncate(2)).to eq(Float::MAX)
+      SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:low]
+      expect(Reviewable.score_to_auto_close_topic.to_f.truncate(2)).to eq(250.0)
+      SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:medium]
+      expect(Reviewable.score_to_auto_close_topic.to_f.truncate(2)).to eq(166.66)
+      SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:high]
+      expect(Reviewable.score_to_auto_close_topic.to_f.truncate(2)).to eq(83.33)
+    end
+  end
+
+  context "priorities" do
+    it "returns 0 for unknown priorities" do
+      expect(Reviewable.min_score_for_priority(:wat)).to eq(0.0)
+    end
+
+    it "returns 0 for all by default" do
+      expect(Reviewable.min_score_for_priority(:low)).to eq(0.0)
+      expect(Reviewable.min_score_for_priority(:medium)).to eq(0.0)
+      expect(Reviewable.min_score_for_priority(:high)).to eq(0.0)
+    end
+
+    it "can be set manually with `set_priorities`" do
+      Reviewable.set_priorities(medium: 12.5, high: 123.45)
+      expect(Reviewable.min_score_for_priority(:low)).to eq(0.0)
+      expect(Reviewable.min_score_for_priority(:medium)).to eq(12.5)
+      expect(Reviewable.min_score_for_priority(:high)).to eq(123.45)
+    end
+
+    it "will return the default priority if none supplied" do
+      Reviewable.set_priorities(medium: 12.3, high: 45.6)
+      expect(Reviewable.min_score_for_priority).to eq(0.0)
+      SiteSetting.reviewable_default_visibility = 'medium'
+      expect(Reviewable.min_score_for_priority).to eq(12.3)
+      SiteSetting.reviewable_default_visibility = 'high'
+      expect(Reviewable.min_score_for_priority).to eq(45.6)
+    end
+  end
+
+  context "custom filters" do
+    after do
+      Reviewable.clear_custom_filters!
+    end
+
+    it 'correctly add a new filter' do
+      Reviewable.add_custom_filter([:assigned_to, Proc.new { |results, value| results }])
+
+      expect(Reviewable.custom_filters.size).to eq(1)
+    end
+
+    it 'applies the custom filter' do
+      admin = Fabricate(:admin)
+      first_reviewable = Fabricate(:reviewable)
+      second_reviewable = Fabricate(:reviewable)
+      custom_filter = [:target_id, Proc.new { |results, value| results.where(target_id: value) }]
+      Reviewable.add_custom_filter(custom_filter)
+
+      results = Reviewable.list_for(admin, additional_filters: { target_id: first_reviewable.target_id })
+
+      expect(results.size).to eq(1)
+      expect(results.first).to eq first_reviewable
+    end
+  end
+
+  describe '.by_status' do
+    it 'includes reviewables with deleted targets when passing the reviewed status' do
+      reviewable = Fabricate(:reviewable_queued_post, status: Reviewable.statuses[:deleted])
+
+      expect(Reviewable.by_status(Reviewable.all, :reviewed)).to contain_exactly(reviewable)
     end
   end
 end

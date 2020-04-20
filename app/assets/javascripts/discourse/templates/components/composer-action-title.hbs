@@ -3,12 +3,15 @@
 {{else}}
   {{composer-actions
     composerModel=model
-    options=model.replyOptions
+    replyOptions=model.replyOptions
     canWhisper=canWhisper
     openComposer=openComposer
     closeComposer=closeComposer
     action=model.action
-    tabindex=tabindex}}
+    tabindex=tabindex
+    topic=model.topic
+    post=model.post
+  }}
 {{/if}}
 
 <span class="action-title">

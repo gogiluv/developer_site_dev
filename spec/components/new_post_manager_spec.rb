@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'new_post_manager'
 
 describe NewPostManager do
 
-  let(:topic) { Fabricate(:topic) }
+  fab!(:topic) { Fabricate(:topic) }
 
   context "default action" do
     it "creates the post by default" do
@@ -18,7 +20,7 @@ describe NewPostManager do
   end
 
   context "default action" do
-    let(:other_user) { Fabricate(:user) }
+    fab!(:other_user) { Fabricate(:user) }
 
     it "doesn't enqueue private messages" do
       SiteSetting.approve_unless_trust_level = 4
@@ -210,7 +212,7 @@ describe NewPostManager do
       handler = -> { nil }
 
       NewPostManager.add_handler(&handler)
-      expect(NewPostManager.handlers).to eq([default_handler, handler])
+      expect(NewPostManager.handlers).to eq([handler])
     end
 
     it "can be added in high priority" do
@@ -221,7 +223,7 @@ describe NewPostManager do
       NewPostManager.add_handler(100, &a)
       NewPostManager.add_handler(50, &b)
       NewPostManager.add_handler(101, &c)
-      expect(NewPostManager.handlers).to eq([c, a, b, default_handler])
+      expect(NewPostManager.handlers).to eq([c, a, b])
     end
 
   end
@@ -268,13 +270,15 @@ describe NewPostManager do
     end
 
     it "calls custom enqueuing handlers" do
-      SiteSetting.min_score_default_visibility = 20.5
+      Reviewable.set_priorities(high: 20.5)
+      SiteSetting.reviewable_default_visibility = 'high'
 
       manager = NewPostManager.new(
         topic.user,
         raw: 'to the handler I say enqueue me!',
         title: 'this is the title of the queued post',
-        tags: ['hello', 'world']
+        tags: ['hello', 'world'],
+        category: topic.category_id
       )
 
       result = manager.perform
@@ -286,6 +290,7 @@ describe NewPostManager do
       expect(reviewable.reviewable_scores).to be_present
       expect(reviewable.score).to eq(20.5)
       expect(reviewable.reviewable_by_moderator?).to eq(true)
+      expect(reviewable.category).to be_present
       expect(reviewable.payload['tags']).to eq(['hello', 'world'])
       expect(result.action).to eq(:enqueued)
       expect(result).to be_success
@@ -294,14 +299,18 @@ describe NewPostManager do
       expect(Reviewable.list_for(Discourse.system_user).count).to eq(1)
       expect(@counter).to be(0)
 
-      reviewable.perform(Discourse.system_user, :approve)
+      reviewable.perform(Discourse.system_user, :approve_post)
 
       manager = NewPostManager.new(
         topic.user,
         raw: 'another post by this user queue me',
-        title: 'cool title in another topic'
+        topic_id: topic.id
       )
       result = manager.perform
+      reviewable = result.reviewable
+
+      expect(reviewable.topic).to be_present
+      expect(reviewable.category).to be_present
       expect(result.pending_count).to eq(1)
     end
 
@@ -347,8 +356,8 @@ describe NewPostManager do
   end
 
   context 'when posting in the category requires approval' do
-    let(:user) { Fabricate(:user) }
-    let(:category) { Fabricate(:category) }
+    fab!(:user) { Fabricate(:user) }
+    fab!(:category) { Fabricate(:category) }
 
     context 'when new topics require approval' do
       before do
@@ -371,7 +380,7 @@ describe NewPostManager do
     end
 
     context 'when new posts require approval' do
-      let(:topic) { Fabricate(:topic, category: category) }
+      fab!(:topic) { Fabricate(:topic, category: category) }
 
       before do
         category.custom_fields[Category::REQUIRE_REPLY_APPROVAL] = true
@@ -398,4 +407,133 @@ describe NewPostManager do
       end
     end
   end
+
+  context "via email" do
+    let(:manager) do
+      NewPostManager.new(
+        topic.user,
+        raw: 'this is emailed content',
+        topic_id: topic.id,
+        via_email: true,
+        raw_email: 'raw email contents'
+      )
+    end
+
+      before do
+        SiteSetting.approve_post_count = 100
+        topic.user.trust_level = 0
+      end
+
+    it "will store via_email and raw_email in the enqueued post" do
+      result = manager.perform
+      expect(result.action).to eq(:enqueued)
+      expect(result.reviewable).to be_present
+      expect(result.reviewable.payload['via_email']).to eq(true)
+      expect(result.reviewable.payload['raw_email']).to eq('raw email contents')
+
+      post = result.reviewable.perform(Discourse.system_user, :approve_post).created_post
+      expect(post.via_email).to eq(true)
+      expect(post.raw_email).to eq("raw email contents")
+    end
+  end
+
+  context "via email with a spam failure" do
+    let(:user) { Fabricate(:user) }
+    let(:admin) { Fabricate(:admin) }
+
+    it "silences users if its their first post" do
+      manager = NewPostManager.new(
+        user,
+        raw: 'this is emailed content',
+        via_email: true,
+        raw_email: 'raw email contents',
+        email_spam: true,
+        first_post_checks: true
+      )
+
+      result = manager.perform
+      expect(result.action).to eq(:enqueued)
+      expect(user.silenced?).to be(true)
+    end
+
+    it "doesn't silence or enqueue exempt users" do
+      manager = NewPostManager.new(
+        admin,
+        raw: 'this is emailed content',
+        via_email: true,
+        raw_email: 'raw email contents',
+        email_spam: true,
+        first_post_checks: true
+      )
+
+      result = manager.perform
+      expect(result.action).to eq(:create_post)
+      expect(admin.silenced?).to be(false)
+    end
+  end
+
+  context "via email with an authentication results failure" do
+    let(:user) { Fabricate(:user) }
+    let(:admin) { Fabricate(:admin) }
+
+    it "doesn't silence users" do
+      manager = NewPostManager.new(
+        user,
+        raw: 'this is emailed content',
+        via_email: true,
+        raw_email: 'raw email contents',
+        email_auth_res_action: :enqueue,
+        first_post_checks: true
+      )
+
+      result = manager.perform
+      expect(result.action).to eq(:enqueued)
+      expect(user.silenced?).to be(false)
+    end
+
+    it "still enqueues exempt users" do
+      manager = NewPostManager.new(
+        admin,
+        raw: 'this is emailed content',
+        via_email: true,
+        raw_email: 'raw email contents',
+        email_auth_res_action: :enqueue
+      )
+
+      result = manager.perform
+      expect(result.action).to eq(:enqueued)
+      expect(user.silenced?).to be(false)
+    end
+  end
+
+  context "private message via email" do
+    it "doesn't enqueue authentiation results failure" do
+      manager = NewPostManager.new(
+        topic.user,
+        raw: 'this is emailed content',
+        archetype: Archetype.private_message,
+        via_email: true,
+        raw_email: 'raw email contents',
+        email_auth_res_action: :enqueue
+      )
+
+      result = manager.perform
+      expect(result.action).to eq(:create_post)
+    end
+
+    it "doesn't enqueue spam failure" do
+      manager = NewPostManager.new(
+        topic.user,
+        raw: 'this is emailed content',
+        archetype: Archetype.private_message,
+        via_email: true,
+        raw_email: 'raw email contents',
+        email_spam: true
+      )
+
+      result = manager.perform
+      expect(result.action).to eq(:create_post)
+    end
+  end
+
 end

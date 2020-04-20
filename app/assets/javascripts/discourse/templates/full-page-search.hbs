@@ -78,12 +78,18 @@
             <span class='desc'>
               {{i18n "search.sort_by"}}
             </span>
-            {{combo-box value=sortOrder content=sortOrders castInteger=true}}
+            {{combo-box
+              value=sortOrder
+              content=sortOrders
+              castInteger=true
+              onChange=(action (mut sortOrder))
+            }}
           </div>
         </div>
       {{/if}}
 
     {{plugin-outlet name="full-page-search-below-search-info" args=(hash search=searchTerm)}}
+
     {{#unless searching}}
       <div class="search-results">        
         {{#load-more selector=".fps-result" action=(action "loadMore")}}
@@ -93,25 +99,26 @@
                 {{#if result.topic.first_post_anonymous_chk}}
                   <img alt="" width="45" height="45" src="/images/anonymous_icon.png" class="avatar" title="anonymous">
                 {{else}}
-                <a href={{result.userPath}} data-user-card="{{unbound result.username}}">
-                  {{avatar result imageSize="large"}}
-                </a>
+                  <a href={{result.userPath}} data-user-card="{{unbound result.username}}">
+                    {{avatar result imageSize="large"}}
+                  </a>
                 {{/if}}
               </div>
 
-              <div class='fps-topic'>
-                <div class='topic'>
+              <div class="fps-topic">
+                <div class="topic">
                   {{#if bulkSelectEnabled}}
                     {{track-selected selectedList=selected selectedId=result.topic}}
                   {{/if}}
 
-                  <a class='search-link' href='{{unbound result.url}}' {{action "logClick" result.topic_id}}>
-                    {{topic-status topic=result.topic disableActions=true}}<span class='topic-title'>{{#highlight-text highlight=q}}{{{unbound result.topic.fancyTitle}}}{{/highlight-text}}</span>
+                  <a href={{result.url}} {{action "logClick" result.topic_id}} class="search-link">
+                    {{topic-status topic=result.topic disableActions=true showPrivateMessageIcon=true}}
+                    <span class="topic-title">{{#highlight-search highlight=q}}{{html-safe result.topic.fancyTitle}}{{/highlight-search}}</span>
                   </a>
 
-                  <div class='search-category'>
+                  <div class="search-category">
                     {{#if result.topic.category.parentCategory}}
-                    {{category-link result.topic.category.parentCategory}}
+                      {{category-link result.topic.category.parentCategory}}
                     {{/if}}
                     {{category-link result.topic.category hideParent=true}}
                     {{#each result.topic.tags as |tag|}}
@@ -121,24 +128,24 @@
                   </div>
                 </div>
 
-                <div class='blurb container'>
-                  <span class='date'>
+                <div class="blurb container">
+                  <span class="date">
                     {{format-age result.created_at}}
                     {{#if result.blurb}}
-                    -
+                      -
                     {{/if}}
                   </span>
 
                   {{#if result.blurb}}
-                    {{#highlight-text highlight=highlightQuery}}
-                      {{{unbound result.blurb}}}
-                    {{/highlight-text}}
+                    {{#highlight-search highlight=highlightQuery}}
+                      {{html-safe result.blurb}}
+                    {{/highlight-search}}
                   {{/if}}
                 </div>
 
                 {{#if showLikeCount}}
                   {{#if result.like_count}}
-                    <span class='like-count'>
+                    <span class="like-count">
                       {{result.like_count}} {{d-icon "heart"}}
                     </span>
                   {{/if}}
@@ -156,6 +163,12 @@
             {{#unless hasResults}}
               {{#if searchActive}}
                 <h3>{{i18n "search.no_results"}}</h3>
+
+                {{#if model.grouped_search_result.error}}
+                  <div class="warning">
+                    {{model.grouped_search_result.error}}
+                  </div>
+                {{/if}}
 
                 {{#if showSuggestion}}
                   <div class="no-results-suggestion">
@@ -239,9 +252,11 @@
     {{/if}}
 
     {{#if site.mobileView}}
-      <button class="search-advanced-title btn" {{action "toggleAdvancedSearch"}}>
-        {{{searchAdvancedIcon}}} {{i18n "search.advanced.title"}}
-      </button>
+      {{d-button
+        class="search-advanced-title"
+        action=(action "toggleAdvancedSearch")
+        icon=(if expanded "caret-down" "caret-right")
+        label="search.advanced.title"}}
     {{else}}
       <span class="search-advanced-title">
         {{i18n "search.advanced.title"}}
@@ -251,12 +266,19 @@
     {{#if site.mobileView}}
       {{#if expanded}}
         <div class="search-advanced-filters">
-          {{search-advanced-options searchTerm=searchTerm isExpanded=expanded}}
+          {{search-advanced-options
+            searchTerm=searchTerm
+            isExpanded=expanded
+          }}
         </div>
       {{/if}}
     {{else}}
       <div class="search-advanced-filters">
-        {{search-advanced-options searchTerm=searchTerm isExpanded=true}}
+        {{search-advanced-options
+          searchTerm=searchTerm
+          isExpanded=true
+          category=category
+        }}
 
         {{d-button
           label="submit"

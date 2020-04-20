@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe CategoriesController do
@@ -6,21 +8,8 @@ describe CategoriesController do
 
   context 'index' do
 
-    it 'suppresses categories correctly' do
-      post = create_post(title: 'super AMAZING AMAZING post')
-
-      get "/categories"
-      expect(response.body).to include('AMAZING AMAZING')
-
-      post.topic.category.update_columns(suppress_from_latest: true)
-
-      get "/categories"
-      expect(response.body).not_to include('AMAZING AMAZING')
-    end
-
     it 'web crawler view has correct urls for subfolder install' do
-      GlobalSetting.stubs(:relative_url_root).returns('/forum')
-      Discourse.stubs(:base_uri).returns("/forum")
+      set_subfolder "/forum"
       get '/categories', headers: { 'HTTP_USER_AGENT' => 'Googlebot' }
       html = Nokogiri::HTML(response.body)
       expect(html.css('body.crawler')).to be_present
@@ -57,7 +46,7 @@ describe CategoriesController do
     end
 
     it "respects permalinks before redirecting /category paths to /c paths" do
-      perm = Permalink.create!(url: "category/something", category_id: category.id)
+      _perm = Permalink.create!(url: "category/something", category_id: category.id)
 
       get "/category/something"
       expect(response.status).to eq(301)
@@ -146,8 +135,11 @@ describe CategoriesController do
 
       describe "success" do
         it "works" do
+          SiteSetting.enable_category_group_review = true
+
           readonly = CategoryGroup.permission_types[:readonly]
           create_post = CategoryGroup.permission_types[:create_post]
+          group = Fabricate(:group)
 
           post "/categories.json", params: {
             name: "hello",
@@ -156,6 +148,7 @@ describe CategoriesController do
             slug: "hello-cat",
             auto_close_hours: 72,
             search_priority: Searchable::PRIORITIES[:ignore],
+            reviewable_by_group_name: group.name,
             permissions: {
               "everyone" => readonly,
               "staff" => create_post
@@ -163,17 +156,48 @@ describe CategoriesController do
           }
 
           expect(response.status).to eq(200)
-          category = Category.find_by(name: "hello")
+          cat_json = ::JSON.parse(response.body)['category']
+          expect(cat_json).to be_present
+          expect(cat_json['reviewable_by_group_name']).to eq(group.name)
+          expect(cat_json['name']).to eq('hello')
+          expect(cat_json['slug']).to eq('hello-cat')
+          expect(cat_json['color']).to eq('ff0')
+          expect(cat_json['auto_close_hours']).to eq(72)
+          expect(cat_json['search_priority']).to eq(Searchable::PRIORITIES[:ignore])
+
+          category = Category.find(cat_json['id'])
           expect(category.category_groups.map { |g| [g.group_id, g.permission_type] }.sort).to eq([
             [Group[:everyone].id, readonly], [Group[:staff].id, create_post]
           ])
-          expect(category.name).to eq("hello")
-          expect(category.slug).to eq("hello-cat")
-          expect(category.color).to eq("ff0")
-          expect(category.auto_close_hours).to eq(72)
-          expect(category.search_priority).to eq(Searchable::PRIORITIES[:ignore])
           expect(UserHistory.count).to eq(4) # 1 + 3 (bootstrap mode)
         end
+      end
+    end
+  end
+
+  context '#show' do
+    before do
+      category.set_permissions(admins: :full)
+      category.save!
+    end
+
+    it "requires the user to be logged in" do
+      get "/c/#{category.id}/show.json"
+      expect(response.status).to eq(403)
+    end
+
+    describe "logged in" do
+      it "raises an exception if they don't have permission to see it" do
+        admin.update!(admin: false)
+        sign_in(admin)
+        get "/c/#{category.id}/show.json"
+        expect(response.status).to eq(403)
+      end
+
+      it "renders category for users that have permission" do
+        sign_in(admin)
+        get "/c/#{category.id}/show.json"
+        expect(response.status).to eq(200)
       end
     end
   end
@@ -194,11 +218,15 @@ describe CategoriesController do
 
       it "deletes the record" do
         sign_in(admin)
+
+        id = Fabricate(:topic_timer, category: category).id
+
         expect do
           delete "/categories/#{category.slug}.json"
         end.to change(Category, :count).by(-1)
         expect(response.status).to eq(200)
         expect(UserHistory.count).to eq(1)
+        expect(TopicTimer.where(id: id).exists?).to eq(false)
       end
     end
   end
@@ -251,8 +279,6 @@ describe CategoriesController do
     end
 
     describe "logged in" do
-      let(:valid_attrs) { { id: category.id, name: "hello", color: "ff0", text_color: "fff" } }
-
       before do
         sign_in(admin)
       end
@@ -299,7 +325,7 @@ describe CategoriesController do
       end
 
       it "returns 422 if email_in address is already in use for other category" do
-        other_category = Fabricate(:category, name: "Other", email_in: "mail@examle.com")
+        _other_category = Fabricate(:category, name: "Other", email_in: "mail@examle.com")
 
         put "/categories/#{category.id}.json", params: {
           name: "Email",
@@ -312,8 +338,10 @@ describe CategoriesController do
 
       describe "success" do
         it "updates attributes correctly" do
+          SiteSetting.tagging_enabled = true
           readonly = CategoryGroup.permission_types[:readonly]
           create_post = CategoryGroup.permission_types[:create_post]
+          tag_group = Fabricate(:tag_group)
 
           put "/categories/#{category.id}.json", params: {
             name: "hello",
@@ -329,7 +357,9 @@ describe CategoriesController do
               "dancing" => "frogs"
             },
             minimum_required_tags: "",
-            allow_global_tags: 'true'
+            allow_global_tags: 'true',
+            required_tag_group_name: tag_group.name,
+            min_tags_from_required_group: 2
           }
 
           expect(response.status).to eq(200)
@@ -344,6 +374,8 @@ describe CategoriesController do
           expect(category.custom_fields).to eq("dancing" => "frogs")
           expect(category.minimum_required_tags).to eq(0)
           expect(category.allow_global_tags).to eq(true)
+          expect(category.required_tag_group_id).to eq(tag_group.id)
+          expect(category.min_tags_from_required_group).to eq(2)
         end
 
         it 'logs the changes correctly' do
@@ -388,6 +420,22 @@ describe CategoriesController do
           expect(category.num_auto_bump_daily).to eq(10)
           expect(category.navigate_to_first_post_after_read).to eq(true)
         end
+
+        it "can remove required tag group" do
+          SiteSetting.tagging_enabled = true
+          category.update!(required_tag_group: Fabricate(:tag_group))
+          put "/categories/#{category.id}.json", params: {
+            name: category.name,
+            color: category.color,
+            text_color: category.text_color,
+            allow_global_tags: 'false',
+            min_tags_from_required_group: 1
+          }
+
+          expect(response.status).to eq(200)
+          category.reload
+          expect(category.required_tag_group).to be_nil
+        end
       end
     end
   end
@@ -399,8 +447,6 @@ describe CategoriesController do
     end
 
     describe 'logged in' do
-      let(:valid_attrs) { { id: category.id, slug: 'fff' } }
-
       before do
         sign_in(admin)
       end
@@ -437,6 +483,43 @@ describe CategoriesController do
         put "/category/#{category.id}/slug.json", params: { slug: '  ' }
         expect(response.status).to eq(422)
       end
+    end
+  end
+
+  context '#categories_and_topics' do
+    before do
+      10.times.each { Fabricate(:topic) }
+    end
+
+    it 'works when SiteSetting.categories_topics is non-null' do
+      SiteSetting.categories_topics = 5
+
+      get '/categories_and_latest.json'
+      expect(JSON.parse(response.body)['topic_list']['topics'].size).to eq(5)
+    end
+
+    it 'works when SiteSetting.categories_topics is null' do
+      SiteSetting.categories_topics = 0
+
+      get '/categories_and_latest.json'
+      json = JSON.parse(response.body)
+      expect(json['category_list']['categories'].size).to eq(2) # 'Uncategorized' and category
+      expect(json['topic_list']['topics'].size).to eq(5)
+
+      Fabricate(:category, parent_category: category)
+
+      get '/categories_and_latest.json'
+      json = JSON.parse(response.body)
+      expect(json['category_list']['categories'].size).to eq(2)
+      expect(json['topic_list']['topics'].size).to eq(5)
+
+      Fabricate(:category)
+      Fabricate(:category)
+
+      get '/categories_and_latest.json'
+      json = JSON.parse(response.body)
+      expect(json['category_list']['categories'].size).to eq(4)
+      expect(json['topic_list']['topics'].size).to eq(6)
     end
   end
 end

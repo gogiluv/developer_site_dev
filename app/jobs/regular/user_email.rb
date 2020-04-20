@@ -1,10 +1,9 @@
-require_dependency 'email/sender'
-require_dependency 'user_notifications'
+# frozen_string_literal: true
 
 module Jobs
 
   # Asynchronously send an email to a user
-  class UserEmail < Jobs::Base
+  class UserEmail < ::Jobs::Base
     include Skippable
 
     sidekiq_options queue: 'low'
@@ -38,6 +37,10 @@ module Jobs
 
         unless post.present?
           return skip(SkippedEmailLog.reason_types[:user_email_post_not_found])
+        end
+
+        if !Guardian.new(user).can_see?(post)
+          return skip(SkippedEmailLog.reason_types[:user_email_access_denied])
         end
       end
 
@@ -170,7 +173,7 @@ module Jobs
       end
 
       message = EmailLog.unique_email_per_post(post, user) do
-        UserNotifications.send(type, user, email_args)
+        UserNotifications.public_send(type, user, email_args)
       end
 
       # Update the to address if we have a custom one
@@ -186,7 +189,7 @@ module Jobs
       when Net::SMTPServerBusy
         1.hour + (rand(30) * (count + 1))
       else
-        Jobs::UserEmail.seconds_to_delay(count)
+        ::Jobs::UserEmail.seconds_to_delay(count)
       end
     end
 
@@ -222,7 +225,7 @@ module Jobs
 
         already_read = user.user_option.email_level != UserOption.email_level_types[:always] && PostTiming.exists?(topic_id: post.topic_id, post_number: post.post_number, user_id: user.id)
         if already_read
-          return SkippedEmailLog.reason_types[:user_email_already_read]
+          SkippedEmailLog.reason_types[:user_email_already_read]
         end
       else
         false

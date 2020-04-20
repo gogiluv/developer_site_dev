@@ -1,4 +1,4 @@
-require_dependency 'ip_addr'
+# frozen_string_literal: true
 
 # Responsible for destroying a User record
 class UserDestroyer
@@ -27,6 +27,8 @@ class UserDestroyer
 
     optional_transaction(open_transaction: opts[:transaction]) do
 
+      UserSecurityKey.where(user_id: user.id).delete_all
+      Bookmark.where(user_id: user.id).delete_all
       Draft.where(user_id: user.id).delete_all
       Reviewable.where(created_by_id: user.id).delete_all
 
@@ -109,13 +111,13 @@ class UserDestroyer
           end
           StaffActionLogger.new(deleted_by).log_user_deletion(user, opts.slice(:context))
         end
-        MessageBus.publish "/file-change", ["refresh"], user_ids: [result.id]
+        MessageBus.publish "/logout", result.id, user_ids: [result.id]
       end
     end
 
     # After the user is deleted, remove the reviewable
-    if reviewable = Reviewable.pending.find_by(target: user)
-      reviewable.perform(@actor, :reject)
+    if reviewable = ReviewableUser.pending.find_by(target: user)
+      reviewable.perform(@actor, :reject_user_delete)
     end
 
     result

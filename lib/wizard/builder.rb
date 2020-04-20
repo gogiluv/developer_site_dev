@@ -1,7 +1,4 @@
-require_dependency 'introduction_updater'
-require_dependency 'emoji_set_site_setting'
-require_dependency 'seed_data/categories'
-require_dependency 'seed_data/topics'
+# frozen_string_literal: true
 
 class Wizard
   class Builder
@@ -83,15 +80,25 @@ class Wizard
         privacy.add_choice('open', icon: 'unlock')
         privacy.add_choice('restricted', icon: 'lock')
 
-        invite_only = step.add_field(id: 'invite_only',
-                                     type: 'checkbox',
-                                     required: false,
-                                     placeholder: 'wizard.invites.add_user',
-                                     value: SiteSetting.invite_only?)
+        unless SiteSetting.invite_only? && SiteSetting.must_approve_users?
+          privacy_option_value = "open"
+          privacy_option_value = "invite_only" if SiteSetting.invite_only?
+          privacy_option_value = "must_approve" if SiteSetting.must_approve_users?
+          privacy_options = step.add_field(id: 'privacy_options',
+                                           type: 'radio',
+                                           required: true,
+                                           value: privacy_option_value)
+          privacy_options.add_choice('open')
+          privacy_options.add_choice('invite_only')
+          privacy_options.add_choice('must_approve')
+        end
 
         step.on_update do |updater|
           updater.update_setting(:login_required, updater.fields[:privacy] == 'restricted')
-          updater.update_setting(:invite_only, updater.fields[:invite_only])
+          unless SiteSetting.invite_only? && SiteSetting.must_approve_users?
+            updater.update_setting(:invite_only, updater.fields[:privacy_options] == "invite_only")
+            updater.update_setting(:must_approve_users, updater.fields[:privacy_options] == "must_approve")
+          end
         end
       end
 
@@ -137,9 +144,28 @@ class Wizard
 
       @wizard.append_step('colors') do |step|
         default_theme = Theme.find_by(id: SiteSetting.default_theme_id)
-        scheme_id = default_theme&.color_scheme&.base_scheme_id || 'Light'
+        default_theme_override = SiteSetting.exists?(name: "default_theme_id")
 
-        themes = step.add_field(id: 'theme_previews', type: 'component', required: true, value: scheme_id)
+        base_scheme = default_theme&.color_scheme&.base_scheme_id
+        color_scheme_name = default_theme&.color_scheme&.name
+
+        scheme_id = default_theme_override ? (base_scheme || color_scheme_name) : ColorScheme::LIGHT_THEME_ID
+
+        themes = step.add_field(
+          id: 'theme_previews',
+          type: 'component',
+          required: !default_theme_override,
+          value: scheme_id || ColorScheme::LIGHT_THEME_ID
+        )
+
+        # fix for the case when base_scheme is nil
+        if scheme_id && default_theme_override && base_scheme.nil?
+          scheme = default_theme.color_scheme
+          default_colors = scheme.colors.select(:name, :hex)
+          choice_hash = default_colors.reduce({}) { |choice, color| choice[color.name] = "##{color.hex}"; choice }
+          themes.add_choice(scheme_id, data: { colors: choice_hash })
+        end
+
         ColorScheme.base_color_scheme_colors.each do |t|
           with_hash = t[:colors].dup
           with_hash.map { |k, v| with_hash[k] = "##{v}" }
@@ -147,7 +173,13 @@ class Wizard
         end
 
         step.on_update do |updater|
-          scheme_name = updater.fields[:theme_previews] || 'Light'
+          scheme_name = (
+            (updater.fields[:theme_previews] || "") ||
+            ColorScheme::LIGHT_THEME_ID
+          )
+
+          next unless scheme_name.present? && ColorScheme.is_base?(scheme_name)
+
           name = I18n.t("color_schemes.#{scheme_name.downcase.gsub(' ', '_')}_theme_name")
 
           theme = nil
@@ -157,9 +189,19 @@ class Wizard
           theme = themes.find(&:default?)
           theme ||= themes.first
 
-          theme ||= Theme.create(name: name, user_id: @wizard.user.id, color_scheme_id: scheme.id)
+          theme ||= Theme.create!(
+            name: name,
+            user_id: @wizard.user.id,
+            color_scheme_id: scheme.id
+          )
+
           theme.set_default!
         end
+      end
+
+      @wizard.append_step('themes-further-reading') do |step|
+        step.banner = "further-reading.png"
+        step.add_field(id: 'popular-themes', type: 'component')
       end
 
       @wizard.append_step('logos') do |step|
@@ -167,42 +209,21 @@ class Wizard
         step.add_field(id: 'logo_small', type: 'image', value: SiteSetting.site_logo_small_url)
 
         step.on_update do |updater|
-          updater.apply_settings(:logo, :logo_small)
+          if SiteSetting.site_logo_url != updater.fields[:logo] ||
+            SiteSetting.site_logo_small_url != updater.fields[:logo_small]
+            updater.apply_settings(:logo, :logo_small)
+            updater.refresh_required = true
+          end
         end
       end
 
       @wizard.append_step('icons') do |step|
         step.add_field(id: 'favicon', type: 'image', value: SiteSetting.site_favicon_url)
-        step.add_field(id: 'apple_touch_icon', type: 'image', value: SiteSetting.site_apple_touch_icon_url)
+        step.add_field(id: 'large_icon', type: 'image', value: SiteSetting.site_large_icon_url)
 
         step.on_update do |updater|
-          updater.apply_settings(:favicon)
-
-          if updater.fields[:apple_touch_icon] != SiteSetting.apple_touch_icon
-            upload = Upload.find_by_url(updater.fields[:apple_touch_icon])
-            dimensions = 180 # for apple touch icon
-
-            if upload && upload.width > dimensions && upload.height > dimensions
-              updater.update_setting(:large_icon, upload)
-
-              apple_touch_icon_optimized = OptimizedImage.create_for(
-                upload,
-                dimensions,
-                dimensions
-              )
-
-              original_file = File.new(Discourse.store.path_for(apple_touch_icon_optimized)) rescue nil
-
-              if original_file
-                apple_touch_icon_upload = UploadCreator.new(original_file, upload.original_filename).create_for(@wizard.user.id)
-                updater.update_setting(:apple_touch_icon, apple_touch_icon_upload)
-              end
-
-              apple_touch_icon_optimized.destroy! if apple_touch_icon_optimized.present?
-            else
-              updater.apply_settings(:apple_touch_icon)
-            end
-          end
+          updater.apply_settings(:favicon) if SiteSetting.site_favicon_url != updater.fields[:favicon]
+          updater.apply_settings(:large_icon) if SiteSetting.site_large_icon_url != updater.fields[:large_icon]
         end
       end
 
@@ -289,7 +310,7 @@ class Wizard
     protected
 
     def replace_setting_value(updater, raw, field_name)
-      old_value = SiteSetting.send(field_name)
+      old_value = SiteSetting.get(field_name)
       old_value = field_name if old_value.blank?
 
       new_value = updater.fields[field_name.to_sym]

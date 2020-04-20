@@ -1,4 +1,4 @@
-require_dependency 'trust_level'
+# frozen_string_literal: true
 
 class AdminUserIndexQuery
 
@@ -78,16 +78,6 @@ class AdminUserIndexQuery
     end
   end
 
-  def suspect_users
-    @query
-      .activated
-      .human_users
-      .joins(:user_profile, :user_stat)
-      .where("users.created_at <= ?", 1.day.ago)
-      .where("LENGTH(COALESCE(user_profiles.bio_raw, '')) > 0")
-      .where("user_stats.posts_read_count <= 1 AND user_stats.topics_entered <= 1")
-  end
-
   def filter_by_query_classification
     case params[:query]
     when 'staff'      then @query.where("admin or moderator")
@@ -96,7 +86,6 @@ class AdminUserIndexQuery
     when 'silenced'   then @query.silenced
     when 'suspended'  then @query.suspended
     when 'pending'    then @query.not_suspended.where(approved: false, active: true)
-    when 'suspect'    then suspect_users
     when 'staged'     then @query.where(staged: true)
     end
   end
@@ -108,7 +97,7 @@ class AdminUserIndexQuery
 
     filter = params[:filter]
     if filter.present?
-      filter.strip!
+      filter = filter.strip
       if ip = IPAddr.new(filter) rescue nil
         @query.where('ip_address <<= :ip OR registration_ip_address <<= :ip', ip: ip.to_cidr_s)
       else

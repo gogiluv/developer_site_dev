@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe NotificationEmailer do
@@ -6,8 +8,8 @@ describe NotificationEmailer do
     NotificationEmailer.enable
   end
 
-  let(:topic) { Fabricate(:topic) }
-  let(:post) { Fabricate(:post, topic: topic) }
+  fab!(:topic) { Fabricate(:topic) }
+  fab!(:post) { Fabricate(:post, topic: topic) }
 
   # something is off with fabricator
   def create_notification(type, user = nil)
@@ -34,17 +36,24 @@ describe NotificationEmailer do
         NotificationEmailer.process_notification(notification)
       end
 
-      it "enqueues a job if the user is staged" do
+      it "enqueues a job if the user is staged for non-linked and non-quoted types" do
         notification.user.staged = true
-        Jobs.expects(:enqueue_in).with(delay, :user_email, NotificationEmailer::EmailUser.notification_params(notification, type))
+        if type == :user_linked || type == :user_quoted
+          Jobs.expects(:enqueue_in).with(delay, :user_email, has_entry(type: type)).never
+        else
+          Jobs.expects(:enqueue_in).with(delay, :user_email, NotificationEmailer::EmailUser.notification_params(notification, type))
+        end
         NotificationEmailer.process_notification(notification)
       end
 
-      it "enqueues a job if the user is staged even if site requires user approval" do
-        SiteSetting.must_approve_users = true
-
+      it "enqueues a job if the user is staged even if site requires user approval for non-linked and non-quoted typed" do
         notification.user.staged = true
-        Jobs.expects(:enqueue_in).with(delay, :user_email, NotificationEmailer::EmailUser.notification_params(notification, type))
+        SiteSetting.must_approve_users = true
+        if type == :user_linked || type == :user_quoted
+          Jobs.expects(:enqueue_in).with(delay, :user_email, has_entry(type: type)).never
+        else
+          Jobs.expects(:enqueue_in).with(delay, :user_email, NotificationEmailer::EmailUser.notification_params(notification, type))
+        end
         NotificationEmailer.process_notification(notification)
       end
     end

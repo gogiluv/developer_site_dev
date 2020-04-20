@@ -6,6 +6,12 @@
   margin-left: 0;
 }
 
+.topic-post:first-child {
+  nav.post-controls .post-admin-menu {
+    bottom: -125px;
+  }
+}
+
 .topic-body {
   // this ensures consistent top margin on topic posts even if the first line of a post
   // is a top-margin-less element like a list or image.
@@ -46,23 +52,29 @@ section.post-menu-area {
 
 nav.post-controls {
   padding: 0;
-  .like-button {
-    // Like button wrapper
+
+  // Some buttons can be doubled up, like likes or flags
+  .double-button {
     display: inline-flex;
     color: $primary-low-mid;
     margin-right: 0.15em;
     &:hover {
-      // Like button wrapper on hover
       button {
         background: $primary-low;
         color: $primary-medium;
       }
     }
     button {
+      // It looks really confusing when one half a double button has an inner shadow on click.
+      &:active {
+        box-shadow: none;
+      }
       margin-left: 0;
       margin-right: 0;
-      &.my-likes {
-        // Like count on my posts
+      &.my-likes,
+      &.read-indicator,
+      &.regular-likes {
+        // Like count on posts
         .d-icon {
           color: $primary-low-mid;
           padding-left: 0.45em;
@@ -93,7 +105,7 @@ nav.post-controls {
         // Disabled like button
         cursor: not-allowed;
       }
-      &.like-count {
+      &.button-count {
         // Like count button
         &:not(.my-likes) {
           padding-right: 0;
@@ -436,16 +448,17 @@ nav.post-controls {
 #topic-footer-buttons {
   padding: 10px 10px 0 0;
   float: left;
-  p {
-    color: dark-light-choose($primary-medium, $secondary-medium);
-  }
   .btn {
     @include topic-footer-button;
     .d-icon-bookmark.bookmarked {
       color: $tertiary;
     }
   }
-  .bookmark.bookmarked .d-icon-bookmark {
+  .bookmark.bookmarked .d-icon-bookmark,
+  .bookmark.bookmarked .d-icon-discourse-bookmark-clock {
+    color: $tertiary;
+  }
+  .feature-on-profile.featured-on-profile .d-icon-id-card {
     color: $tertiary;
   }
 }
@@ -477,6 +490,7 @@ span.post-count {
 
 button.expand-post {
   margin-top: 10px;
+  margin-left: $topic-body-width-padding;
 }
 
 .quote-button.visible {
@@ -489,6 +503,14 @@ iframe {
 
 video {
   max-height: 500px;
+}
+
+.video {
+  // Height determined by aspect-ratio
+  max-height: 500px;
+  > video {
+    max-height: unset;
+  }
 }
 
 @-webkit-keyframes fadein {
@@ -506,52 +528,6 @@ video {
   }
   to {
     opacity: 1;
-  }
-}
-
-.extra-info-wrapper {
-  overflow: hidden;
-  .badge-wrapper,
-  i,
-  .topic-link {
-    -webkit-animation: fadein 0.7s;
-    animation: fadein 0.7s;
-  }
-  .topic-statuses {
-    .d-icon {
-      color: $header_primary-medium;
-    }
-    .d-icon-envelope {
-      color: $danger;
-    }
-  }
-  .topic-link {
-    color: $header_primary;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
-/* default docked header CSS for all topics, including those without categories */
-
-.extra-info {
-  h1 {
-    margin: 5px 0 0 0;
-    font-size: $font-up-3;
-    line-height: $line-height-large;
-    width: 100%;
-  }
-}
-
-/* override docked header CSS for topics with categories */
-
-.extra-info.two-rows {
-  h1 {
-    line-height: $line-height-medium;
-    margin: 0;
-    width: 100%;
   }
 }
 
@@ -638,6 +614,9 @@ blockquote {
   .cooked {
     padding: 0 $topic-body-width-padding 0.25em $topic-body-width-padding;
   }
+  .group-request {
+    padding: 0.5em $topic-body-width-padding 0 $topic-body-width-padding;
+  }
   a.expand-hidden {
     padding-left: $topic-body-width-padding;
   }
@@ -655,6 +634,7 @@ blockquote {
   width: calc(
     #{$topic-avatar-width} + #{$topic-body-width} + 2 * #{$topic-body-width-padding}
   );
+  box-sizing: border-box;
 }
 
 /* hide the reply border above the time gap notices */
@@ -835,7 +815,8 @@ a.attachment:before {
   }
 }
 
-.who-liked {
+.who-liked,
+.who-read {
   margin-top: 20px;
   margin-bottom: 0;
   width: 100%;
@@ -860,8 +841,9 @@ span.highlighted {
 }
 
 .read-state.read {
+  visibility: hidden;
   opacity: 0;
-  transition: opacity ease-out 1s;
+  transition: visibility 1s, opacity ease-out 1s;
 }
 
 .signup-cta {
@@ -870,7 +852,7 @@ span.highlighted {
 
 /* Tablet (portrait) ----------- */
 
-@media all and (max-width: 775px) {
+@media all and (max-width: 790px) {
   .topic-avatar {
     width: 45px;
   }
@@ -886,24 +868,5 @@ span.highlighted {
     &.top {
       width: calc(100% - 56px); // [100% - margin-left]
     }
-  }
-}
-
-.crawler-post {
-  .post-time {
-    float: right;
-  }
-  .post-likes {
-    float: right;
-  }
-  margin-top: 5px;
-}
-
-#breadcrumbs {
-  .badge-category-bg {
-    background-color: $secondary-high;
-  }
-  .category-title {
-    color: $primary;
   }
 }

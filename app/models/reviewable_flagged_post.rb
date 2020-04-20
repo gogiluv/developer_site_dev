@@ -1,6 +1,14 @@
-require_dependency 'reviewable'
+# frozen_string_literal: true
 
 class ReviewableFlaggedPost < Reviewable
+
+  # Penalties are handled by the modal after the action is performed
+  def self.action_aliases
+    { agree_and_keep_hidden: :agree_and_keep,
+      agree_and_silence: :agree_and_keep,
+      agree_and_suspend: :agree_and_keep,
+      disagree_and_restore: :disagree }
+  end
 
   def self.counts_for(posts)
     result = {}
@@ -34,7 +42,16 @@ class ReviewableFlaggedPost < Reviewable
 
     agree = actions.add_bundle("#{id}-agree", icon: 'thumbs-up', label: 'reviewables.actions.agree.title')
 
-    build_action(actions, :agree_and_keep, icon: 'thumbs-up', bundle: agree)
+    if !post.user_deleted? && !post.hidden?
+      build_action(actions, :agree_and_hide, icon: 'far-eye-slash', bundle: agree)
+    end
+
+    if post.hidden?
+      build_action(actions, :agree_and_keep_hidden, icon: 'thumbs-up', bundle: agree)
+    else
+      build_action(actions, :agree_and_keep, icon: 'thumbs-up', bundle: agree)
+    end
+
     if guardian.can_suspend?(target_created_by)
       build_action(actions, :agree_and_suspend, icon: 'ban', bundle: agree, client_action: 'suspend')
       build_action(actions, :agree_and_silence, icon: 'microphone-slash', bundle: agree, client_action: 'silence')
@@ -52,8 +69,6 @@ class ReviewableFlaggedPost < Reviewable
 
     if post.user_deleted?
       build_action(actions, :agree_and_restore, icon: 'far-eye', bundle: agree)
-    elsif !post.hidden?
-      build_action(actions, :agree_and_hide, icon: 'far-eye-slash', bundle: agree)
     end
 
     if post.hidden?
@@ -64,7 +79,7 @@ class ReviewableFlaggedPost < Reviewable
 
     build_action(actions, :ignore, icon: 'external-link-alt')
 
-    if guardian.is_staff?
+    if guardian.can_delete_post_or_topic?(post)
       delete = actions.add_bundle("#{id}-delete", icon: "far-trash-alt", label: "reviewables.actions.delete.title")
       build_action(actions, :delete_and_ignore, icon: 'external-link-alt', bundle: delete)
       if post.reply_count > 0
@@ -99,10 +114,13 @@ class ReviewableFlaggedPost < Reviewable
       action.deferred_by_id = performed_by.id
       # so callback is called
       action.save
-      action.add_moderator_post_if_needed(performed_by, :ignored, args[:post_was_deleted])
+      unless args[:expired]
+        action.add_moderator_post_if_needed(performed_by, :ignored, args[:post_was_deleted])
+      end
     end
 
     if actions.first.present?
+      unassign_topic performed_by, post
       DiscourseEvent.trigger(:flag_reviewed, post)
       DiscourseEvent.trigger(:flag_deferred, actions.first)
     end
@@ -113,16 +131,7 @@ class ReviewableFlaggedPost < Reviewable
     end
   end
 
-  # Penalties are handled by the modal after the action is performed
   def perform_agree_and_keep(performed_by, args)
-    agree(performed_by, args)
-  end
-
-  def perform_agree_and_suspend(performed_by, args)
-    agree(performed_by, args)
-  end
-
-  def perform_agree_and_silence(performed_by, args)
     agree(performed_by, args)
   end
 
@@ -151,10 +160,6 @@ class ReviewableFlaggedPost < Reviewable
     agree(performed_by, args) do
       PostDestroyer.new(performed_by, post).recover
     end
-  end
-
-  def perform_disagree_and_restore(performed_by, args)
-    perform_disagree(performed_by, args)
   end
 
   def perform_disagree(performed_by, args)
@@ -186,12 +191,14 @@ class ReviewableFlaggedPost < Reviewable
     Post.with_deleted.where(id: target_id).update_all(cached)
 
     if actions.first.present?
+      unassign_topic performed_by, post
       DiscourseEvent.trigger(:flag_reviewed, post)
       DiscourseEvent.trigger(:flag_disagreed, actions.first)
     end
 
     # Undo hide/silence if applicable
     if post&.hidden?
+      notify_poster(performed_by)
       post.unhide!
       UserSilencer.unsilence(post.user) if UserSilencer.was_silenced_for?(post)
     end
@@ -204,33 +211,26 @@ class ReviewableFlaggedPost < Reviewable
 
   def perform_delete_and_ignore(performed_by, args)
     result = perform_ignore(performed_by, args)
-    PostDestroyer.new(performed_by, post).destroy
+    destroyer(performed_by, post).destroy
     result
   end
 
   def perform_delete_and_ignore_replies(performed_by, args)
     result = perform_ignore(performed_by, args)
-
-    replies = PostReply.where(post_id: post.id).includes(:reply).map(&:reply)
-    PostDestroyer.new(performed_by, post).destroy
-    replies.each { |reply| PostDestroyer.new(performed_by, reply).destroy }
+    PostDestroyer.delete_with_replies(performed_by, post, self)
 
     result
   end
 
   def perform_delete_and_agree(performed_by, args)
     result = agree(performed_by, args)
-    PostDestroyer.new(performed_by, post).destroy
+    destroyer(performed_by, post).destroy
     result
   end
 
   def perform_delete_and_agree_replies(performed_by, args)
     result = agree(performed_by, args)
-
-    replies = PostReply.where(post_id: post.id).includes(:reply).map(&:reply)
-    PostDestroyer.new(performed_by, post).destroy
-    replies.each { |reply| PostDestroyer.new(performed_by, reply).destroy }
-
+    PostDestroyer.delete_with_replies(performed_by, post, self)
     result
   end
 
@@ -243,17 +243,22 @@ protected
 
     trigger_spam = false
     actions.each do |action|
-      action.agreed_at = Time.zone.now
-      action.agreed_by_id = performed_by.id
-      # so callback is called
-      action.save
-      action.add_moderator_post_if_needed(performed_by, :agreed, args[:post_was_deleted])
-      trigger_spam = true if action.post_action_type_id == PostActionType.types[:spam]
+      ActiveRecord::Base.transaction do
+        action.agreed_at = Time.zone.now
+        action.agreed_by_id = performed_by.id
+        # so callback is called
+        action.save
+        DB.after_commit do
+          action.add_moderator_post_if_needed(performed_by, :agreed, args[:post_was_deleted])
+          trigger_spam = true if action.post_action_type_id == PostActionType.types[:spam]
+        end
+      end
     end
 
     DiscourseEvent.trigger(:confirmed_spam_post, post) if trigger_spam
 
     if actions.first.present?
+      unassign_topic performed_by, post
       DiscourseEvent.trigger(:flag_reviewed, post)
       DiscourseEvent.trigger(:flag_agreed, actions.first)
       yield(actions.first) if block_given?
@@ -265,10 +270,11 @@ protected
     end
   end
 
-  def build_action(actions, id, icon:, bundle: nil, client_action: nil, confirm: false)
+  def build_action(actions, id, icon:, button_class: nil, bundle: nil, client_action: nil, confirm: false)
     actions.add(id, bundle: bundle) do |action|
       prefix = "reviewables.actions.#{id}"
       action.icon = icon
+      action.button_class = button_class
       action.label = "#{prefix}.title"
       action.description = "#{prefix}.description"
       action.client_action = client_action
@@ -276,19 +282,57 @@ protected
     end
   end
 
+  def unassign_topic(performed_by, post)
+    topic = post.topic
+    return unless topic && performed_by && SiteSetting.reviewable_claiming != 'disabled'
+    ReviewableClaimedTopic.where(topic_id: topic.id).delete_all
+    topic.reviewables.find_each do |reviewable|
+      reviewable.log_history(:unclaimed, performed_by)
+    end
+
+    user_ids = User.staff.pluck(:id)
+
+    if SiteSetting.enable_category_group_review? && group_id = topic.category&.reviewable_by_group_id.presence
+      user_ids.concat(GroupUser.where(group_id: group_id).pluck(:user_id))
+      user_ids.uniq!
+    end
+
+    data = { topic_id: topic.id }
+
+    MessageBus.publish("/reviewable_claimed", data, user_ids: user_ids)
+  end
+
+private
+
+  def destroyer(performed_by, post)
+    PostDestroyer.new(performed_by, post, reviewable: self)
+  end
+
+  def notify_poster(performed_by)
+    return unless performed_by.human? && performed_by.staff?
+
+    Jobs.enqueue(
+      :send_system_message,
+      user_id: post.user_id,
+      message_type: :flags_disagreed,
+      message_options: {
+        flagged_post_raw_content: post.raw,
+        url: post.url
+      }
+    )
+  end
 end
 
 # == Schema Information
 #
 # Table name: reviewables
 #
-#  id                      :bigint(8)        not null, primary key
+#  id                      :bigint           not null, primary key
 #  type                    :string           not null
 #  status                  :integer          default(0), not null
 #  created_by_id           :integer          not null
 #  reviewable_by_moderator :boolean          default(FALSE), not null
 #  reviewable_by_group_id  :integer
-#  claimed_by_id           :integer
 #  category_id             :integer
 #  topic_id                :integer
 #  score                   :float            default(0.0), not null
@@ -304,6 +348,7 @@ end
 #
 # Indexes
 #
+#  index_reviewables_on_reviewable_by_group_id                 (reviewable_by_group_id)
 #  index_reviewables_on_status_and_created_at                  (status,created_at)
 #  index_reviewables_on_status_and_score                       (status,score)
 #  index_reviewables_on_status_and_type                        (status,type)

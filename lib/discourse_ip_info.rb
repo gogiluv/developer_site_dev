@@ -7,7 +7,7 @@ class DiscourseIpInfo
   include Singleton
 
   def initialize
-    open_db(File.join(Rails.root, 'vendor', 'data'))
+    open_db(DiscourseIpInfo.path)
   end
 
   def open_db(path)
@@ -16,38 +16,62 @@ class DiscourseIpInfo
     @cache = LruRedux::ThreadSafeCache.new(2000)
   end
 
+  def self.path
+    @path ||= File.join(Rails.root, 'vendor', 'data')
+  end
+
   def self.mmdb_path(name)
-    File.join(Rails.root, 'vendor', 'data', "#{name}.mmdb")
+    File.join(path, "#{name}.mmdb")
   end
 
   def self.mmdb_download(name)
-    require 'rubygems/package'
-    require 'zlib'
 
-    uri = URI("https://geolite.maxmind.com/download/geoip/database/#{name}.tar.gz")
-
-    begin
-      tar_gz_file = Tempfile.new
-      tar_gz_file.binmode
-      tar_gz_file.write(Net::HTTP.get(uri))
-      tar_gz_file.close
-
-      begin
-        extractor = Gem::Package::TarReader.new(Zlib::GzipReader.open(tar_gz_file.path))
-        extractor.rewind
-
-        extractor.each do |entry|
-          next unless entry.full_name.ends_with?(".mmdb")
-          File.open(mmdb_path(name), "wb") { |f| f.write(entry.read) }
-        end
-      ensure
-        extractor.close
-      end
-
-    ensure
-      tar_gz_file.close
-      tar_gz_file.unlink
+    if GlobalSetting.maxmind_license_key.blank?
+      STDERR.puts "MaxMind IP database updates require a license"
+      STDERR.puts "Please set DISCOURSE_MAXMIND_LICENSE_KEY to one you generated at https://www.maxmind.com"
+      return
     end
+
+    FileUtils.mkdir_p(path)
+
+    url = "https://download.maxmind.com/app/geoip_download?license_key=#{GlobalSetting.maxmind_license_key}&edition_id=#{name}&suffix=tar.gz"
+
+    gz_file = FileHelper.download(
+      url,
+      max_file_size: 100.megabytes,
+      tmp_file_name: "#{name}.gz",
+      validate_uri: false,
+      follow_redirect: false
+    )
+
+    filename = File.basename(gz_file.path)
+
+    dir = "#{Dir.tmpdir}/#{SecureRandom.hex}"
+
+    Discourse::Utils.execute_command(
+      "mkdir", "-p", dir
+    )
+
+    Discourse::Utils.execute_command(
+      "cp",
+      gz_file.path,
+      "#{dir}/#{filename}"
+    )
+
+    Discourse::Utils.execute_command(
+      "tar",
+      "-xzvf",
+      "#{dir}/#{filename}",
+      chdir: dir
+    )
+
+    Dir["#{dir}/**/*.mmdb"].each do |f|
+      FileUtils.mv(f, mmdb_path(name))
+    end
+
+  ensure
+    FileUtils.rm_r(dir, force: true) if dir
+    gz_file&.close!
   end
 
   def mmdb_load(filepath)
@@ -57,7 +81,7 @@ class DiscourseIpInfo
       Rails.logger.warn("MaxMindDB (#{filepath}) could not be found: #{e}")
       nil
     rescue => e
-      Discourse.warn_exception(e, "MaxMindDB (#{filepath}) could not be loaded.")
+      Discourse.warn_exception(e, message: "MaxMindDB (#{filepath}) could not be loaded.")
       nil
     end
   end

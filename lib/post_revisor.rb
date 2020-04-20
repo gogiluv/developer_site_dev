@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "edit_rate_limiter"
 require 'post_locker'
 
@@ -63,13 +65,18 @@ class PostRevisor
   end
 
   # Fields we want to record revisions for by default
-  track_topic_field(:title) do |tc, title|
-    tc.record_change('title', tc.topic.title, title)
-    tc.topic.title = title
+  %i{title archetype}.each do |field|
+    track_topic_field(field) do |tc, attribute|
+      tc.record_change(field, tc.topic.public_send(field), attribute)
+      tc.topic.public_send("#{field}=", attribute)
+    end
   end
 
   track_topic_field(:category_id) do |tc, category_id|
-    if category_id == 0 || tc.guardian.can_move_topic_to_category?(category_id)
+    if category_id == 0 && tc.topic.private_message?
+      tc.record_change('category_id', tc.topic.category_id, nil)
+      tc.topic.category_id = nil
+    elsif category_id == 0 || tc.guardian.can_move_topic_to_category?(category_id)
       tc.record_change('category_id', tc.topic.category_id, category_id)
       tc.check_result(tc.topic.change_category_to_id(category_id))
     end
@@ -94,17 +101,6 @@ class PostRevisor
     end
   end
 
-  track_topic_field(:tags_empty_array) do |tc, val|
-    if val.present? && tc.guardian.can_tag_topics?
-      prev_tags = tc.topic.tags.map(&:name)
-      if !DiscourseTagging.tag_topic_by_names(tc.topic, tc.guardian, [])
-        tc.check_result(false)
-        next
-      end
-      tc.record_change('tags', prev_tags, nil)
-    end
-  end
-
   track_topic_field(:featured_link) do |topic_changes, featured_link|
     if SiteSetting.topic_featured_link_enabled &&
        topic_changes.guardian.can_edit_featured_link?(topic_changes.topic.category_id)
@@ -121,6 +117,7 @@ class PostRevisor
   # - bypass_bump: do not bump the topic, even if last post
   # - skip_validations: ask ActiveRecord to skip validations
   # - skip_revision: do not create a new PostRevision record
+  # - skip_staff_log: skip creating an entry in the staff action log
   def revise!(editor, fields, opts = {})
     @editor = editor
     @fields = fields.with_indifferent_access
@@ -134,8 +131,9 @@ class PostRevisor
     @fields[:category_id] = @fields[:category_id].to_i if @fields.has_key?(:category_id)
     @fields[:anonymous_chk] = @fields[:anonymous_chk] if @fields.has_key?(:anonymous_chk)
 
-    # always reset edit_reason unless provided
-    @fields[:edit_reason] = nil unless @fields[:edit_reason].present?
+    # always reset edit_reason unless provided, do not set to nil else
+    # previous reasons are lost
+    @fields.delete(:edit_reason) if @fields[:edit_reason].blank?
 
     return false unless should_revise?
 
@@ -183,13 +181,13 @@ class PostRevisor
       @fields.has_key?('raw') &&
       @editor.staff? &&
       @editor != Discourse.system_user &&
-      !@post.user.staff?
+      !@post.user&.staff?
     )
       PostLocker.new(@post, @editor).lock
     end
 
     # We log staff edits to posts
-    if @editor.staff? && @editor.id != @post.user.id && @fields.has_key?('raw')
+    if @editor.staff? && @editor.id != @post.user_id && @fields.has_key?('raw') && !@opts[:skip_staff_log]
       StaffActionLogger.new(@editor).log_post_edit(
         @post,
         old_raw: old_raw
@@ -222,7 +220,9 @@ class PostRevisor
 
   def post_changed?
     POST_TRACKED_FIELDS.each do |field|
-      return true if @fields.has_key?(field) && @fields[field] != @post.send(field)
+      if @fields.has_key?(field) && @fields[field] != @post.public_send(field)
+        return true
+      end
     end
     advance_draft_sequence
     false
@@ -246,7 +246,11 @@ class PostRevisor
 
   def should_create_new_version?
     return false if @skip_revision
-    edited_by_another_user? || !ninja_edit? || owner_changed? || force_new_version?
+    edited_by_another_user? || !ninja_edit? || owner_changed? || force_new_version? || edit_reason_specified?
+  end
+
+  def edit_reason_specified?
+    @fields[:edit_reason].present? && @fields[:edit_reason] != @post.edit_reason
   end
 
   def edited_by_another_user?
@@ -262,11 +266,11 @@ class PostRevisor
   end
 
   def cached_original_raw
-    @cached_original_raw ||= $redis.get(original_raw_key)
+    @cached_original_raw ||= Discourse.redis.get(original_raw_key)
   end
 
   def cached_original_cooked
-    @cached_original_cooked ||= $redis.get(original_cooked_key)
+    @cached_original_cooked ||= Discourse.redis.get(original_cooked_key)
   end
 
   def original_raw
@@ -275,21 +279,20 @@ class PostRevisor
 
   def original_raw=(val)
     @cached_original_raw = val
-    $redis.setex(original_raw_key, SiteSetting.editing_grace_period + 1, val)
+    Discourse.redis.setex(original_raw_key, SiteSetting.editing_grace_period + 1, val)
   end
 
   def original_cooked=(val)
     @cached_original_cooked = val
-    $redis.setex(original_cooked_key, SiteSetting.editing_grace_period + 1, val)
+    Discourse.redis.setex(original_cooked_key, SiteSetting.editing_grace_period + 1, val)
   end
 
   def diff_size(before, after)
-    changes = 0
-    ONPDiff.new(before, after).short_diff.each do |str, type|
-      next if type == :common
-      changes += str.length
+    @diff_size ||= begin
+      ONPDiff.new(before, after).short_diff.sum do |str, type|
+        type == :common ? 0 : str.size
+      end
     end
-    changes
   end
 
   def ninja_edit?
@@ -303,7 +306,7 @@ class PostRevisor
         max_diff = SiteSetting.editing_grace_period_max_diff_high_trust.to_i
       end
 
-      if (original_raw.length - new_raw.length).abs > max_diff ||
+      if (original_raw.size - new_raw.size).abs > max_diff ||
         diff_size(original_raw, new_raw) > max_diff
         return false
       end
@@ -335,6 +338,7 @@ class PostRevisor
     update_post
     update_topic if topic_changed?
     create_or_update_revision
+    remove_flags_and_unhide_post
   end
 
   USER_ACTIONS_TO_REMOVE ||= [UserAction::REPLY, UserAction::RESPONSE]
@@ -358,14 +362,15 @@ class PostRevisor
     end
 
     POST_TRACKED_FIELDS.each do |field|
-      @post.send("#{field}=", @fields[field]) if @fields.has_key?(field)
+      if @fields.has_key?(field)
+        @post.public_send("#{field}=", @fields[field])
+      end
     end
 
+    @post.edit_reason    = @fields[:edit_reason] if should_create_new_version?
     @post.last_editor_id = @editor.id
     @post.word_count     = @fields[:raw].scan(/[[:word:]]+/).size if @fields.has_key?(:raw)
     @post.self_edits    += 1 if self_edit?
-
-    remove_flags_and_unhide_post
 
     @post.extract_quoted_post_numbers
 
@@ -411,6 +416,7 @@ class PostRevisor
   end
 
   def remove_flags_and_unhide_post
+    return if @opts[:deleting_post]
     return unless editing_a_flagged_and_hidden_post?
 
     flaggers = []
@@ -465,7 +471,8 @@ class PostRevisor
       user_id: @post.last_editor_id,
       post_id: @post.id,
       number: @post.version,
-      modifications: modifications
+      modifications: modifications,
+      hidden: only_hidden_tags_changed?
     )
   end
 
@@ -518,7 +525,26 @@ class PostRevisor
   end
 
   def bypass_bump?
-    !@post_successfully_saved || @topic_changes.errored? || @opts[:bypass_bump] == true || @post.whisper?
+    !@post_successfully_saved ||
+      @topic_changes.errored? ||
+      @opts[:bypass_bump] == true ||
+      @post.whisper? ||
+      only_hidden_tags_changed?
+  end
+
+  def only_hidden_tags_changed?
+    return false if (hidden_tag_names = DiscourseTagging.hidden_tag_names).blank?
+
+    modifications = post_changes.merge(@topic_changes.diff)
+    if modifications.keys.size == 1 && (tags_diff = modifications["tags"]).present?
+      a, b = tags_diff[0] || [], tags_diff[1] || []
+      changed_tags = ((a + b) - (a & b)).map(&:presence).compact
+      if (changed_tags - hidden_tag_names).empty?
+        return true
+      end
+    end
+
+    false
   end
 
   def is_last_post?
@@ -558,7 +584,7 @@ class PostRevisor
       category.update_column(:description, new_description)
       @category_changed = category
     else
-      @post.errors[:base] << I18n.t("category.errors.description_incomplete")
+      @post.errors.add(:base, I18n.t("category.errors.description_incomplete"))
     end
   end
 

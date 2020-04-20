@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'ostruct'
 
 module FlagQuery
@@ -173,7 +175,7 @@ module FlagQuery
 
     params = {
       pending: Reviewable.statuses[:pending],
-      min_score: SiteSetting.min_score_default_visibility
+      min_score: Reviewable.min_score_for_priority
     }
 
     results = DB.query(<<~SQL, params)
@@ -218,15 +220,4 @@ module FlagQuery
       users: User.where(id: user_ids)
     }
   end
-
-  def self.excerpt(cooked)
-    excerpt = Post.excerpt(cooked, 200, keep_emoji_images: true)
-    # remove the first link if it's the first node
-    fragment = Nokogiri::HTML.fragment(excerpt)
-    if fragment.children.first == fragment.css("a:first").first && fragment.children.first
-      fragment.children.first.remove
-    end
-    fragment.to_html.strip
-  end
-
 end

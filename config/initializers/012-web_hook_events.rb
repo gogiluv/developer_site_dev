@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 %i(
   topic_recovered
 ).each do |event|
@@ -73,34 +75,23 @@ end
 end
 
 %i(
-  flag_created
-  flag_agreed
-  flag_disagreed
-  flag_deferred
+  user_badge_granted
 ).each do |event|
-  DiscourseEvent.on(event) do |flag|
-    WebHook.enqueue_object_hooks(:flag, flag, event)
+  # user_badge_revoked
+  DiscourseEvent.on(event) do |badge, user_id|
+    ub = UserBadge.find_by(badge: badge, user_id: user_id)
+    WebHook.enqueue_object_hooks(:user_badge, ub, event, UserBadgeSerializer)
   end
 end
 
 DiscourseEvent.on(:reviewable_created) do |reviewable|
   WebHook.enqueue_object_hooks(:reviewable, reviewable, :reviewable_created, reviewable.serializer)
-
-  # TODO: Backwards compatibility for Queued Post webhooks. Remve in favor of Reviewable API
-  if reviewable.is_a?(ReviewableQueuedPost)
-    WebHook.enqueue_object_hooks(:queued_post, reviewable, :queued_post_created, reviewable.serializer)
-  end
 end
 
 DiscourseEvent.on(:reviewable_transitioned_to) do |status, reviewable|
   WebHook.enqueue_object_hooks(:reviewable, reviewable, :reviewable_transitioned_to, reviewable.serializer)
+end
 
-  # TODO: Backwards compatibility for Queued Post webhooks. Remve in favor of Reviewable API
-  if reviewable.is_a?(ReviewableQueuedPost)
-    if reviewable.approved?
-      WebHook.enqueue_object_hooks(:queued_post, reviewable, :approved_post, QueuedPostSerializer)
-    elsif reviewable.rejected?
-      WebHook.enqueue_object_hooks(:queued_post, reviewable, :rejected_post, QueuedPostSerializer)
-    end
-  end
+DiscourseEvent.on(:notification_created) do |notification|
+  WebHook.enqueue_object_hooks(:notification, notification, :notification_created, NotificationSerializer)
 end

@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe UserMerger do
-  let!(:target_user) { Fabricate(:user_single_email, username: 'alice', email: 'alice@example.com') }
-  let!(:source_user) { Fabricate(:user_single_email, username: 'alice1', email: 'alice@work.com') }
-  let(:walter) { Fabricate(:walter_white) }
+  fab!(:target_user) { Fabricate(:user, username: 'alice', email: 'alice@example.com') }
+  fab!(:source_user) { Fabricate(:user, username: 'alice1', email: 'alice@work.com') }
+  fab!(:walter) { Fabricate(:walter_white) }
 
   def merge_users!(source = nil, target =  nil)
     source ||= source_user
@@ -226,7 +228,7 @@ describe UserMerger do
     [group1, group2, group3].each do |g|
       owner = [group1, group3].include?(g)
       expect(GroupUser.where(group_id: g.id, user_id: target_user.id, owner: owner).count).to eq(1)
-      expect(Group.where(id: g.id).pluck(:user_count).first).to eq(2)
+      expect(Group.where(id: g.id).pluck_first(:user_count)).to eq(2)
     end
     expect(GroupUser.where(user_id: source_user.id).count).to eq(0)
   end
@@ -460,7 +462,7 @@ describe UserMerger do
 
       posts.each do |type, post|
         post.reload
-        expect(post.send("#{type}_count")).to eq(1)
+        expect(post.public_send("#{type}_count")).to eq(1)
       end
     end
   end
@@ -675,9 +677,8 @@ describe UserMerger do
     # action_type and user_id are not nullable
     # target_topic_id and acting_user_id are nullable, but always have a value
 
-    let(:post1) { Fabricate(:post) }
-    let(:post2) { Fabricate(:post) }
-    let(:post3) { Fabricate(:post) }
+    fab!(:post1) { Fabricate(:post) }
+    fab!(:post2) { Fabricate(:post) }
 
     def log_like_action(acting_user, user, post)
       UserAction.log_action!(action_type: UserAction::LIKE,
@@ -838,7 +839,7 @@ describe UserMerger do
   it "skips merging email adresses when a secondary email address exists" do
     merge_users!(source_user, target_user)
 
-    alice2 = Fabricate(:user_single_email, username: 'alice2', email: 'alice@foo.com')
+    alice2 = Fabricate(:user, username: 'alice2', email: 'alice@foo.com')
     merge_users!(alice2, target_user)
 
     emails = UserEmail.where(user_id: target_user.id).pluck(:email, :primary)
@@ -950,10 +951,25 @@ describe UserMerger do
   end
 
   it "updates users" do
-    walter.update_attribute(:approved_by, source_user)
+    walter.update!(approved_by: source_user)
+    upload = Fabricate(:upload)
+
+    source_user.update!(admin: true)
+
+    source_user.user_profile.update!(
+      card_background_upload: upload,
+      profile_background_upload: upload,
+    )
+
     merge_users!
 
     expect(walter.reload.approved_by).to eq(target_user)
+
+    target_user.reload
+
+    expect(target_user.admin).to eq(true)
+    expect(target_user.card_background_upload).to eq(upload)
+    expect(target_user.profile_background_upload).to eq(upload)
   end
 
   it "deletes the source user even when it's an admin" do
@@ -978,7 +994,6 @@ describe UserMerger do
     GithubUserInfo.create(user_id: source_user.id, screen_name: "example", github_user_id: "examplel123123")
     Oauth2UserInfo.create(user_id: source_user.id, uid: "example", provider: "example")
     SingleSignOnRecord.create(user_id: source_user.id, external_id: "example", last_payload: "looks good")
-    UserOpenId.create(user_id: source_user.id, email: source_user.email, url: "http://example.com/openid", active: true)
 
     merge_users!
 
@@ -986,7 +1001,6 @@ describe UserMerger do
     expect(GithubUserInfo.where(user_id: source_user.id).count).to eq(0)
     expect(Oauth2UserInfo.where(user_id: source_user.id).count).to eq(0)
     expect(SingleSignOnRecord.where(user_id: source_user.id).count).to eq(0)
-    expect(UserOpenId.where(user_id: source_user.id).count).to eq(0)
   end
 
   it "deletes auth tokens" do

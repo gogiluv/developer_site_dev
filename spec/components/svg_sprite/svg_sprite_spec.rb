@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe SvgSprite do
@@ -27,6 +29,11 @@ describe SvgSprite do
     expect(SvgSprite.search("this-is-not-an-icon")).to eq(false)
   end
 
+  it 'can get a raw SVG for an icon' do
+    expect(SvgSprite.raw_svg("fa-heart")).to match(/svg.*svg/) # SVG inside SVG
+    expect(SvgSprite.raw_svg("this-is-not-an-icon")).to eq("")
+  end
+
   it 'can get a consistent version string' do
     version1 = SvgSprite.version
     version2 = SvgSprite.version
@@ -40,6 +47,37 @@ describe SvgSprite do
     version2 = SvgSprite.version
 
     expect(version1).not_to eq(version2)
+  end
+
+  it 'version should be based on bundled output, not requested icons' do
+    theme = Fabricate(:theme)
+    fname = "custom-theme-icon-sprite.svg"
+    upload = UploadCreator.new(file_from_fixtures(fname), fname, for_theme: true).create_for(-1)
+
+    version1 = SvgSprite.version([theme.id])
+    bundle1 = SvgSprite.bundle([theme.id])
+
+    SiteSetting.svg_icon_subset = "my-custom-theme-icon"
+
+    version2 = SvgSprite.version([theme.id])
+    bundle2 = SvgSprite.bundle([theme.id])
+
+    # The contents of the bundle should not change, because the icon does not actually exist
+    expect(bundle1).to eq(bundle2)
+    # Therefore the version hash should not change
+    expect(version1).to eq(version2)
+
+    # Now add the icon to the theme
+    theme.set_field(target: :common, name: SvgSprite.theme_sprite_variable_name, upload_id: upload.id, type: :theme_upload_var)
+    theme.save!
+
+    version3 = SvgSprite.version([theme.id])
+    bundle3 = SvgSprite.bundle([theme.id])
+
+    # The version/bundle should be updated
+    expect(bundle3).not_to match(bundle2)
+    expect(version3).not_to match(version2)
+    expect(bundle3).to match(/my-custom-theme-icon/)
   end
 
   it 'strips whitespace when processing icons' do
@@ -100,8 +138,18 @@ describe SvgSprite do
     theme.update(component: true)
     theme.save!
     parent_theme = Fabricate(:theme)
-    parent_theme.add_child_theme!(theme)
+    parent_theme.add_relative_theme!(:child, theme)
     expect(SvgSprite.all_icons([parent_theme.id])).to include("dragon")
+  end
+
+  it 'includes icons defined in theme modifiers' do
+    theme = Fabricate(:theme)
+
+    expect(SvgSprite.all_icons([theme.id])).not_to include("dragon")
+
+    theme.theme_modifier_set.svg_icons = ["dragon"]
+    theme.save!
+    expect(SvgSprite.all_icons([theme.id])).to include("dragon")
   end
 
   it 'includes custom icons from a sprite in a theme' do
@@ -115,6 +163,30 @@ describe SvgSprite do
 
     expect(Upload.where(id: upload.id)).to be_exist
     expect(SvgSprite.bundle([theme.id])).to match(/my-custom-theme-icon/)
+  end
+
+  context "s3" do
+    let(:upload_s3) { Fabricate(:upload_s3) }
+
+    before do
+      SiteSetting.enable_s3_uploads = true
+      SiteSetting.s3_upload_bucket = "s3bucket"
+      SiteSetting.s3_access_key_id = "s3_access_key_id"
+      SiteSetting.s3_secret_access_key = "s3_secret_access_key"
+
+      stub_request(:get, upload_s3.url).to_return(status: 200, body: "Hello world")
+    end
+
+    it 'includes svg sprites in themes stored in s3' do
+      theme = Fabricate(:theme)
+      theme.set_field(target: :common, name: SvgSprite.theme_sprite_variable_name, upload_id: upload_s3.id, type: :theme_upload_var)
+      theme.save!
+
+      sprite_files = SvgSprite.custom_svg_sprites([theme.id]).join("|")
+
+      expect(sprite_files).to match(/#{upload_s3.sha1}/)
+      expect(sprite_files).not_to match(/amazonaws/)
+    end
   end
 
   it 'includes icons from SiteSettings' do

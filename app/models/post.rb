@@ -1,10 +1,4 @@
-require_dependency 'pretty_text'
-require_dependency 'rate_limiter'
-require_dependency 'post_revisor'
-require_dependency 'enum'
-require_dependency 'post_analyzer'
-require_dependency 'validators/post_validator'
-require_dependency 'plugin/filter'
+# frozen_string_literal: true
 
 require 'archetype'
 require 'digest/sha1'
@@ -43,6 +37,7 @@ class Post < ActiveRecord::Base
   has_many :uploads, through: :post_uploads
 
   has_one :post_stat
+  has_many :bookmarks
 
   has_one :incoming_email
 
@@ -53,32 +48,28 @@ class Post < ActiveRecord::Base
 
   has_many :user_actions, foreign_key: :target_post_id
 
-  validates_with ::Validators::PostValidator, unless: :skip_validation
+  validates_with PostValidator, unless: :skip_validation
 
   after_save :index_search
 
   # We can pass several creating options to a post via attributes
   attr_accessor :image_sizes, :quoted_post_numbers, :no_bump, :invalidate_oneboxes, :cooking_options, :skip_unique_check, :skip_validation
 
-  LARGE_IMAGES      ||= "large_images".freeze
-  BROKEN_IMAGES     ||= "broken_images".freeze
-  DOWNLOADED_IMAGES ||= "downloaded_images".freeze
-  MISSING_UPLOADS ||= "missing uploads".freeze
+  LARGE_IMAGES            ||= "large_images"
+  BROKEN_IMAGES           ||= "broken_images"
+  DOWNLOADED_IMAGES       ||= "downloaded_images"
+  MISSING_UPLOADS         ||= "missing uploads"
+  MISSING_UPLOADS_IGNORED ||= "missing uploads ignored"
+  NOTICE_TYPE             ||= "notice_type"
+  NOTICE_ARGS             ||= "notice_args"
 
   SHORT_POST_CHARS ||= 1200
 
   register_custom_field_type(MISSING_UPLOADS, :json)
+  register_custom_field_type(MISSING_UPLOADS_IGNORED, :boolean)
 
   scope :private_posts_for_user, ->(user) {
-    where("posts.topic_id IN (SELECT topic_id
-             FROM topic_allowed_users
-             WHERE user_id = :user_id
-             UNION ALL
-             SELECT tg.topic_id
-             FROM topic_allowed_groups tg
-             JOIN group_users gu ON gu.user_id = :user_id AND
-                                      gu.group_id = tg.group_id)",
-                                              user_id: user.id)
+    where("posts.topic_id IN (#{Topic::PRIVATE_MESSAGES_SQL})", user_id: user.id)
   }
 
   scope :by_newest, -> { order('created_at DESC, id DESC') }
@@ -112,10 +103,19 @@ class Post < ActiveRecord::Base
   }
 
   scope :have_uploads, -> {
-    where(
-      "(posts.cooked LIKE '%<a %' OR posts.cooked LIKE '%<img %') AND (posts.cooked LIKE ? OR posts.cooked LIKE '%/original/%' OR posts.cooked LIKE '%/optimized/%')",
-      "%/uploads/#{RailsMultisite::ConnectionManagement.current_db}/%"
-    )
+    where("
+          (
+            posts.cooked LIKE '%<a %' OR
+            posts.cooked LIKE '%<img %' OR
+            posts.cooked LIKE '%<video %'
+          ) AND (
+            posts.cooked LIKE ? OR
+            posts.cooked LIKE '%/original/%' OR
+            posts.cooked LIKE '%/optimized/%' OR
+            posts.cooked LIKE '%data-orig-src=%' OR
+            posts.cooked LIKE '%/uploads/short-url/%'
+          )", "%/uploads/#{RailsMultisite::ConnectionManagement.current_db}/%"
+        )
   }
 
   delegate :username, to: :user
@@ -126,7 +126,9 @@ class Post < ActiveRecord::Base
                                  new_user_spam_threshold_reached: 3,
                                  flagged_by_tl3_user: 4,
                                  email_spam_header_found: 5,
-                                 flagged_by_tl4_user: 6)
+                                 flagged_by_tl4_user: 6,
+                                 email_authentication_result_header: 7,
+                                 imported_as_unlisted: 8)
   end
 
   def self.types
@@ -142,8 +144,22 @@ class Post < ActiveRecord::Base
                                email: 3)
   end
 
+  def self.notices
+    @notices ||= Enum.new(custom: "custom",
+                          new_user: "new_user",
+                          returning_user: "returning_user")
+  end
+
   def self.find_by_detail(key, value)
     includes(:post_details).find_by(post_details: { key: key, value: value })
+  end
+
+  def self.excerpt_size=(sz)
+    @excerpt_size = sz
+  end
+
+  def self.excerpt_size
+    @excerpt_size || 220
   end
 
   def whisper?
@@ -158,6 +174,11 @@ class Post < ActiveRecord::Base
     if user && user.new_user_posting_on_first_day? && post_number && post_number > 1
       RateLimiter.new(user, "first-day-replies-per-day", SiteSetting.max_replies_in_first_day, 1.day.to_i)
     end
+  end
+
+  def readers_count
+    read_count = reads - 1 # Excludes poster
+    read_count < 0 ? 0 : read_count
   end
 
   def publish_change_to_clients!(type, opts = {})
@@ -220,12 +241,12 @@ class Post < ActiveRecord::Base
 
   def store_unique_post_key
     if SiteSetting.unique_posts_mins > 0
-      $redis.setex(unique_post_key, SiteSetting.unique_posts_mins.minutes.to_i, id)
+      Discourse.redis.setex(unique_post_key, SiteSetting.unique_posts_mins.minutes.to_i, id)
     end
   end
 
   def matches_recent_post?
-    post_id = $redis.get(unique_post_key)
+    post_id = Discourse.redis.get(unique_post_key)
     post_id != (nil) && post_id.to_i != (id)
   end
 
@@ -251,7 +272,7 @@ class Post < ActiveRecord::Base
     raw_links
     has_oneboxes?}.each do |attr|
     define_method(attr) do
-      post_analyzer.send(attr)
+      post_analyzer.public_send(attr)
     end
   end
 
@@ -275,6 +296,15 @@ class Post < ActiveRecord::Base
     post_user = self.user
     options[:user_id] = post_user.id if post_user
     options[:omit_nofollow] = true if omit_nofollow?
+
+    if self.with_secure_media?
+      each_upload_url do |url|
+        uri = URI.parse(url)
+        if FileHelper.is_supported_media?(File.basename(uri.path))
+          raw = raw.sub(Discourse.store.s3_upload_host, "#{Discourse.base_url}/#{Upload::SECURE_MEDIA_ROUTE}")
+        end
+      end
+    end
 
     cooked = post_analyzer.cook(raw, options)
 
@@ -389,8 +419,8 @@ class Post < ActiveRecord::Base
   end
 
   def delete_post_notices
-    self.custom_fields.delete("post_notice_type")
-    self.custom_fields.delete("post_notice_time")
+    self.custom_fields.delete(Post::NOTICE_TYPE)
+    self.custom_fields.delete(Post::NOTICE_ARGS)
     self.save_custom_fields
   end
 
@@ -444,11 +474,11 @@ class Post < ActiveRecord::Base
 
   # Strip out most of the markup
   def excerpt(maxlength = nil, options = {})
-    Post.excerpt(cooked, maxlength, options)
+    Post.excerpt(cooked, maxlength, options.merge(post: self))
   end
 
   def excerpt_for_topic
-    Post.excerpt(cooked, 220, strip_links: true, strip_images: true)
+    Post.excerpt(cooked, Post.excerpt_size, strip_links: true, strip_images: true, post: self)
   end
 
   def is_first_post?
@@ -465,12 +495,14 @@ class Post < ActiveRecord::Base
     post_actions.where(post_action_type_id: PostActionType.flag_types_without_custom.values, deleted_at: nil).count != 0
   end
 
-  def active_flags
-    post_actions.active.where(post_action_type_id: PostActionType.flag_types_without_custom.values)
-  end
-
   def reviewable_flag
     ReviewableFlaggedPost.pending.find_by(target: self)
+  end
+
+  def with_secure_media?
+    return false if !SiteSetting.secure_media?
+    SiteSetting.login_required? || \
+      (topic.present? && (topic.private_message? || topic.category&.read_restricted))
   end
 
   def hide!(post_action_type_id, reason = nil)
@@ -515,8 +547,8 @@ class Post < ActiveRecord::Base
   end
 
   def unhide!
-    self.update_attributes(hidden: false)
-    self.topic.update_attributes(visible: true) if is_first_post?
+    self.update(hidden: false)
+    self.topic.update(visible: true) if is_first_post?
     save(validate: false)
     publish_change_to_clients!(:acted)
   end
@@ -542,8 +574,8 @@ class Post < ActiveRecord::Base
   def self.url(slug, topic_id, post_number, opts = nil)
     opts ||= {}
 
-    result = "/t/"
-    result << "#{slug}/" unless !!opts[:without_slug]
+    result = +"/t/"
+    result << "#{slug}/" if !opts[:without_slug]
 
     "#{result}#{topic_id}/#{post_number}"
   end
@@ -660,43 +692,13 @@ class Post < ActiveRecord::Base
   end
 
   def self.estimate_posts_per_day
-    val = $redis.get("estimated_posts_per_day")
+    val = Discourse.redis.get("estimated_posts_per_day")
     return val.to_i if val
 
     posts_per_day = Topic.listable_topics.secured.joins(:posts).merge(Post.created_since(30.days.ago)).count / 30
-    $redis.setex("estimated_posts_per_day", 1.day.to_i, posts_per_day.to_s)
+    Discourse.redis.setex("estimated_posts_per_day", 1.day.to_i, posts_per_day.to_s)
     posts_per_day
 
-  end
-
-  # This calculates the geometric mean of the post timings and stores it along with
-  # each post.
-  def self.calculate_avg_time(min_topic_age = nil)
-    retry_lock_error do
-      builder = DB.build("UPDATE posts
-                SET avg_time = (x.gmean / 1000)
-                FROM (SELECT post_timings.topic_id,
-                             post_timings.post_number,
-                             round(exp(avg(CASE WHEN msecs > 0 THEN ln(msecs) ELSE 0 END))) AS gmean
-                      FROM post_timings
-                      INNER JOIN posts AS p2
-                        ON p2.post_number = post_timings.post_number
-                          AND p2.topic_id = post_timings.topic_id
-                          AND p2.user_id <> post_timings.user_id
-                      GROUP BY post_timings.topic_id, post_timings.post_number) AS x
-                /*where*/")
-
-      builder.where("x.topic_id = posts.topic_id
-                  AND x.post_number = posts.post_number
-                  AND (posts.avg_time <> (x.gmean / 1000)::int OR posts.avg_time IS NULL)")
-
-      if min_topic_age
-        builder.where("posts.topic_id IN (SELECT id FROM topics where bumped_at > :bumped_at)",
-                     bumped_at: min_topic_age)
-      end
-
-      builder.exec
-    end
   end
 
   before_save do
@@ -706,7 +708,7 @@ class Post < ActiveRecord::Base
       self.cooked = cook(raw, topic_id: topic_id)
     end
 
-    self.baked_at = Time.new
+    self.baked_at = Time.zone.now
     self.baked_version = BAKED_VERSION
   end
 
@@ -767,7 +769,7 @@ class Post < ActiveRecord::Base
   def self.public_posts_count_per_day(start_date, end_date, category_id = nil)
     result = public_posts.where('posts.created_at >= ? AND posts.created_at <= ?', start_date, end_date)
       .where(post_type: Post.types[:regular])
-    result = result.where('topics.category_id = ?', category_id) if category_id
+    result = result.where('topics.category_id IN (?)', Category.subcategory_ids(category_id.to_i)) if category_id
     result
       .group('date(posts.created_at)')
       .order('date(posts.created_at)')
@@ -810,24 +812,27 @@ class Post < ActiveRecord::Base
       WITH RECURSIVE breadcrumb(id, level) AS (
         SELECT :post_id, 0
         UNION
-        SELECT reply_id, level + 1
+        SELECT reply_post_id, level + 1
         FROM post_replies AS r
+          JOIN posts AS p ON p.id = reply_post_id
           JOIN breadcrumb AS b ON (r.post_id = b.id)
-        WHERE r.post_id <> r.reply_id
-              AND b.level < :max_reply_level
+        WHERE r.post_id <> r.reply_post_id
+          AND b.level < :max_reply_level
+          AND p.topic_id = :topic_id
       ), breadcrumb_with_count AS (
           SELECT
             id,
             level,
             COUNT(*) AS count
           FROM post_replies AS r
-            JOIN breadcrumb AS b ON (r.reply_id = b.id)
-          WHERE r.reply_id <> r.post_id
+            JOIN breadcrumb AS b ON (r.reply_post_id = b.id)
+          WHERE r.reply_post_id <> r.post_id
           GROUP BY id, level
       )
-      SELECT id, level
+      SELECT id, MIN(level) AS level
       FROM breadcrumb_with_count
       /*where*/
+      GROUP BY id
       ORDER BY id
     SQL
 
@@ -837,7 +842,7 @@ class Post < ActiveRecord::Base
     # for example it skips a post when it contains 2 quotes (which are replies) from different posts
     builder.where("count = 1") if only_replies_to_single_post
 
-    replies = builder.query_hash(post_id: id, max_reply_level: MAX_REPLY_LEVEL)
+    replies = builder.query_hash(post_id: id, max_reply_level: MAX_REPLY_LEVEL, topic_id: topic_id)
     replies.each { |r| r.symbolize_keys! }
 
     secured_ids = Post.secured(guardian).where(id: replies.map { |r| r[:id] }).pluck(:id).to_set
@@ -884,23 +889,41 @@ class Post < ActiveRecord::Base
 
   def link_post_uploads(fragments: nil)
     upload_ids = []
-    fragments ||= Nokogiri::HTML::fragment(self.cooked)
 
-    fragments.css("a/@href", "img/@src").each do |media|
-      if upload = Upload.get_from_url(media.value)
-        upload_ids << upload.id
-      end
+    each_upload_url(fragments: fragments) do |src, _, sha1|
+      upload = nil
+      upload = Upload.find_by(sha1: sha1) if sha1.present?
+      upload ||= Upload.get_from_url(src)
+      upload_ids << upload.id if upload.present?
     end
 
     upload_ids |= Upload.where(id: downloaded_images.values).pluck(:id)
-    values = upload_ids.map! { |upload_id| "(#{self.id},#{upload_id})" }.join(",")
+    post_uploads = upload_ids.map do |upload_id|
+      { post_id: self.id, upload_id: upload_id }
+    end
 
     PostUpload.transaction do
       PostUpload.where(post_id: self.id).delete_all
 
-      if values.size > 0
-        DB.exec("INSERT INTO post_uploads (post_id, upload_id) VALUES #{values}")
+      if post_uploads.size > 0
+        PostUpload.insert_all(post_uploads)
       end
+
+      if SiteSetting.secure_media?
+        Upload.where(
+          id: upload_ids, access_control_post_id: nil
+        ).where(
+          'id NOT IN (SELECT upload_id FROM custom_emojis)'
+        ).update_all(
+          access_control_post_id: self.id
+        )
+      end
+    end
+  end
+
+  def update_uploads_secure_status
+    if Discourse.store.external?
+      self.uploads.each { |upload| upload.update_secure_status }
     end
   end
 
@@ -908,6 +931,124 @@ class Post < ActiveRecord::Base
     JSON.parse(self.custom_fields[Post::DOWNLOADED_IMAGES].presence || "{}")
   rescue JSON::ParserError
     {}
+  end
+
+  def each_upload_url(fragments: nil, include_local_upload: true)
+    current_db = RailsMultisite::ConnectionManagement.current_db
+    upload_patterns = [
+      /\/uploads\/#{current_db}\//,
+      /\/original\//,
+      /\/optimized\//,
+      /\/uploads\/short-url\/[a-zA-Z0-9]+(\.[a-z0-9]+)?/
+    ]
+
+    fragments ||= Nokogiri::HTML::fragment(self.cooked)
+    selectors = fragments.css("a/@href", "img/@src", "source/@src", "track/@src", "video/@poster")
+
+    links = selectors.map do |media|
+      src = media.value
+      next if src.blank?
+
+      if src.end_with?("/images/transparent.png") && (parent = media.parent)["data-orig-src"].present?
+        parent["data-orig-src"]
+      else
+        src
+      end
+    end.compact.uniq
+
+    links.each do |src|
+      src = src.split("?")[0]
+
+      if src.start_with?("upload://")
+        sha1 = Upload.sha1_from_short_url(src)
+        yield(src, nil, sha1)
+        next
+      elsif src.include?("/uploads/short-url/")
+        sha1 = Upload.sha1_from_short_path(src)
+        yield(src, nil, sha1)
+        next
+      end
+
+      next if upload_patterns.none? { |pattern| src =~ pattern }
+      next if Rails.configuration.multisite && src.exclude?(current_db)
+
+      src = "#{SiteSetting.force_https ? "https" : "http"}:#{src}" if src.start_with?("//")
+      next unless Discourse.store.has_been_uploaded?(src) || (include_local_upload && src =~ /\A\/[^\/]/i)
+
+      path = begin
+        URI(UrlHelper.unencode(GlobalSetting.cdn_url ? src.sub(GlobalSetting.cdn_url, "") : src))&.path
+      rescue URI::Error
+      end
+
+      next if path.blank?
+
+      sha1 =
+        if path.include? "optimized"
+          OptimizedImage.extract_sha1(path)
+        else
+          Upload.extract_sha1(path) || Upload.sha1_from_short_path(path)
+        end
+
+      yield(src, path, sha1)
+    end
+  end
+
+  def self.find_missing_uploads(include_local_upload: true)
+    missing_uploads = []
+    missing_post_uploads = {}
+    count = 0
+
+    DistributedMutex.synchronize("find_missing_uploads", validity: 30.minutes) do
+      PostCustomField.where(name: Post::MISSING_UPLOADS).delete_all
+      query = Post
+        .have_uploads
+        .joins(:topic)
+        .joins("LEFT JOIN post_custom_fields ON posts.id = post_custom_fields.post_id AND post_custom_fields.name = '#{Post::MISSING_UPLOADS_IGNORED}'")
+        .where("post_custom_fields.id IS NULL")
+        .select(:id, :cooked)
+
+      query.find_in_batches do |posts|
+        ids = posts.pluck(:id)
+        sha1s = Upload.joins(:post_uploads).where("post_uploads.post_id >= ? AND post_uploads.post_id <= ?", ids.min, ids.max).pluck(:sha1)
+
+        posts.each do |post|
+          post.each_upload_url do |src, path, sha1|
+            next if sha1.present? && sha1s.include?(sha1)
+
+            missing_post_uploads[post.id] ||= []
+
+            if missing_uploads.include?(src)
+              missing_post_uploads[post.id] << src
+              next
+            end
+
+            upload_id = nil
+            upload_id = Upload.where(sha1: sha1).pluck_first(:id) if sha1.present?
+            upload_id ||= yield(post, src, path, sha1)
+
+            if upload_id.blank?
+              missing_uploads << src
+              missing_post_uploads[post.id] << src
+            end
+          end
+        end
+      end
+
+      missing_post_uploads = missing_post_uploads.reject do |post_id, uploads|
+        if uploads.present?
+          PostCustomField.create!(post_id: post_id, name: Post::MISSING_UPLOADS, value: uploads.to_json)
+          count += uploads.count
+        end
+
+        uploads.empty?
+      end
+    end
+
+    { uploads: missing_uploads, post_uploads: missing_post_uploads, count: count }
+  end
+
+  def owned_uploads_via_access_control
+    Upload.where(access_control_post_id: self.id)
   end
 
   private
@@ -929,14 +1070,13 @@ class Post < ActiveRecord::Base
 
   def create_reply_relationship_with(post)
     return if post.nil? || self.deleted_at.present?
-    post_reply = post.post_replies.new(reply_id: id)
+    post_reply = post.post_replies.new(reply_post_id: id)
     if post_reply.save
       if Topic.visible_post_types.include?(self.post_type)
         Post.where(id: post.id).update_all ['reply_count = reply_count + 1']
       end
     end
   end
-
 end
 
 # == Schema Information

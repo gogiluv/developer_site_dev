@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe Admin::EmojisController do
-  let(:admin) { Fabricate(:admin) }
-  let(:upload) { Fabricate(:upload) }
+  fab!(:admin) { Fabricate(:admin) }
+  fab!(:upload) { Fabricate(:upload) }
 
   before do
     sign_in(admin)
@@ -57,22 +59,38 @@ RSpec.describe Admin::EmojisController do
     it 'should allow an admin to add a custom emoji' do
       Emoji.expects(:clear_cache)
 
-        post "/admin/customize/emojis.json", params: {
-          name: 'test',
-          file: fixture_file_upload("#{Rails.root}/spec/fixtures/images/logo.png")
-        }
+      post "/admin/customize/emojis.json", params: {
+        name: 'test',
+        file: fixture_file_upload("#{Rails.root}/spec/fixtures/images/logo.png")
+      }
 
-        custom_emoji = CustomEmoji.last
-        upload = custom_emoji.upload
+      custom_emoji = CustomEmoji.last
+      upload = custom_emoji.upload
 
-        expect(upload.original_filename).to eq('logo.png')
+      expect(upload.original_filename).to eq('logo.png')
 
-        data = JSON.parse(response.body)
+      data = JSON.parse(response.body)
+      expect(response.status).to eq(200)
+      expect(data["errors"]).to eq(nil)
+      expect(data["name"]).to eq(custom_emoji.name)
+      expect(data["url"]).to eq(upload.url)
+      expect(custom_emoji.group).to eq(nil)
+    end
 
-        expect(response.status).to eq(200)
-        expect(data["errors"]).to eq(nil)
-        expect(data["name"]).to eq(custom_emoji.name)
-        expect(data["url"]).to eq(upload.url)
+    it 'should allow an admin to add a custom emoji with a custom group' do
+      Emoji.expects(:clear_cache)
+
+      post "/admin/customize/emojis.json", params: {
+        name: 'test',
+        group: 'Foo',
+        file: fixture_file_upload("#{Rails.root}/spec/fixtures/images/logo.png")
+      }
+
+      custom_emoji = CustomEmoji.last
+
+      data = JSON.parse(response.body)
+      expect(response.status).to eq(200)
+      expect(custom_emoji.group).to eq("foo")
     end
   end
 

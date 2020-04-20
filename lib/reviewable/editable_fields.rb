@@ -1,4 +1,4 @@
-require_dependency 'reviewable/collection'
+# frozen_string_literal: true
 
 class Reviewable < ActiveRecord::Base
   class EditableFields < Reviewable::Collection

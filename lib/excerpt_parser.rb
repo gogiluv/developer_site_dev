@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ExcerptParser < Nokogiri::XML::SAX::Document
 
   attr_reader :excerpt
@@ -6,7 +8,7 @@ class ExcerptParser < Nokogiri::XML::SAX::Document
 
   def initialize(length, options = nil)
     @length = length
-    @excerpt = ""
+    @excerpt = +""
     @current_length = 0
     options || {}
     @strip_links = options[:strip_links] == true
@@ -16,12 +18,13 @@ class ExcerptParser < Nokogiri::XML::SAX::Document
     @keep_newlines = options[:keep_newlines] == true
     @keep_emoji_images = options[:keep_emoji_images] == true
     @keep_onebox_source = options[:keep_onebox_source] == true
+    @keep_onebox_body = options[:keep_onebox_body] == true
+    @keep_quotes = options[:keep_quotes] == true
     @remap_emoji = options[:remap_emoji] == true
-    @strip_spoilers = options[:strip_spoilers] == true
     @start_excerpt = false
     @in_details_depth = 0
-    @summary_contents = ""
-    @detail_contents = ""
+    @summary_contents = +""
+    @detail_contents = +""
   end
 
   def self.get_excerpt(html, length, options)
@@ -33,7 +36,7 @@ class ExcerptParser < Nokogiri::XML::SAX::Document
       parser.parse(html)
     end
     excerpt = me.excerpt.strip
-    excerpt = excerpt.gsub(/\s*\n+\s*/, "\n\n") if options[:keep_onebox_source]
+    excerpt = excerpt.gsub(/\s*\n+\s*/, "\n\n") if options[:keep_onebox_source] || options[:keep_onebox_body]
     excerpt = CGI.unescapeHTML(excerpt) if options[:text_entities] == true
     excerpt
   end
@@ -94,38 +97,40 @@ class ExcerptParser < Nokogiri::XML::SAX::Document
 
     when "aside"
       attributes = Hash[*attributes.flatten]
-      unless @keep_onebox_source && attributes['class'].include?('onebox')
+      unless (@keep_onebox_source || @keep_onebox_body) && attributes['class'].include?('onebox')
         @in_quote = true
       end
 
+      if attributes['class']&.include?('quote')
+        if @keep_quotes || (@keep_onebox_body && attributes['data-topic'].present?)
+          @in_quote = false
+        end
+      end
+
     when 'article'
-      if @keep_onebox_source && attributes.include?(['class', 'onebox-body'])
-        @in_quote = true
+      if attributes.include?(['class', 'onebox-body'])
+        @in_quote = !@keep_onebox_body
+      end
+
+    when 'header'
+      if attributes.include?(['class', 'source'])
+        @in_quote = !@keep_onebox_source
       end
 
     when "div", "span"
       if attributes.include?(["class", "excerpt"])
-        @excerpt = ""
+        @excerpt = +""
         @current_length = 0
         @start_excerpt = true
       end
-      # Preserve spoilers
-      if attributes.include?(["class", "spoiler"])
-        if @strip_spoilers
-          characters("[#{I18n.t 'excerpt_spoiler'}]")
-        else
-          include_tag("span", attributes)
-        end
-        @in_spoiler = true
-      end
 
     when "details"
-      @detail_contents = "" if @in_details_depth == 0
+      @detail_contents = +"" if @in_details_depth == 0
       @in_details_depth += 1
 
     when "summary"
       if @in_details_depth == 1 && !@in_summary
-        @summary_contents = ""
+        @summary_contents = +""
         @in_summary = true
       end
 
@@ -198,8 +203,6 @@ class ExcerptParser < Nokogiri::XML::SAX::Document
     end
 
     @excerpt << before_string if before_string
-
-    string = "" if @in_spoiler && @strip_spoilers
 
     encode = encode ? lambda { |s| ERB::Util.html_escape(s) } : lambda { |s| s }
     if count_it && @current_length + string.length > @length

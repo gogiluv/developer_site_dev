@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe Group do
@@ -221,9 +223,31 @@ describe Group do
   end
 
   describe '.refresh_automatic_group!' do
+
+    it "does not include staged users in any automatic groups" do
+      staged = Fabricate(:staged, trust_level: 1)
+
+      Group.refresh_automatic_group!(:trust_level_0)
+      Group.refresh_automatic_group!(:trust_level_1)
+
+      expect(GroupUser.where(user_id: staged.id).count).to eq(0)
+
+      staged.unstage!
+
+      expect(GroupUser.where(user_id: staged.id).count).to eq(2)
+    end
+
     it "makes sure the everyone group is not visible except to staff" do
       g = Group.refresh_automatic_group!(:everyone)
       expect(g.visibility_level).to eq(Group.visibility_levels[:staff])
+    end
+
+    it "makes sure automatic groups are visible to logged on users" do
+      g = Group.refresh_automatic_group!(:moderators)
+      expect(g.visibility_level).to eq(Group.visibility_levels[:logged_on_users])
+
+      tl0 = Group.refresh_automatic_group!(:trust_level_0)
+      expect(tl0.visibility_level).to eq(Group.visibility_levels[:logged_on_users])
     end
 
     it "ensures that the moderators group is messageable by all" do
@@ -272,7 +296,7 @@ describe Group do
         group = Group.refresh_automatic_group!(:staff)
         expect(group.name).to eq('staff')
 
-        Fabricate(:user_single_email, username: I18n.t('groups.default_names.moderators').upcase)
+        Fabricate(:user, username: I18n.t('groups.default_names.moderators').upcase)
         group = Group.refresh_automatic_group!(:moderators)
         expect(group.name).to eq('moderators')
       end
@@ -436,8 +460,8 @@ describe Group do
   end
 
   describe 'destroy' do
-    let(:user) { Fabricate(:user) }
-    let(:group) { Fabricate(:group, users: [user]) }
+    fab!(:user) { Fabricate(:user) }
+    fab!(:group) { Fabricate(:group, users: [user]) }
 
     before do
       group.add(user)
@@ -514,7 +538,7 @@ describe Group do
   end
 
   context "group management" do
-    let(:group) { Fabricate(:group) }
+    fab!(:group) { Fabricate(:group) }
 
     it "by default has no managers" do
       expect(group.group_users.where('group_users.owner')).to be_empty
@@ -550,15 +574,15 @@ describe Group do
     end
 
     describe 'when a user has qualified for trust level 1' do
-      let(:user) do
+      fab!(:user) do
         Fabricate(:user,
           trust_level: 1,
           created_at: Time.zone.now - 10.years
         )
       end
 
-      let(:group) { Fabricate(:group, grant_trust_level: 1) }
-      let(:group2) { Fabricate(:group, grant_trust_level: 0) }
+      fab!(:group) { Fabricate(:group, grant_trust_level: 1) }
+      fab!(:group2) { Fabricate(:group, grant_trust_level: 0) }
 
       before do
         user.user_stat.update!(
@@ -617,9 +641,13 @@ describe Group do
 
   it 'should cook the bio' do
     group = Fabricate(:group)
-    group.update_attributes!(bio_raw: 'This is a group for :unicorn: lovers')
+    group.update!(bio_raw: 'This is a group for :unicorn: lovers')
 
     expect(group.bio_cooked).to include("unicorn.png")
+
+    group.update!(bio_raw: '')
+
+    expect(group.bio_cooked).to eq(nil)
   end
 
   describe ".visible_groups" do
@@ -630,6 +658,7 @@ describe Group do
 
     it 'correctly restricts group visibility' do
       group = Fabricate.build(:group, visibility_level: Group.visibility_levels[:owners])
+      logged_on_user = Fabricate(:user)
       member = Fabricate(:user)
       group.add(member)
       group.save!
@@ -644,6 +673,7 @@ describe Group do
       expect(can_view?(owner, group)).to eq(true)
       expect(can_view?(moderator, group)).to eq(false)
       expect(can_view?(member, group)).to eq(false)
+      expect(can_view?(logged_on_user, group)).to eq(false)
       expect(can_view?(nil, group)).to eq(false)
 
       group.update_columns(visibility_level: Group.visibility_levels[:staff])
@@ -652,6 +682,7 @@ describe Group do
       expect(can_view?(owner, group)).to eq(true)
       expect(can_view?(moderator, group)).to eq(true)
       expect(can_view?(member, group)).to eq(false)
+      expect(can_view?(logged_on_user, group)).to eq(false)
       expect(can_view?(nil, group)).to eq(false)
 
       group.update_columns(visibility_level: Group.visibility_levels[:members])
@@ -660,6 +691,7 @@ describe Group do
       expect(can_view?(owner, group)).to eq(true)
       expect(can_view?(moderator, group)).to eq(false)
       expect(can_view?(member, group)).to eq(true)
+      expect(can_view?(logged_on_user, group)).to eq(false)
       expect(can_view?(nil, group)).to eq(false)
 
       group.update_columns(visibility_level: Group.visibility_levels[:public])
@@ -668,7 +700,82 @@ describe Group do
       expect(can_view?(owner, group)).to eq(true)
       expect(can_view?(moderator, group)).to eq(true)
       expect(can_view?(member, group)).to eq(true)
+      expect(can_view?(logged_on_user, group)).to eq(true)
       expect(can_view?(nil, group)).to eq(true)
+
+      group.update_columns(visibility_level: Group.visibility_levels[:logged_on_users])
+
+      expect(can_view?(admin, group)).to eq(true)
+      expect(can_view?(owner, group)).to eq(true)
+      expect(can_view?(moderator, group)).to eq(true)
+      expect(can_view?(member, group)).to eq(true)
+      expect(can_view?(logged_on_user, group)).to eq(true)
+      expect(can_view?(nil, group)).to eq(false)
+    end
+
+  end
+
+  describe ".members_visible_groups" do
+
+    def can_view?(user, group)
+      Group.members_visible_groups(user).exists?(id: group.id)
+    end
+
+    it 'correctly restricts group members visibility' do
+      group = Fabricate.build(:group, members_visibility_level: Group.visibility_levels[:owners])
+      logged_on_user = Fabricate(:user)
+      member = Fabricate(:user)
+      group.add(member)
+      group.save!
+
+      owner = Fabricate(:user)
+      group.add_owner(owner)
+
+      moderator = Fabricate(:user, moderator: true)
+      admin = Fabricate(:user, admin: true)
+
+      expect(can_view?(admin, group)).to eq(true)
+      expect(can_view?(owner, group)).to eq(true)
+      expect(can_view?(moderator, group)).to eq(false)
+      expect(can_view?(member, group)).to eq(false)
+      expect(can_view?(logged_on_user, group)).to eq(false)
+      expect(can_view?(nil, group)).to eq(false)
+
+      group.update_columns(members_visibility_level: Group.visibility_levels[:staff])
+
+      expect(can_view?(admin, group)).to eq(true)
+      expect(can_view?(owner, group)).to eq(true)
+      expect(can_view?(moderator, group)).to eq(true)
+      expect(can_view?(member, group)).to eq(false)
+      expect(can_view?(logged_on_user, group)).to eq(false)
+      expect(can_view?(nil, group)).to eq(false)
+
+      group.update_columns(members_visibility_level: Group.visibility_levels[:members])
+
+      expect(can_view?(admin, group)).to eq(true)
+      expect(can_view?(owner, group)).to eq(true)
+      expect(can_view?(moderator, group)).to eq(false)
+      expect(can_view?(member, group)).to eq(true)
+      expect(can_view?(logged_on_user, group)).to eq(false)
+      expect(can_view?(nil, group)).to eq(false)
+
+      group.update_columns(members_visibility_level: Group.visibility_levels[:public])
+
+      expect(can_view?(admin, group)).to eq(true)
+      expect(can_view?(owner, group)).to eq(true)
+      expect(can_view?(moderator, group)).to eq(true)
+      expect(can_view?(member, group)).to eq(true)
+      expect(can_view?(logged_on_user, group)).to eq(true)
+      expect(can_view?(nil, group)).to eq(true)
+
+      group.update_columns(members_visibility_level: Group.visibility_levels[:logged_on_users])
+
+      expect(can_view?(admin, group)).to eq(true)
+      expect(can_view?(owner, group)).to eq(true)
+      expect(can_view?(moderator, group)).to eq(true)
+      expect(can_view?(member, group)).to eq(true)
+      expect(can_view?(logged_on_user, group)).to eq(true)
+      expect(can_view?(nil, group)).to eq(false)
     end
 
   end
@@ -698,6 +805,11 @@ describe Group do
       user.update(primary_group: group)
       expect { group.remove(user) }.to change { user.reload.primary_group }.from(group).to(nil)
     end
+
+    it 'triggers a user_removed_from_group event' do
+      events = DiscourseEvent.track_events { group.remove(user) }.map { |e| e[:event_name] }
+      expect(events).to include(:user_removed_from_group)
+    end
   end
 
   describe '#add' do
@@ -723,8 +835,35 @@ describe Group do
         .and change { user.title }.from('AAAA').to('BBBB')
     end
 
+    it "can send a notification to the user" do
+      expect { group.add(user, notify: true) }.to change { Notification.count }.by(1)
+
+      notification = Notification.last
+      expect(notification.notification_type).to eq(Notification.types[:membership_request_accepted])
+      expect(notification.user_id).to eq(user.id)
+    end
+
+    it 'triggers a user_added_to_group event' do
+      begin
+        automatic = nil
+        called = false
+
+        DiscourseEvent.on(:user_added_to_group) do |_u, _g, options|
+          automatic = options[:automatic]
+          called = true
+        end
+
+        group.add(user)
+
+        expect(automatic).to eql(false)
+        expect(called).to eq(true)
+      ensure
+        DiscourseEvent.off(:user_added_to_group)
+      end
+    end
+
     context 'when adding a user into a public group' do
-      let(:category) { Fabricate(:category) }
+      fab!(:category) { Fabricate(:category) }
 
       it "should publish the group's categories to the client" do
         group.update!(public_admission: true, categories: [category])
@@ -753,7 +892,7 @@ describe Group do
   end
 
   describe '.search_groups' do
-    let(:group) { Fabricate(:group, name: 'tEsT_more_things', full_name: 'Abc something awesome') }
+    fab!(:group) { Fabricate(:group, name: 'tEsT_more_things', full_name: 'Abc something awesome') }
 
     it 'should return the right groups' do
       group
@@ -843,5 +982,14 @@ describe Group do
 
     group = Group.find(group.id)
     expect(group.flair_url).to eq("fab fa-bandcamp")
+  end
+
+  context "Unicode usernames and group names" do
+    before { SiteSetting.unicode_usernames = true }
+
+    it "should normalize the name" do
+      group = Fabricate(:group, name: "Bücherwurm") # NFD
+      expect(group.name).to eq("Bücherwurm") # NFC
+    end
   end
 end

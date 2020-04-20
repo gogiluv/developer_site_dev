@@ -1,39 +1,48 @@
+<<<<<<< HEAD
 <div class="container">
   {{discourse-banner user=currentUser banner=site.banner}}
 </div>
 
-{{#if false}}
-<div class="searcharea">
-                 <input type="text" class="input_search" id="search_keyword" name="keyword" value="" placeholder="주제, 글, 사용자, 카테고리 검색" onkeydown="ecowiki.keychk()"/>
-                 <input type="button" class="button red btn_search" value="검색" onclick="ecowiki.search()"/>
-</div>
-{{/if}}
-
-<div class="list-controls">
+{{#if errorHtml}}
+  {{html-safe errorHtml}}
+{{else}}
   <div class="container">
-    {{outlet "navigation-bar"}}
-  </div>  
-</div>
+    {{discourse-banner user=currentUser banner=site.banner}}
+  </div>
 
-{{conditional-loading-spinner condition=loading}}
+  {{#if false}}
+    <div class="searcharea">
+                    <input type="text" class="input_search" id="search_keyword" name="keyword" value="" placeholder="주제, 글, 사용자, 카테고리 검색" onkeydown="ecowiki.keychk()"/>
+                    <input type="button" class="button red btn_search" value="검색" onclick="ecowiki.search()"/>
+    </div>
+  {{/if}}
 
-<div class="container list-container {{if loading "hidden"}}">
-  <div class="row">
-    <div class="full-width">
-      <div id="header-list-area">
-        {{outlet "header-list-container"}}
+  <div class="list-controls">
+    <div class="container">
+      {{outlet "navigation-bar"}}
+    </div>
+  </div>
+
+  {{conditional-loading-spinner condition=loading}}
+
+  <div class="container list-container {{if loading "hidden"}}">
+    <div class="row">
+      <div class="full-width">
+        <div id="header-list-area">
+          {{outlet "header-list-container"}}
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="full-width">
+        <div id="list-area">
+          {{plugin-outlet name="discovery-list-container-top"
+                          args=(hash category=category listLoading=loading)}}
+          {{outlet "list-container"}}
+        </div>
       </div>
     </div>
   </div>
-  <div class="row">
-    <div class="full-width">
-      <div id="list-area">
-        {{plugin-outlet name="discovery-list-container-top"
-                        args=(hash category=category listLoading=loading)}}
-        {{outlet "list-container"}}
-      </div>
-    </div>
-  </div>
-</div>
 
-{{plugin-outlet name="discovery-below"}}
+  {{plugin-outlet name="discovery-below"}}
+{{/if}}

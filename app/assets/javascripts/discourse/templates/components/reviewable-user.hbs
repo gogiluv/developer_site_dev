@@ -1,8 +1,8 @@
-<div class='reviewable-user-info'>
-  <div class='reviewable-user-fields'>
-    <div class='reviewable-user-details username'>
-      <div class='name'>{{i18n "review.user.username"}}</div>
-      <div class='value'>
+<div class="reviewable-user-info">
+  <div class="reviewable-user-fields">
+    <div class="reviewable-user-details username">
+      <div class="name">{{i18n "review.user.username"}}</div>
+      <div class="value">
         {{#if reviewable.link_admin}}
           <a href={{get-url (concat "/admin/users/" reviewable.user_id "/" reviewable.payload.username)}}>
             {{reviewable.payload.username}}
@@ -12,21 +12,32 @@
         {{/if}}
       </div>
     </div>
-    {{#if reviewable.payload.name}}
-      <div class='reviewable-user-details name'>
-        <div class='name'>{{i18n "review.user.name"}}</div>
-        <div class='value'>{{reviewable.payload.name}}</div>
+
+    {{reviewable-field classes="reviewable-user-details name"
+                       name=(i18n "review.user.name")
+                       value=reviewable.payload.name}}
+
+    {{reviewable-field classes="reviewable-user-details email"
+                       name=(i18n "review.user.email")
+                       value=reviewable.payload.email}}
+
+    {{reviewable-field classes="reviewable-user-details bio"
+                       name=(i18n "review.user.bio")
+                       value=reviewable.payload.bio}}
+
+    {{#if reviewable.payload.website}}
+      <div class="reviewable-user-details website">
+        <div class="name">{{i18n "review.user.website"}}</div>
+        <div class="value">
+          <a href={{reviewable.payload.website}} target="_blank" rel="noopener">{{reviewable.payload.website}}</a>
+        </div>
       </div>
     {{/if}}
-    <div class='reviewable-user-details email'>
-      <div class='name'>{{i18n "review.user.email"}}</div>
-      <div class='value'>{{reviewable.payload.email}}</div>
-    </div>
+
     {{#each userFields as |f|}}
-      <div class='reviewable-user-details user-field'>
-        <div class='name'>{{f.name}}</div>
-        <div class='value'>{{f.value}}</div>
-      </div>
+      {{reviewable-field classes="reviewable-user-details user-field"
+                         name=f.name
+                         value=f.value}}
     {{/each}}
   </div>
 

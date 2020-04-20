@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'seed_data/categories'
 
@@ -31,7 +33,7 @@ describe SeedData::Categories do
       expect(category.user_id).to eq(Discourse::SYSTEM_USER_ID)
       expect(category.category_groups.count).to eq(1)
       expect(category.category_groups.first).to have_attributes(permissions(:staff, :full))
-      expect(Topic.exists?(category.topic_id))
+      expect(Topic.exists?(category.topic_id)).to eq(true)
       expect(description_post(category).raw).to eq(I18n.t("staff_category_description"))
       expect(SiteSetting.staff_category_id).to eq(category.id)
     end

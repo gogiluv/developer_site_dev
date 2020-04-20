@@ -1,5 +1,4 @@
-require_dependency 'browser_detection'
-require_dependency 'discourse_ip_info'
+# frozen_string_literal: true
 
 module UserAuthTokensMixin
   extend ActiveSupport::Concern
@@ -43,6 +42,8 @@ module UserAuthTokensMixin
     case BrowserDetection.os(object.user_agent)
     when :android
       'fab-android'
+    when :chromeos
+      'fab-chrome'
     when :macos, :ios
       'fab-apple'
     when :linux

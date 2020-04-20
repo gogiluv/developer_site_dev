@@ -1,6 +1,4 @@
-require_dependency 'post_creator'
-require_dependency 'new_post_result'
-require_dependency 'word_watcher'
+# frozen_string_literal: true
 
 # Determines what actions should be taken with new posts.
 #
@@ -19,8 +17,16 @@ class NewPostManager
     sorted_handlers.map { |h| h[:proc] }
   end
 
+  def self.plugin_payload_attributes
+    @payload_attributes ||= []
+  end
+
+  def self.add_plugin_payload_attribute(attribute)
+    plugin_payload_attributes << attribute
+  end
+
   def self.clear_handlers!
-    @sorted_handlers = [{ priority: 0, proc: method(:default_handler) }]
+    @sorted_handlers = []
   end
 
   def self.add_handler(priority = 0, &block)
@@ -34,7 +40,8 @@ class NewPostManager
 
     !!(
       args[:first_post_checks] &&
-      user.post_count == 0
+      user.post_count == 0 &&
+      user.topic_count == 0
     )
   end
 
@@ -73,7 +80,11 @@ class NewPostManager
   def self.post_needs_approval?(manager)
     user = manager.user
 
+    return :email_auth_res_enqueue if manager.args[:email_auth_res_action] == :enqueue
+
     return :skip if exempt_user?(user)
+
+    return :email_spam if manager.args[:email_spam]
 
     return :post_count if (
       user.trust_level <= TrustLevel.levels[:basic] &&
@@ -117,21 +128,21 @@ class NewPostManager
     reason = post_needs_approval?(manager)
     return if reason == :skip
 
-    validator = Validators::PostValidator.new
+    validator = PostValidator.new
     post = Post.new(raw: manager.args[:raw])
     post.user = manager.user
     validator.validate(post)
 
     if post.errors[:raw].present?
       result = NewPostResult.new(:created_post, false)
-      result.errors[:base] << post.errors[:raw]
+      result.errors.add(:base, post.errors[:raw])
       return result
     elsif manager.args[:topic_id]
       topic = Topic.unscoped.where(id: manager.args[:topic_id]).first
 
       unless manager.user.guardian.can_create_post_on_topic?(topic)
         result = NewPostResult.new(:created_post, false)
-        result.errors[:base] << I18n.t(:topic_not_found)
+        result.errors.add(:base, I18n.t(:topic_not_found))
         return result
       end
     elsif manager.args[:category]
@@ -139,7 +150,7 @@ class NewPostManager
 
       unless manager.user.guardian.can_create_topic_on_category?(category)
         result = NewPostResult.new(:created_post, false)
-        result.errors[:base] << I18n.t("js.errors.reasons.forbidden")
+        result.errors.add(:base, I18n.t("js.errors.reasons.forbidden"))
         return result
       end
     end
@@ -150,6 +161,8 @@ class NewPostManager
       UserSilencer.silence(manager.user, Discourse.system_user, keep_posts: true, reason: I18n.t("user.new_user_typed_too_fast"))
     elsif matches_auto_silence_regex?(manager)
       UserSilencer.silence(manager.user, Discourse.system_user, keep_posts: true, reason: I18n.t("user.content_matches_auto_silence_regex"))
+    elsif reason == :email_spam && is_first_post?(manager)
+      UserSilencer.silence(manager.user, Discourse.system_user, keep_posts: true, reason: I18n.t("user.email_in_spam_header"))
     end
 
     result
@@ -170,42 +183,57 @@ class NewPostManager
   end
 
   def perform
-    if !self.class.exempt_user?(@user) && matches = WordWatcher.new("#{@args[:title]} #{@args[:raw]}").should_block?
+    if !self.class.exempt_user?(@user) && matches = WordWatcher.new("#{@args[:title]} #{@args[:raw]}").should_block?.presence
       result = NewPostResult.new(:created_post, false)
-      result.errors[:base] << I18n.t('contains_blocked_words', word: matches[0])
+      if matches.size == 1
+        key = 'contains_blocked_word'
+        translation_args = { word: matches[0] }
+      else
+        key = 'contains_blocked_words'
+        translation_args = { words: matches.join(', ') }
+      end
+      result.errors.add(:base, I18n.t(key, translation_args))
       return result
     end
 
-    # We never queue private messages
-    return perform_create_post if @args[:archetype] == Archetype.private_message
-
-    if args[:topic_id] && Topic.where(id: args[:topic_id], archetype: Archetype.private_message).exists?
-      return perform_create_post
-    end
-
     # Perform handlers until one returns a result
-    handled = NewPostManager.handlers.any? do |handler|
+    NewPostManager.handlers.any? do |handler|
       result = handler.call(self)
       return result if result
-
-      false
     end
 
-    perform_create_post unless handled
+    # We never queue private messages
+    return perform_create_post if @args[:archetype] == Archetype.private_message ||
+                                  (args[:topic_id] && Topic.where(id: args[:topic_id], archetype: Archetype.private_message).exists?)
+
+    NewPostManager.default_handler(self) || perform_create_post
   end
 
   # Enqueue this post
   def enqueue(reason = nil)
     result = NewPostResult.new(:enqueued)
+    payload = {
+      raw: @args[:raw],
+      tags: @args[:tags]
+    }
+    %w(typing_duration_msecs composer_open_duration_msecs reply_to_post_number).each do |a|
+      payload[a] = @args[a].to_i if @args[a]
+    end
+
+    self.class.plugin_payload_attributes.each { |a| payload[a] = @args[a] if @args[a].present? }
+
+    payload[:via_email] = true if !!@args[:via_email]
+    payload[:raw_email] = @args[:raw_email] if @args[:raw_email].present?
 
     reviewable = ReviewableQueuedPost.new(
       created_by: @user,
-      payload: { raw: @args[:raw], tags: @args[:tags] },
+      payload: payload,
       topic_id: @args[:topic_id],
       reviewable_by_moderator: true
     )
     reviewable.payload['title'] = @args[:title] if @args[:title].present?
     reviewable.category_id = args[:category] if args[:category].present?
+    reviewable.created_new!
 
     create_options = reviewable.create_options
 
@@ -233,7 +261,7 @@ class NewPostManager
     result.reviewable = reviewable
     result.reason = reason if reason
     result.check_errors(errors)
-    result.pending_count = Reviewable.where(created_by: @user).pending.count
+    result.pending_count = ReviewableQueuedPost.where(created_by: @user).pending.count
     result
   end
 

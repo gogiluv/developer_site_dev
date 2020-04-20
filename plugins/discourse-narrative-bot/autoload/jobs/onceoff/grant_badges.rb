@@ -1,13 +1,15 @@
+# frozen_string_literal: true
+
 module Jobs
   module DiscourseNarrativeBot
     class GrantBadges < ::Jobs::Onceoff
       def execute_onceoff(args)
         new_user_track_badge = Badge.find_by(
-          name: ::DiscourseNarrativeBot::NewUserNarrative::BADGE_NAME
+          name: ::DiscourseNarrativeBot::NewUserNarrative.badge_name
         )
 
         advanced_user_track_badge = Badge.find_by(
-          name: ::DiscourseNarrativeBot::AdvancedUserNarrative::BADGE_NAME
+          name: ::DiscourseNarrativeBot::AdvancedUserNarrative.badge_name
         )
 
         PluginStoreRow.where(

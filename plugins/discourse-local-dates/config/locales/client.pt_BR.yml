@@ -12,9 +12,10 @@ pt_BR:
         today: Hoje %{time}
         tomorrow: Amanhã %{time}
         yesterday: Ontem %{time}
-      title: Inserir data
+        countdown:
+          passed: data já passou
+      title: Inserir data / hora
       create:
-        modal_title: Inserir data
         form:
           insert: Inserir
           advanced_mode: Modo avançado
@@ -30,3 +31,13 @@ pt_BR:
           time_title: Hora
           format_title: Formato de data
           timezone: Fuso Horário
+          until: Até…
+          recurring:
+            every_day: "Diariamente"
+            every_week: "Semanalmente"
+            every_two_weeks: "Quinzenalmente"
+            every_month: "Mensalmente"
+            every_two_months: "Bimestralmente"
+            every_three_months: "Trimestralmente"
+            every_six_months: "Semestralmente"
+            every_year: "Anualmente"

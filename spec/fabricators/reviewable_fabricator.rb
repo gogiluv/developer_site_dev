@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 Fabricator(:reviewable) do
   reviewable_by_moderator true
   type 'ReviewableUser'
@@ -55,4 +57,12 @@ Fabricator(:reviewable_flagged_post) do
   topic
   target_type 'Post'
   target { Fabricate(:post) }
+end
+
+Fabricator(:reviewable_user) do
+  reviewable_by_moderator true
+  type 'ReviewableUser'
+  created_by { Fabricate(:user) }
+  target_type 'User'
+  target { Fabricate(:user) }
 end

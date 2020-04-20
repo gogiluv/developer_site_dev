@@ -1,10 +1,11 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'user_destroyer'
 
 describe UserDestroyer do
 
-  let(:user) { Fabricate(:user) }
-  let(:admin) { Fabricate(:admin) }
+  fab!(:user) { Fabricate(:user) }
+  fab!(:admin) { Fabricate(:admin) }
 
   describe 'new' do
     it 'raises an error when user is nil' do
@@ -19,7 +20,7 @@ describe UserDestroyer do
   describe 'destroy' do
     before do
       @admin = Fabricate(:admin)
-      @user = Fabricate(:user)
+      @user = Fabricate(:user_with_secondary_email)
     end
 
     it 'raises an error when user is nil' do
@@ -98,6 +99,16 @@ describe UserDestroyer do
       end
     end
 
+    context "with a reviewable user" do
+      let(:reviewable) { Fabricate(:reviewable, created_by: admin) }
+
+      it 'sets the reviewable user as rejected' do
+        UserDestroyer.new(admin).destroy(reviewable.target)
+
+        expect(reviewable.reload.status).to eq(Reviewable.statuses[:rejected])
+      end
+    end
+
     context "with a directory item record" do
 
       it "removes the directory item" do
@@ -116,7 +127,7 @@ describe UserDestroyer do
     end
 
     context "with a draft" do
-      let!(:draft) { Draft.set(user, 'test', 1, 'test') }
+      let!(:draft) { Draft.set(user, 'test', 0, 'test') }
 
       it "removed the draft" do
         UserDestroyer.new(admin).destroy(user)
@@ -311,13 +322,33 @@ describe UserDestroyer do
     end
 
     context 'user created a category' do
-      let!(:category) { Fabricate(:category, user: @user) }
+      let!(:category) { Fabricate(:category_with_definition, user: @user) }
 
       it "assigns the system user to the categories" do
         UserDestroyer.new(@admin).destroy(@user, delete_posts: true)
         expect(category.reload.user_id).to eq(Discourse.system_user.id)
         expect(category.topic).to be_present
         expect(category.topic.user_id).to eq(Discourse.system_user.id)
+      end
+    end
+
+    describe "Destroying a user with security key" do
+      let!(:security_key) { Fabricate(:user_security_key_with_random_credential, user: user) }
+      fab!(:admin) { Fabricate(:admin) }
+
+      it "removes the security key" do
+        UserDestroyer.new(admin).destroy(user)
+        expect(UserSecurityKey.where(user_id: user.id).count).to eq(0)
+      end
+    end
+
+    describe "Destroying a user with a bookmark" do
+      let!(:bookmark) { Fabricate(:bookmark, user: user) }
+      fab!(:admin) { Fabricate(:admin) }
+
+      it "removes the bookmark" do
+        UserDestroyer.new(admin).destroy(user)
+        expect(Bookmark.where(user_id: user.id).count).to eq(0)
       end
     end
 

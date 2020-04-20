@@ -1,14 +1,14 @@
+import { cancel, debounce, once } from "@ember/runloop";
+import Component from "@ember/component";
+import { equal, gt } from "@ember/object/computed";
+import { Promise } from "rsvp";
 import { ajax } from "discourse/lib/ajax";
-import {
-  default as computed,
-  observes,
-  on
-} from "ember-addons/ember-computed-decorators";
+import computed, { observes, on } from "discourse-common/utils/decorators";
 
 export const keepAliveDuration = 10000;
 export const bufferTime = 3000;
 
-export default Ember.Component.extend({
+export default Component.extend({
   // Passed in variables
   action: null,
   post: null,
@@ -22,34 +22,37 @@ export default Ember.Component.extend({
   presenceUsers: null,
   channel: null,
 
+  isReply: equal("action", "reply"),
+  shouldDisplay: gt("users.length", 0),
+
   @on("didInsertElement")
   composerOpened() {
     this._lastPublish = new Date();
-    Ember.run.once(this, "updateState");
+    once(this, "updateState");
   },
 
   @observes("action", "post.id", "topic.id")
   composerStateChanged() {
-    Ember.run.once(this, "updateState");
+    once(this, "updateState");
   },
 
   @observes("reply", "title")
   typing() {
     if (new Date() - this._lastPublish > keepAliveDuration) {
-      this.publish({ current: this.get("currentState") });
+      this.publish({ current: this.currentState });
     }
   },
 
   @on("willDestroyElement")
   composerClosing() {
-    this.publish({ previous: this.get("currentState") });
-    Ember.run.cancel(this._pingTimer);
-    Ember.run.cancel(this._clearTimer);
+    this.publish({ previous: this.currentState });
+    cancel(this._pingTimer);
+    cancel(this._clearTimer);
   },
 
   updateState() {
     let state = null;
-    const action = this.get("action");
+    const action = this.action;
 
     if (action === "reply" || action === "edit") {
       state = { action };
@@ -57,29 +60,29 @@ export default Ember.Component.extend({
       if (action === "edit") state.post_id = this.get("post.id");
     }
 
-    this.set("previousState", this.get("currentState"));
+    this.set("previousState", this.currentState);
     this.set("currentState", state);
   },
 
   @observes("currentState")
   currentStateChanged() {
-    if (this.get("channel")) {
-      this.messageBus.unsubscribe(this.get("channel"));
+    if (this.channel) {
+      this.messageBus.unsubscribe(this.channel);
       this.set("channel", null);
     }
 
     this.clear();
 
-    if (!["reply", "edit"].includes(this.get("action"))) {
+    if (!["reply", "edit"].includes(this.action)) {
       return;
     }
 
     this.publish({
       response_needed: true,
-      previous: this.get("previousState"),
-      current: this.get("currentState")
+      previous: this.previousState,
+      current: this.currentState
     }).then(r => {
-      if (this.get("isDestroyed")) {
+      if (this.isDestroyed) {
         return;
       }
       this.set("presenceUsers", r.users);
@@ -92,9 +95,8 @@ export default Ember.Component.extend({
       this.messageBus.subscribe(
         r.messagebus_channel,
         message => {
-          if (!this.get("isDestroyed"))
-            this.set("presenceUsers", message.users);
-          this._clearTimer = Ember.run.debounce(
+          if (!this.isDestroyed) this.set("presenceUsers", message.users);
+          this._clearTimer = debounce(
             this,
             "clear",
             keepAliveDuration + bufferTime
@@ -106,7 +108,7 @@ export default Ember.Component.extend({
   },
 
   clear() {
-    if (!this.get("isDestroyed")) this.set("presenceUsers", []);
+    if (!this.isDestroyed) this.set("presenceUsers", []);
   },
 
   publish(data) {
@@ -114,7 +116,7 @@ export default Ember.Component.extend({
 
     // Don't publish presence if disabled
     if (this.currentUser.hide_profile_and_presence) {
-      return Ember.RSVP.Promise.resolve();
+      return Promise.resolve();
     }
 
     return ajax("/presence/publish", { type: "POST", data });
@@ -123,8 +125,5 @@ export default Ember.Component.extend({
   @computed("presenceUsers", "currentUser.id")
   users(users, currentUserId) {
     return (users || []).filter(user => user.id !== currentUserId);
-  },
-
-  isReply: Ember.computed.equal("action", "reply"),
-  shouldDisplay: Ember.computed.gt("users.length", 0)
+  }
 });

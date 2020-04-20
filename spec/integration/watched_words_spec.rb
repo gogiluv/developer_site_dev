@@ -1,19 +1,26 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe WatchedWord do
-  let(:tl2_user) { Fabricate(:user, trust_level: TrustLevel[2]) }
-  let(:admin) { Fabricate(:admin) }
-  let(:moderator) { Fabricate(:moderator) }
+  fab!(:tl2_user) { Fabricate(:user, trust_level: TrustLevel[2]) }
+  fab!(:admin) { Fabricate(:admin) }
+  fab!(:moderator) { Fabricate(:moderator) }
 
-  let(:topic) { Fabricate(:topic) }
-  let(:first_post) { Fabricate(:post, topic: topic) }
+  fab!(:topic) { Fabricate(:topic) }
+  fab!(:first_post) { Fabricate(:post, topic: topic) }
 
   let(:require_approval_word) { Fabricate(:watched_word, action: WatchedWord.actions[:require_approval]) }
   let(:flag_word) { Fabricate(:watched_word, action: WatchedWord.actions[:flag]) }
   let(:block_word) { Fabricate(:watched_word, action: WatchedWord.actions[:block]) }
+  let(:another_block_word) { Fabricate(:watched_word, action: WatchedWord.actions[:block]) }
+
+  before_all do
+    WordWatcher.clear_cache!
+  end
 
   after do
-    $redis.flushall
+    WordWatcher.clear_cache!
   end
 
   context "block" do
@@ -21,7 +28,7 @@ describe WatchedWord do
       expect {
         result = manager.perform
         expect(result).to_not be_success
-        expect(result.errors[:base]&.first).to eq(I18n.t('contains_blocked_words', word: block_word.word))
+        expect(result.errors[:base]&.first).to eq(I18n.t('contains_blocked_word', word: block_word.word))
       }.to_not change { Post.count }
     end
 
@@ -35,18 +42,23 @@ describe WatchedWord do
       should_block_post(manager)
     end
 
-    it "should not block the post from admin" do
+    it "should block the post from admin" do
       manager = NewPostManager.new(admin, raw: "Want some #{block_word.word} for cheap?", topic_id: topic.id)
-      result = manager.perform
-      expect(result).to be_success
-      expect(result.action).to eq(:create_post)
+      should_block_post(manager)
     end
 
-    it "should not block the post from moderator" do
+    it "should block the post from moderator" do
       manager = NewPostManager.new(moderator, raw: "Want some #{block_word.word} for cheap?", topic_id: topic.id)
-      result = manager.perform
-      expect(result).to be_success
-      expect(result.action).to eq(:create_post)
+      should_block_post(manager)
+    end
+
+    it "should block the post if it contains multiple blocked words" do
+      manager = NewPostManager.new(moderator, raw: "Want some #{block_word.word} #{another_block_word.word} for cheap?", topic_id: topic.id)
+      expect {
+        result = manager.perform
+        expect(result).to_not be_success
+        expect(result.errors[:base]&.first).to eq(I18n.t('contains_blocked_words', words: [block_word.word, another_block_word.word].sort.join(', ')))
+      }.to_not change { Post.count }
     end
 
     it "should block in a private message too" do
@@ -177,27 +189,6 @@ describe WatchedWord do
       expect {
         post.rebake!
       }.to_not change { PostAction.count }
-    end
-  end
-
-  describe 'upload' do
-    context 'logged in as admin' do
-      before do
-        sign_in(admin)
-      end
-
-      it 'creates the words from the file' do
-        post '/admin/logs/watched_words/upload.json', params: {
-          action_key: 'flag',
-          file: Rack::Test::UploadedFile.new(file_from_fixtures("words.csv", "csv"))
-        }
-        expect(response.status).to eq(200)
-        expect(WatchedWord.count).to eq(6)
-        expect(WatchedWord.pluck(:word)).to contain_exactly(
-          'thread', '线', 'धागा', '실', 'tråd', 'нить'
-        )
-        expect(WatchedWord.pluck(:action).uniq).to eq([WatchedWord.actions[:flag]])
-      end
     end
   end
 end

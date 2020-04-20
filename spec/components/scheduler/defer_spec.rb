@@ -1,6 +1,7 @@
 # encoding: utf-8
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'scheduler/defer'
 
 describe Scheduler::Defer do
   class DeferInstance
@@ -12,26 +13,6 @@ describe Scheduler::Defer do
     while Time.now < till && !blk.call
       sleep 0.001
     end
-  end
-
-  class TrackingLogger < ::Logger
-    attr_reader :messages
-    def initialize
-      super(nil)
-      @messages = []
-    end
-    def add(*args, &block)
-      @messages << args
-    end
-  end
-
-  def track_log_messages
-    old_logger = Rails.logger
-    logger = Rails.logger = TrackingLogger.new
-    yield logger.messages
-    logger.messages
-  ensure
-    Rails.logger = old_logger
   end
 
   before do
@@ -83,7 +64,7 @@ describe Scheduler::Defer do
       x = 3
     end
 
-    wait_for(10) do
+    wait_for(1000) do
       x == 3
     end
 
@@ -93,7 +74,7 @@ describe Scheduler::Defer do
   it "recovers from a crash / fork" do
     s = nil
     @defer.stop!
-    wait_for(10) do
+    wait_for(1000) do
       @defer.stopped?
     end
     # hack allow thread to die
@@ -103,7 +84,7 @@ describe Scheduler::Defer do
       s = "good"
     end
 
-    wait_for(10) do
+    wait_for(1000) do
       s == "good"
     end
 
@@ -117,7 +98,7 @@ describe Scheduler::Defer do
       s = "good"
     end
 
-    wait_for(10) do
+    wait_for(1000) do
       s == "good"
     end
 

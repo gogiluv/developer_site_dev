@@ -1,4 +1,5 @@
 # encoding: utf-8
+# frozen_string_literal: true
 
 require 'rails_helper'
 
@@ -31,6 +32,30 @@ describe ThemeField do
     theme_field = ThemeField.create!(theme_id: 1, target_id: 0, name: "body_tag", value: '<div>new div</div>')
     theme_field.ensure_baked!
     expect(theme_field.value_baked).to_not include('<script')
+  end
+
+  it 'adds an error when optimized image links are included' do
+    theme_field = ThemeField.create!(theme_id: 1, target_id: 0, name: "body_tag", value: <<~HTML)
+      <img src="http://mysite.invalid/uploads/default/optimized/1X/6d749a141f513f88f167e750e528515002043da1_2_1282x1000.png"/>
+    HTML
+    theme_field.ensure_baked!
+    expect(theme_field.error).to include(I18n.t("themes.errors.optimized_link"))
+
+    theme_field = ThemeField.create!(theme_id: 1, target_id: 0, name: "scss", value: <<~SCSS)
+      body {
+        background: url(http://mysite.invalid/uploads/default/optimized/1X/6d749a141f513f88f167e750e528515002043da1_2_1282x1000.png);
+      }
+    SCSS
+    theme_field.ensure_baked!
+    expect(theme_field.error).to include(I18n.t("themes.errors.optimized_link"))
+
+    theme_field.update(value: <<~SCSS)
+      body {
+        background: url(http://notdiscourse.invalid/optimized/my_image.png);
+      }
+    SCSS
+    theme_field.ensure_baked!
+    expect(theme_field.error).to eq(nil)
   end
 
   it 'only extracts inline javascript to an external file' do
@@ -146,6 +171,44 @@ HTML
     expect(result).to include(".class5")
   end
 
+  it "correctly handles extra JS fields" do
+    theme = Fabricate(:theme)
+    js_field = theme.set_field(target: :extra_js, name: "discourse/controllers/discovery.js.es6", value: "import 'discourse/lib/ajax'; console.log('hello from .js.es6');")
+    js_2_field = theme.set_field(target: :extra_js, name: "discourse/controllers/discovery-2.js", value: "import 'discourse/lib/ajax'; console.log('hello from .js');")
+    hbs_field = theme.set_field(target: :extra_js, name: "discourse/templates/discovery.hbs", value: "{{hello-world}}")
+    raw_hbs_field = theme.set_field(target: :extra_js, name: "discourse/templates/discovery.hbr", value: "{{hello-world}}")
+    hbr_field = theme.set_field(target: :extra_js, name: "discourse/templates/other_discovery.hbr", value: "{{hello-world}}")
+    unknown_field = theme.set_field(target: :extra_js, name: "discourse/controllers/discovery.blah", value: "this wont work")
+    theme.save!
+
+    expected_js = <<~JS
+      define("discourse/controllers/discovery", ["discourse/lib/ajax"], function () {
+        "use strict";
+
+        var __theme_name__ = "#{theme.name}";
+        var settings = Discourse.__container__.lookup("service:theme-settings").getObjectForTheme(#{theme.id});
+        var themePrefix = function themePrefix(key) {
+          return "theme_translations.#{theme.id}." + key;
+        };
+        console.log('hello from .js.es6');
+      });
+    JS
+    expect(js_field.reload.value_baked).to eq(expected_js.strip)
+
+    expect(hbs_field.reload.value_baked).to include('Ember.TEMPLATES["discovery"]')
+    expect(raw_hbs_field.reload.value_baked).to include('Discourse.RAW_TEMPLATES["discovery"]')
+    expect(hbr_field.reload.value_baked).to include('Discourse.RAW_TEMPLATES["other_discovery"]')
+    expect(unknown_field.reload.value_baked).to eq("")
+    expect(unknown_field.reload.error).to eq(I18n.t("themes.compile_error.unrecognized_extension", extension: "blah"))
+
+    # All together
+    expect(theme.javascript_cache.content).to include('Ember.TEMPLATES["discovery"]')
+    expect(theme.javascript_cache.content).to include('Discourse.RAW_TEMPLATES["discovery"]')
+    expect(theme.javascript_cache.content).to include('define("discourse/controllers/discovery"')
+    expect(theme.javascript_cache.content).to include('define("discourse/controllers/discovery-2"')
+    expect(theme.javascript_cache.content).to include("var settings =")
+  end
+
   def create_upload_theme_field!(name)
     ThemeField.create!(
       theme_id: 1,
@@ -238,8 +301,8 @@ HTML
     let!(:theme3) { Fabricate(:theme) }
 
     let!(:en1) {
-      ThemeField.create!(theme: theme, target_id: Theme.targets[:translations], name: "en",
-                         value: { en: { somestring1: "helloworld", group: { key1: "enval1" } } }
+      ThemeField.create!(theme: theme, target_id: Theme.targets[:translations], name: "en_US",
+                         value: { en_US: { somestring1: "helloworld", group: { key1: "enval1" } } }
                                   .deep_stringify_keys.to_yaml
       )
     }
@@ -250,21 +313,21 @@ HTML
       )
     }
     let!(:fr2) { ThemeField.create!(theme: theme2, target_id: Theme.targets[:translations], name: "fr", value: "") }
-    let!(:en2) { ThemeField.create!(theme: theme2, target_id: Theme.targets[:translations], name: "en", value: "") }
+    let!(:en2) { ThemeField.create!(theme: theme2, target_id: Theme.targets[:translations], name: "en_US", value: "") }
     let!(:ca3) { ThemeField.create!(theme: theme3, target_id: Theme.targets[:translations], name: "ca", value: "") }
-    let!(:en3) { ThemeField.create!(theme: theme3, target_id: Theme.targets[:translations], name: "en", value: "") }
+    let!(:en3) { ThemeField.create!(theme: theme3, target_id: Theme.targets[:translations], name: "en_US", value: "") }
 
     describe "scopes" do
       it "filter_locale_fields returns results in the correct order" do
         expect(ThemeField.find_by_theme_ids([theme3.id, theme.id, theme2.id])
           .filter_locale_fields(
-           ["en", "fr"]
+           ["en_US", "fr"]
         )).to eq([en3, en1, fr1, en2, fr2])
       end
 
       it "find_first_locale_fields returns only the first locale for each theme" do
         expect(ThemeField.find_first_locale_fields(
-          [theme3.id, theme.id, theme2.id], ["ca", "en", "fr"]
+          [theme3.id, theme.id, theme2.id], ["ca", "en_US", "fr"]
         )).to eq([ca3, en1, en2])
       end
     end
@@ -295,7 +358,7 @@ HTML
       it "loads correctly" do
         expect(fr1.translation_data).to eq(
           fr: { somestring1: "bonjourworld", group: { key2: "frval2" } },
-          en: { somestring1: "helloworld", group: { key1: "enval1" } }
+          en_US: { somestring1: "helloworld", group: { key1: "enval1" } }
         )
       end
 
@@ -317,7 +380,7 @@ HTML
         theme.reload
         expect(fr1.translation_data).to eq(
           fr: { somestring1: "bonjourworld", group: { key2: "frval2" } },
-          en: { somestring1: "helloworld", group: { key1: "overriddentest1" } }
+          en_US: { somestring1: "helloworld", group: { key1: "overriddentest1" } }
         )
       end
     end

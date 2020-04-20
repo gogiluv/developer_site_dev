@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'jobs/base'
 
 describe Jobs::UserEmail do
 
@@ -7,10 +8,10 @@ describe Jobs::UserEmail do
     SiteSetting.email_time_window_mins = 10
   end
 
-  let(:user) { Fabricate(:user, last_seen_at: 11.minutes.ago) }
-  let(:staged) { Fabricate(:user, staged: true, last_seen_at: 11.minutes.ago) }
-  let(:suspended) { Fabricate(:user, last_seen_at: 10.minutes.ago, suspended_at: 5.minutes.ago, suspended_till: 7.days.from_now) }
-  let(:anonymous) { Fabricate(:anonymous, last_seen_at: 11.minutes.ago) }
+  fab!(:user) { Fabricate(:user, last_seen_at: 11.minutes.ago) }
+  fab!(:staged) { Fabricate(:user, staged: true, last_seen_at: 11.minutes.ago) }
+  fab!(:suspended) { Fabricate(:user, last_seen_at: 10.minutes.ago, suspended_at: 5.minutes.ago, suspended_till: 7.days.from_now) }
+  fab!(:anonymous) { Fabricate(:anonymous, last_seen_at: 11.minutes.ago) }
 
   it "raises an error when there is no user" do
     expect { Jobs::UserEmail.new.execute(type: :digest) }.to raise_error(Discourse::InvalidParameters)
@@ -25,23 +26,23 @@ describe Jobs::UserEmail do
   end
 
   context 'digest can be generated' do
-    let(:user) { Fabricate(:user, last_seen_at: 8.days.ago, last_emailed_at: 8.days.ago) }
-    let!(:popular_topic) { Fabricate(:topic, user: Fabricate(:admin), created_at: 1.hour.ago) }
+    fab!(:user) { Fabricate(:user, last_seen_at: 8.days.ago, last_emailed_at: 8.days.ago) }
+    fab!(:popular_topic) { Fabricate(:topic, user: Fabricate(:admin), created_at: 1.hour.ago) }
 
     it "doesn't call the mailer when the user is missing" do
-      Jobs::UserEmail.new.execute(type: :digest, user_id: 1234)
+      Jobs::UserEmail.new.execute(type: :digest, user_id: User.last.id + 10000)
       expect(ActionMailer::Base.deliveries).to eq([])
     end
 
     it "doesn't call the mailer when the user is staged" do
-      staged.update_attributes!(last_seen_at: 8.days.ago, last_emailed_at: 8.days.ago)
+      staged.update!(last_seen_at: 8.days.ago, last_emailed_at: 8.days.ago)
       Jobs::UserEmail.new.execute(type: :digest, user_id: staged.id)
       expect(ActionMailer::Base.deliveries).to eq([])
     end
 
     context 'not emailed recently' do
       before do
-        user.update_attributes!(last_emailed_at: 8.days.ago)
+        user.update!(last_emailed_at: 8.days.ago)
       end
 
       it "calls the mailer when the user exists" do
@@ -52,8 +53,8 @@ describe Jobs::UserEmail do
 
     context 'recently emailed' do
       before do
-        user.update_attributes!(last_emailed_at: 2.hours.ago)
-        user.user_option.update_attributes!(digest_after_minutes: 1.day.to_i / 60)
+        user.update!(last_emailed_at: 2.hours.ago)
+        user.user_option.update!(digest_after_minutes: 1.day.to_i / 60)
       end
 
       it 'skips sending digest email' do
@@ -110,8 +111,8 @@ describe Jobs::UserEmail do
   end
 
   context "recently seen" do
-    let(:post) { Fabricate(:post, user: user) }
-    let(:notification) { Fabricate(
+    fab!(:post) { Fabricate(:post, user: user) }
+    fab!(:notification) { Fabricate(
         :notification,
         user: user,
         topic: post.topic,
@@ -129,7 +130,7 @@ describe Jobs::UserEmail do
     end
 
     it "does send an email to a user that's been recently seen but has email_level set to always" do
-      user.user_option.update_attributes(email_level: UserOption.email_level_types[:always])
+      user.user_option.update(email_level: UserOption.email_level_types[:always])
       PostTiming.create!(topic_id: post.topic_id, post_number: post.post_number, user_id: user.id, msecs: 100)
 
       Jobs::UserEmail.new.execute(
@@ -145,6 +146,15 @@ describe Jobs::UserEmail do
     end
 
     it "sends an email by default for a PM to a user that's been recently seen" do
+      upload = Fabricate(:upload)
+
+      post.update!(raw: <<~RAW)
+      This is a test post
+
+      <a class="attachment" href="#{upload.url}">test</a>
+      <img src="#{upload.url}"/>
+      RAW
+
       Jobs::UserEmail.new.execute(
         type: :user_private_message,
         user_id: user.id,
@@ -152,22 +162,29 @@ describe Jobs::UserEmail do
         notification_id: notification.id
       )
 
-      expect(ActionMailer::Base.deliveries.first.to).to contain_exactly(
-        user.email
-      )
+      email = ActionMailer::Base.deliveries.first
+
+      expect(email.to).to contain_exactly(user.email)
+
+      expect(email.parts[0].body.to_s).to include(<<~MD)
+      This is a test post
+
+      [test|attachment](#{Discourse.base_url}#{upload.url})
+      ![](#{Discourse.base_url}#{upload.url})
+      MD
     end
 
     it "doesn't send a PM email to a user that's been recently seen and has email_messages_level set to never" do
-      user.user_option.update_attributes(email_messages_level: UserOption.email_level_types[:never])
-      user.user_option.update_attributes(email_level: UserOption.email_level_types[:always])
+      user.user_option.update(email_messages_level: UserOption.email_level_types[:never])
+      user.user_option.update(email_level: UserOption.email_level_types[:always])
       Jobs::UserEmail.new.execute(type: :user_private_message, user_id: user.id, post_id: post.id)
 
       expect(ActionMailer::Base.deliveries).to eq([])
     end
 
     it "doesn't send a regular post email to a user that's been recently seen and has email_level set to never" do
-      user.user_option.update_attributes(email_messages_level: UserOption.email_level_types[:always])
-      user.user_option.update_attributes(email_level: UserOption.email_level_types[:never])
+      user.user_option.update(email_messages_level: UserOption.email_level_types[:always])
+      user.user_option.update(email_level: UserOption.email_level_types[:never])
       Jobs::UserEmail.new.execute(type: :user_replied, user_id: user.id, post_id: post.id)
 
       expect(ActionMailer::Base.deliveries).to eq([])
@@ -175,18 +192,21 @@ describe Jobs::UserEmail do
   end
 
   context "email_log" do
-    let(:post) { Fabricate(:post) }
+    fab!(:post) { Fabricate(:post, created_at: 30.seconds.ago) }
 
     before do
       SiteSetting.editing_grace_period = 0
-      post
     end
 
     it "creates an email log when the mail is sent (via Email::Sender)" do
-      last_emailed_at = user.last_emailed_at
+      freeze_time
+
+      last_emailed_at = 7.days.ago
+      user.update!(last_emailed_at: last_emailed_at)
+      Topic.last.update(created_at: 1.minute.ago)
 
       expect do
-        Jobs::UserEmail.new.execute(type: :digest, user_id: user.id,)
+        Jobs::UserEmail.new.execute(type: :digest, user_id: user.id)
       end.to change { EmailLog.count }.by(1)
 
       email_log = EmailLog.last
@@ -194,12 +214,17 @@ describe Jobs::UserEmail do
       expect(email_log.user).to eq(user)
       expect(email_log.post).to eq(nil)
       # last_emailed_at should have changed
-      expect(email_log.user.last_emailed_at).to_not eq(last_emailed_at)
+      expect(email_log.user.last_emailed_at).to_not eq_time(last_emailed_at)
     end
 
     it "creates a skipped email log when the mail is skipped" do
-      last_emailed_at = user.last_emailed_at
-      user.update_columns(suspended_till: 1.year.from_now)
+      freeze_time
+
+      last_emailed_at = 7.days.ago
+      user.update!(
+        last_emailed_at: last_emailed_at,
+        suspended_till: 1.year.from_now
+      )
 
       expect do
         Jobs::UserEmail.new.execute(type: :digest, user_id: user.id)
@@ -214,9 +239,27 @@ describe Jobs::UserEmail do
       )).to eq(true)
 
       # last_emailed_at doesn't change
-      expect(user.last_emailed_at).to eq(last_emailed_at)
+      expect(user.last_emailed_at).to eq_time(last_emailed_at)
     end
 
+    it "creates a skipped email log when the user isn't allowed to see the post" do
+      user.user_option.update(email_level: UserOption.email_level_types[:always])
+      post.topic.convert_to_private_message(Discourse.system_user)
+
+      expect do
+        Jobs::UserEmail.new.execute(type: :user_posted, user_id: user.id, post_id: post.id)
+      end.to change { SkippedEmailLog.count }.by(1)
+
+      expect(SkippedEmailLog.exists?(
+        email_type: "user_posted",
+        user: user,
+        post: post,
+        to_address: user.email,
+        reason_type: SkippedEmailLog.reason_types[:user_email_access_denied]
+      )).to eq(true)
+
+      expect(ActionMailer::Base.deliveries).to eq([])
+    end
   end
 
   context 'args' do
@@ -231,7 +274,7 @@ describe Jobs::UserEmail do
     end
 
     context "post" do
-      let(:post) { Fabricate(:post, user: user) }
+      fab!(:post) { Fabricate(:post, user: user) }
 
       it "doesn't send the email if you've seen the post" do
         PostTiming.record_timing(topic_id: post.topic_id, user_id: user.id, post_number: post.post_number, msecs: 6666)
@@ -248,7 +291,7 @@ describe Jobs::UserEmail do
       end
 
       it "doesn't send the email if user of the post has been deleted" do
-        post.update_attributes!(user_id: nil)
+        post.update!(user_id: nil)
         Jobs::UserEmail.new.execute(type: :user_replied, user_id: user.id, post_id: post.id)
 
         expect(ActionMailer::Base.deliveries).to eq([])
@@ -305,8 +348,8 @@ describe Jobs::UserEmail do
     end
 
     context 'notification' do
-      let(:post) { Fabricate(:post, user: user) }
-      let!(:notification) {
+      fab!(:post) { Fabricate(:post, user: user) }
+      fab!(:notification) {
         Fabricate(:notification,
                     user: user,
                     topic: post.topic,
@@ -628,5 +671,33 @@ describe Jobs::UserEmail do
       end
     end
 
+  end
+
+  context "canonical emails" do
+    it "correctly creates canonical emails" do
+      expect(UserEmail.canonical('s.a.m+1@gmail.com')).to eq('sam@gmail.com')
+      expect(UserEmail.canonical('sa.m+1@googlemail.com')).to eq('sam@googlemail.com')
+      expect(UserEmail.canonical('sa.m+1722@sam.com')).to eq('sa.m@sam.com')
+      expect(UserEmail.canonical('sa.m@sam.com')).to eq('sa.m@sam.com')
+    end
+
+    it "correctly bans non canonical emails" do
+
+      email = UserEmail.create!(email: 'sam@sam.com', user_id: user.id)
+      expect(email.canonical_email).to eq(nil)
+
+      email = UserEmail.create!(email: 'sam+1@sam.com', user_id: user.id)
+      expect(email.canonical_email).to eq(nil)
+
+      SiteSetting.enforce_canonical_emails = true
+
+      email = UserEmail.create!(email: 'Sam+5@sam.com', user_id: user.id)
+      expect(email.canonical_email).to eq('sam@sam.com')
+
+      expect do
+        UserEmail.create!(email: 'saM+3@sam.com', user_id: user.id)
+      end.to raise_error(ActiveRecord::RecordInvalid)
+
+    end
   end
 end

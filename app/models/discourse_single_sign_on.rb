@@ -1,6 +1,9 @@
-require_dependency 'single_sign_on'
+# frozen_string_literal: true
 
 class DiscourseSingleSignOn < SingleSignOn
+
+  class BlankExternalId < StandardError; end
+  class BannedExternalId < StandardError; end
 
   def self.sso_url
     SiteSetting.sso_url
@@ -24,21 +27,21 @@ class DiscourseSingleSignOn < SingleSignOn
 
   def register_nonce(return_path)
     if nonce
-      $redis.setex(nonce_key, SingleSignOn.nonce_expiry_time, return_path)
+      Discourse.cache.write(nonce_key, return_path, expires_in: SingleSignOn.nonce_expiry_time)
     end
   end
 
   def nonce_valid?
-    nonce && $redis.get(nonce_key).present?
+    nonce && Discourse.cache.read(nonce_key).present?
   end
 
   def return_path
-    $redis.get(nonce_key) || "/"
+    Discourse.cache.read(nonce_key) || "/"
   end
 
   def expire_nonce!
     if nonce
-      $redis.del nonce_key
+      Discourse.cache.delete nonce_key
     end
   end
 
@@ -46,7 +49,21 @@ class DiscourseSingleSignOn < SingleSignOn
     "SSO_NONCE_#{nonce}"
   end
 
+  BANNED_EXTERNAL_IDS = %w{none nil blank null}
+
   def lookup_or_create_user(ip_address = nil)
+
+    # we don't want to ban 0 from being an external id
+    external_id = self.external_id.to_s
+
+    if external_id.blank?
+      raise BlankExternalId
+    end
+
+    if BANNED_EXTERNAL_IDS.include?(external_id.downcase)
+      raise BannedExternalId, external_id
+    end
+
     sso_record = SingleSignOnRecord.find_by(external_id: external_id)
 
     if sso_record && (user = sso_record.user)
@@ -57,8 +74,7 @@ class DiscourseSingleSignOn < SingleSignOn
     end
 
     # ensure it's not staged anymore
-    user.unstage
-    user.save
+    user.unstage!
 
     change_external_attributes_and_override(sso_record, user)
 
@@ -83,6 +99,10 @@ class DiscourseSingleSignOn < SingleSignOn
     # optionally save the user and sso_record if they have changed
     user.user_avatar.save! if user.user_avatar
     user.save!
+
+    if @email_changed && user.active
+      user.set_automatic_groups
+    end
 
     # The user might require approval
     user.create_reviewable
@@ -235,9 +255,12 @@ class DiscourseSingleSignOn < SingleSignOn
   end
 
   def change_external_attributes_and_override(sso_record, user)
+    @email_changed = false
+
     if SiteSetting.sso_overrides_email && user.email != Email.downcase(email)
       user.email = email
       user.active = false if require_activation
+      @email_changed = true
     end
 
     if SiteSetting.sso_overrides_username? && username.present?
@@ -266,7 +289,7 @@ class DiscourseSingleSignOn < SingleSignOn
       end
     end
 
-    profile_background_missing = user.user_profile.profile_background.blank? || Upload.get_from_url(user.user_profile.profile_background).blank?
+    profile_background_missing = user.user_profile.profile_background_upload.blank? || Upload.get_from_url(user.user_profile.profile_background_upload.url).blank?
     if (profile_background_missing || SiteSetting.sso_overrides_profile_background) && profile_background_url.present?
       profile_background_changed = sso_record.external_profile_background_url != profile_background_url
       if profile_background_changed || profile_background_missing
@@ -278,7 +301,7 @@ class DiscourseSingleSignOn < SingleSignOn
       end
     end
 
-    card_background_missing = user.user_profile.card_background.blank? || Upload.get_from_url(user.user_profile.card_background).blank?
+    card_background_missing = user.user_profile.card_background_upload.blank? || Upload.get_from_url(user.user_profile.card_background_upload.url).blank?
     if (card_background_missing || SiteSetting.sso_overrides_profile_background) && card_background_url.present?
       card_background_changed = sso_record.external_card_background_url != card_background_url
       if card_background_changed || card_background_missing

@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'post_destroyer'
 
 describe PostDestroyer do
 
@@ -7,8 +8,8 @@ describe PostDestroyer do
     UserActionManager.enable
   end
 
-  let(:moderator) { Fabricate(:moderator) }
-  let(:admin) { Fabricate(:admin) }
+  fab!(:moderator) { Fabricate(:moderator) }
+  fab!(:admin) { Fabricate(:admin) }
   let(:post) { create_post }
 
   describe "destroy_old_hidden_posts" do
@@ -50,6 +51,16 @@ describe PostDestroyer do
   end
 
   describe 'destroy_old_stubs' do
+    it 'destroys stubs for deleted by user topics' do
+      SiteSetting.delete_removed_posts_after = 24
+
+      PostDestroyer.new(post.user, post).destroy
+      post.update_column(:updated_at, 2.days.ago)
+
+      PostDestroyer.destroy_stubs
+      expect(post.reload.deleted_at).not_to eq(nil)
+    end
+
     it 'destroys stubs for deleted by user posts' do
       SiteSetting.delete_removed_posts_after = 24
       Fabricate(:admin)
@@ -169,6 +180,15 @@ describe PostDestroyer do
       expect(post_action).to be_present
     end
 
+    it "works with topics and posts with no user" do
+      post = Fabricate(:post)
+      UserDestroyer.new(Discourse.system_user).destroy(post.user, delete_posts: true)
+
+      expect { PostDestroyer.new(Fabricate(:admin), post.reload).recover }
+        .to change { post.reload.user_id }.to(Discourse.system_user.id)
+        .and change { post.topic.user_id }.to(Discourse.system_user.id)
+    end
+
     describe "post_count recovery" do
       before do
         post
@@ -249,7 +269,7 @@ describe PostDestroyer do
   end
 
   describe "recovery and post actions" do
-    let(:codinghorror) { Fabricate(:coding_horror) }
+    fab!(:codinghorror) { Fabricate(:coding_horror) }
     let!(:like) { PostActionCreator.like(codinghorror, post).post_action }
     let!(:another_like) { PostActionCreator.like(moderator, post).post_action }
 
@@ -331,6 +351,12 @@ describe PostDestroyer do
         DiscourseEvent.off(:topic_destroyed, &topic_destroyed)
         DiscourseEvent.off(:topic_recovered, &topic_recovered)
       end
+    end
+
+    it "maintains history when a user destroys a hidden post" do
+      post.hide!(PostActionType.types[:inappropriate])
+      PostDestroyer.new(post.user, post).destroy
+      expect(post.revisions[0].modifications['raw']).to be_present
     end
 
     it "when topic is destroyed, it updates user_stats correctly" do
@@ -434,10 +460,10 @@ describe PostDestroyer do
   end
 
   context 'private message' do
-    let(:author) { Fabricate(:user) }
-    let(:private_message) { Fabricate(:private_message_topic, user: author) }
-    let!(:first_post) { Fabricate(:post, topic: private_message, user: author) }
-    let!(:second_post) { Fabricate(:post, topic: private_message, user: author, post_number: 2) }
+    fab!(:author) { Fabricate(:user) }
+    fab!(:private_message) { Fabricate(:private_message_topic, user: author) }
+    fab!(:first_post) { Fabricate(:post, topic: private_message, user: author) }
+    fab!(:second_post) { Fabricate(:post, topic: private_message, user: author, post_number: 2) }
 
     it "doesn't update post_count for a reply" do
       expect {
@@ -471,10 +497,10 @@ describe PostDestroyer do
 
   context 'deleting the second post in a topic' do
 
-    let(:user) { Fabricate(:user) }
+    fab!(:user) { Fabricate(:user) }
     let!(:post) { create_post(user: user) }
     let(:topic) { post.topic }
-    let(:second_user) { Fabricate(:coding_horror) }
+    fab!(:second_user) { Fabricate(:coding_horror) }
     let!(:second_post) { create_post(topic: topic, user: second_user) }
 
     before do
@@ -611,8 +637,8 @@ describe PostDestroyer do
 
   describe 'after delete' do
 
-    let!(:coding_horror) { Fabricate(:coding_horror) }
-    let!(:post) { Fabricate(:post, raw: "Hello @CodingHorror") }
+    fab!(:coding_horror) { Fabricate(:coding_horror) }
+    fab!(:post) { Fabricate(:post, raw: "Hello @CodingHorror") }
 
     it "should feature the users again (in case they've changed)" do
       Jobs.expects(:enqueue).with(:feature_topic_users, has_entries(topic_id: post.topic_id))
@@ -621,8 +647,8 @@ describe PostDestroyer do
 
     describe 'with a reply' do
 
-      let!(:reply) { Fabricate(:basic_reply, user: coding_horror, topic: post.topic) }
-      let!(:post_reply) { PostReply.create(post_id: post.id, reply_id: reply.id) }
+      fab!(:reply) { Fabricate(:basic_reply, user: coding_horror, topic: post.topic) }
+      let!(:post_reply) { PostReply.create(post_id: post.id, reply_post_id: reply.id) }
 
       it 'changes the post count of the topic' do
         post.reload
@@ -764,7 +790,7 @@ describe PostDestroyer do
   end
 
   describe 'topic links' do
-    let!(:first_post)  { Fabricate(:post) }
+    fab!(:first_post)  { Fabricate(:post) }
     let!(:topic)       { first_post.topic }
     let!(:second_post) { Fabricate(:post_with_external_links, topic: topic) }
 
@@ -781,4 +807,38 @@ describe PostDestroyer do
     end
   end
 
+  describe '#delete_with_replies' do
+    let(:reporter) { Discourse.system_user }
+    fab!(:post) { Fabricate(:post) }
+
+    before do
+      reply = Fabricate(:post, topic: post.topic)
+      post.update(replies: [reply])
+      PostActionCreator.off_topic(reporter, post)
+
+      @reviewable_reply = PostActionCreator.off_topic(reporter, reply).reviewable
+    end
+
+    it 'ignores flagged replies' do
+      PostDestroyer.delete_with_replies(reporter, post)
+
+      expect(@reviewable_reply.reload.status).to eq Reviewable.statuses[:ignored]
+    end
+
+    it 'approves flagged replies' do
+      PostDestroyer.delete_with_replies(reporter, post, defer_reply_flags: false)
+
+      expect(@reviewable_reply.reload.status).to eq Reviewable.statuses[:approved]
+    end
+  end
+
+  describe "featured topics for user_profiles" do
+    fab!(:user) { Fabricate(:user) }
+
+    it 'clears the user_profiles featured_topic column' do
+      user.user_profile.update(featured_topic: post.topic)
+      PostDestroyer.new(admin, post).destroy
+      expect(user.user_profile.reload.featured_topic).to eq(nil)
+    end
+  end
 end

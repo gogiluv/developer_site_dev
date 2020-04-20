@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # ViewModel used on Summary tab on User page
 
 class UserSummary
@@ -127,10 +129,14 @@ class UserSummary
   end
 
   def bookmark_count
-    UserAction
-      .where(user: @user)
-      .where(action_type: UserAction::BOOKMARK)
-      .count
+    if SiteSetting.enable_bookmarks_with_reminders
+      Bookmark.where(user: @user).count
+    else
+      UserAction
+        .where(user: @user)
+        .where(action_type: UserAction::BOOKMARK)
+        .count
+    end
   end
 
   def recent_time_read

@@ -1,25 +1,42 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'user'
 
 describe AdminUserListSerializer do
-  let(:user) { Fabricate(:user_second_factor_totp).user }
-  let(:admin) { Fabricate(:admin) }
+  fab!(:user) { Fabricate(:user) }
+  fab!(:admin) { Fabricate(:admin) }
   let(:guardian) { Guardian.new(admin) }
 
   let(:serializer) do
     AdminUserListSerializer.new(user, scope: guardian, root: false)
   end
 
-  it "returns the right values when user has second factor totp enabled" do
-    json = serializer.as_json
+  context "when totp enabled" do
+    before do
+      Fabricate(:user_second_factor_totp, user: user)
+    end
+    it "returns the right values" do
+      json = serializer.as_json
 
-    expect(json[:second_factor_enabled]).to eq(true)
+      expect(json[:second_factor_enabled]).to eq(true)
+    end
+  end
+
+  context "when security keys enabled" do
+    before do
+      Fabricate(:user_security_key, user: user)
+    end
+    it "returns the right values" do
+      json = serializer.as_json
+
+      expect(json[:second_factor_enabled]).to eq(true)
+    end
   end
 
   context "emails" do
-    let(:admin) { Fabricate(:user_single_email, admin: true, email: "admin@email.com") }
-    let(:moderator) { Fabricate(:user_single_email, moderator: true, email: "moderator@email.com") }
-    let(:user) { Fabricate(:user_single_email, email: "user@email.com") }
+    fab!(:admin) { Fabricate(:user, admin: true, email: "admin@email.com") }
+    fab!(:moderator) { Fabricate(:user, moderator: true, email: "moderator@email.com") }
+    fab!(:user) { Fabricate(:user, email: "user@email.com") }
 
     def serialize(user, viewed_by, opts = nil)
       AdminUserListSerializer.new(

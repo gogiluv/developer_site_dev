@@ -1,6 +1,6 @@
-def print_status_with_label(label, current, max)
-  print "\r%s%9d / %d (%5.1f%%)" % [label, current, max, ((current.to_f / max.to_f) * 100).round(1)]
-end
+# frozen_string_literal: true
+
+require_dependency "rake_helpers"
 
 def close_old_topics(category)
   topics = Topic.where(closed: false, category_id: category.id)
@@ -21,7 +21,7 @@ def close_old_topics(category)
 
   topics.find_each do |topic|
     topic.update_status("closed", true, Discourse.system_user)
-    print_status_with_label("    closing old topics: ", topics_closed += 1, total)
+    RakeHelpers.print_status_with_label("    closing old topics: ", topics_closed += 1, total)
   end
 end
 
@@ -47,7 +47,7 @@ def apply_auto_close(category)
 
   topics.find_each do |topic|
     topic.inherit_auto_close_from_category
-    print_status_with_label("    applying auto-close to topics: ", topics_closed += 1, total)
+    RakeHelpers.print_status_with_label("    applying auto-close to topics: ", topics_closed += 1, total)
   end
 end
 
@@ -60,6 +60,41 @@ task "topics:apply_autoclose" => :environment do
     puts ""
     apply_auto_close(category)
     puts ""
+  end
+
+  puts "", "Done"
+end
+
+task "topics:watch_all_replied_topics" => :environment do
+  puts "Setting all topics to Watching on which a user has posted at least once..."
+  topics = Topic.where("archetype != ?", Archetype.private_message)
+  total = topics.count
+  count = 0
+
+  topics.find_each do |t|
+    t.topic_users.where(posted: true).find_each do |tp|
+      tp.update!(notification_level: TopicUser.notification_levels[:watching], notifications_reason_id: TopicUser.notification_reasons[:created_post])
+    end
+    RakeHelpers.print_status(count += 1, total)
+  end
+
+  puts "", "Done"
+end
+
+task "topics:update_fancy_titles" => :environment do
+  if !SiteSetting.title_fancy_entities?
+    puts "fancy topic titles are disabled"
+    return
+  end
+
+  DB.exec("UPDATE topics SET fancy_title = NULL")
+
+  total = Topic.count
+  count = 0
+
+  Topic.find_each do |topic|
+    topic.fancy_title
+    RakeHelpers.print_status(count += 1, total)
   end
 
   puts "", "Done"

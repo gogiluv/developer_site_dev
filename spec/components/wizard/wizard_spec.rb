@@ -1,7 +1,11 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'wizard'
 
 describe Wizard do
+  fab!(:admin) { Fabricate(:admin) }
+
   before do
     SiteSetting.wizard_enabled = true
   end
@@ -54,6 +58,76 @@ describe Wizard do
       expect(step2.previous).to eq(step1)
       expect(step1.index).to eq(0)
       expect(step2.index).to eq(1)
+    end
+  end
+
+  describe ".exclude_step" do
+    let(:user) { Fabricate.build(:moderator) }
+    let(:wizard) { Wizard.new(user) }
+
+    it 'excludes steps even if they are added via append_step' do
+      wizard.append_step('first') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+
+      Wizard.exclude_step("random-step123")
+
+      wizard.append_step('random-step123') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+      wizard.append_step('finished')
+
+      expect(wizard.steps.map(&:id)).to eq(['first', 'finished'])
+    end
+  end
+
+  describe "#append_step with after specified" do
+    let(:user) { Fabricate.build(:moderator) }
+    let(:wizard) { Wizard.new(user) }
+
+    it 'inserts steps after the proper step' do
+      wizard.append_step('first') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+      wizard.append_step('second') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+      wizard.append_step('actually-second', after: 'first') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+
+      expect(wizard.steps.sort_by(&:index).map(&:id)).to eq(["first", "actually-second", "second"])
+      expect(wizard.steps.map(&:index).sort).to eq([0, 1, 2])
+    end
+
+    it 'inserts steps at the end if the after value does not match an existing step' do
+      wizard.append_step('first') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+      wizard.append_step('second') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+      wizard.append_step('should_be_last', after: 'abcdefghi') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+
+      expect(wizard.steps.sort_by(&:index).map(&:id)).to eq(["first", "second", "should_be_last"])
+      expect(wizard.steps.map(&:index).sort).to eq([0, 1, 2])
+    end
+
+    it 'inserts steps at the end' do
+      wizard.append_step('first') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+      wizard.append_step('second') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+      wizard.append_step('last', after: 'second') do |step|
+        step.add_field(id: 'another_element', type: 'text')
+      end
+
+      expect(wizard.steps.sort_by(&:index).map(&:id)).to eq(["first", "second", "last"])
+      expect(wizard.steps.map(&:index).sort).to eq([0, 1, 2])
     end
   end
 
@@ -116,19 +190,16 @@ describe Wizard do
 
     it "it's false when the wizard is disabled" do
       SiteSetting.wizard_enabled = false
-      admin = Fabricate(:admin)
       expect(build_simple(admin).requires_completion?).to eq(false)
     end
 
     it "its false when the wizard is bypassed" do
       SiteSetting.bypass_wizard_check = true
-      admin = Fabricate(:admin)
       expect(build_simple(admin).requires_completion?).to eq(false)
     end
 
     it "its automatically bypasses after you reach topic limit" do
       Fabricate(:topic)
-      admin = Fabricate(:admin)
       wizard = build_simple(admin)
 
       wizard.max_topics_to_require_completion = Topic.count - 1
@@ -138,7 +209,6 @@ describe Wizard do
     end
 
     it "it's true for the first admin who logs in" do
-      admin = Fabricate(:admin)
       second_admin = Fabricate(:admin)
       UserAuthToken.generate!(user_id: second_admin.id)
 
@@ -147,14 +217,14 @@ describe Wizard do
     end
 
     it "is false for staff when complete" do
-      wizard = build_simple(Fabricate(:admin))
+      wizard = build_simple(admin)
       updater = wizard.create_updater('simple', name: 'Evil Trout')
       updater.update
 
       expect(wizard.requires_completion?).to eq(false)
 
       # It's also false for another user
-      wizard = build_simple(Fabricate(:admin))
+      wizard = build_simple(admin)
       expect(wizard.requires_completion?).to eq(false)
     end
 

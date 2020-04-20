@@ -44,11 +44,7 @@
 
 .uploaded-image-preview {
   height: 270px;
-}
-
-.image-upload-controls {
-  padding: 10px;
-  label.btn {
-    padding: 7px 10px;
-  }
+  width: 400px;
+  max-height: 150px;
+  margin-bottom: 10px;
 }

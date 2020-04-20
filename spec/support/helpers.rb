@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Helpers
   extend ActiveSupport::Concern
 
@@ -108,13 +110,50 @@ module Helpers
     end
   end
 
+  def create_hidden_tags(tag_names)
+    tag_group = Fabricate(:tag_group,
+      name: 'Hidden Tags',
+      permissions: { staff: :full }
+    )
+    tag_names.each do |name|
+      tag_group.tags << (Tag.where(name: name).first || Fabricate(:tag, name: name))
+    end
+  end
+
+  def sorted_tag_names(tag_records)
+    tag_records.map { |t| t.is_a?(String) ? t : t.name }.sort
+  end
+
+  def expect_same_tag_names(a, b)
+    expect(sorted_tag_names(a)).to eq(sorted_tag_names(b))
+  end
+
   def capture_stdout
     old_stdout = $stdout
+    if ENV['RAILS_ENABLE_TEST_STDOUT']
+      yield
+      return
+    end
     io = StringIO.new
     $stdout = io
     yield
     io.string
   ensure
     $stdout = old_stdout
+  end
+
+  def set_subfolder(f)
+    global_setting :relative_url_root, f
+    old_root = ActionController::Base.config.relative_url_root
+    ActionController::Base.config.relative_url_root = f
+
+    before_next_spec do
+      ActionController::Base.config.relative_url_root = old_root
+    end
+  end
+
+  class StubbedJob
+    def initialize; end
+    def perform(args); end
   end
 end

@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 if github.pr_json && (github.pr_json["additions"] || 0) > 250 || (github.pr_json["deletions"] || 0) > 250
   warn("This pull request is big! We prefer smaller PRs whenever possible, as they are easier to review. Can this be split into a few smaller PRs?")
 end
 
-prettier_offenses = `yarn --silent prettier --list-different "app/assets/stylesheets/**/*.scss" "app/assets/javascripts/**/*.es6" "test/javascripts/**/*.es6"`.split("\n")
+prettier_offenses = `yarn --silent prettier --list-different "app/assets/stylesheets/**/*.scss" "app/assets/javascripts/**/*.js" "app/assets/javascripts/**/*.es6" "test/javascripts/**/*.es6"`.split("\n")
 
 unless prettier_offenses.empty?
   fail(%{
@@ -11,8 +13,8 @@ This PR doesn't match our required code formatting standards, as enforced by pre
   })
 end
 
-locales_changes = git.modified_files.grep(/config\/locales/)
-has_non_en_locales_changes = locales_changes.grep_v(/config\/locales\/(client|server)\.en\.yml/).any?
+locales_changes = git.modified_files.grep(%r{config/locales})
+has_non_en_locales_changes = locales_changes.grep_v(%r{config/locales/(?:client|server)\.(?:en|en_US)\.yml}).any?
 
 if locales_changes.any? && has_non_en_locales_changes
   fail("Please submit your non-English translation updates via [Transifex](https://www.transifex.com/discourse/discourse-org/). You can read more on how to contribute translations [here](https://meta.discourse.org/t/contribute-a-translation-to-discourse/14882).")
@@ -20,9 +22,9 @@ end
 
 files = (git.added_files + git.modified_files)
   .select { |path| !path.start_with?("plugins/") }
-  .select { |path| path.end_with?("es6") || path.end_with?("rb") }
+  .select { |path| path.end_with?("es6") || path.end_with?("js") || path.end_with?("rb") }
 
-js_files = files.select { |path| path.end_with?(".js.es6") }
+js_files = files.select { |path| path.end_with?(".js.es6") || path.end_with?(".js") }
 js_test_files = js_files.select { |path| path.end_with?("-test.js.es6") }
 
 super_offenses = []

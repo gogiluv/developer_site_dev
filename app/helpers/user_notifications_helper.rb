@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 module UserNotificationsHelper
   include GlobalPath
 
   def indent(text, by = 2)
     spacer = " " * by
-    result = ""
+    result = +""
     text.each_line do |line|
       result << spacer << line
     end
@@ -25,14 +27,14 @@ module UserNotificationsHelper
     logo_url
   end
 
-  def html_site_link(color)
-    "<a href='#{Discourse.base_url}' style='color: ##{color}'>#{@site_name}</a>"
+  def html_site_link
+    "<a href='#{Discourse.base_url}'>#{@site_name}</a>"
   end
 
   def first_paragraphs_from(html)
     doc = Nokogiri::HTML(html)
 
-    result = ""
+    result = +""
     length = 0
 
     doc.css('body > p, aside.onebox, body > ul, body > blockquote').each do |node|
@@ -45,13 +47,14 @@ module UserNotificationsHelper
 
     return result unless result.blank?
 
-    # If there is no first paragaph, return the first div (onebox)
-    doc.css('div').first
+    # If there is no first paragaph with text, return the first paragraph with
+    # something else (an image) or div (a onebox).
+    doc.css('body > p:not(:empty), body > div:not(:empty), body > p > div.lightbox-wrapper img').first
   end
 
-  def email_excerpt(html_arg)
+  def email_excerpt(html_arg, post = nil)
     html = (first_paragraphs_from(html_arg) || html_arg).to_s
-    PrettyText.format_for_email(html).html_safe
+    PrettyText.format_for_email(html, post).html_safe
   end
 
   def normalize_name(name)
@@ -59,7 +62,6 @@ module UserNotificationsHelper
   end
 
   def show_username_on_post(post)
-    return true if SiteSetting.prioritize_username_in_ux
     return true unless SiteSetting.enable_names?
     return true unless SiteSetting.display_name_on_posts?
     return true unless post.user.name.present?
@@ -68,8 +70,6 @@ module UserNotificationsHelper
   end
 
   def show_name_on_post(post)
-    return true unless SiteSetting.prioritize_username_in_ux
-
     SiteSetting.enable_names? &&
       SiteSetting.display_name_on_posts? &&
       post.user.name.present? &&

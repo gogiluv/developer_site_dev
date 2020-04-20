@@ -7,6 +7,13 @@ class ContentSecurityPolicy
       { script_src: SiteSetting.content_security_policy_script_src.split('|') }
     end
 
+    def path_specific_extension(path_info)
+      {}.tap do |obj|
+        for_qunit_route = !Rails.env.production? && ["/qunit", "/wizard/qunit"].include?(path_info)
+        obj[:script_src] = :unsafe_eval if for_qunit_route
+      end
+    end
+
     def plugin_extensions
       [].tap do |extensions|
         Discourse.plugins.each do |plugin|
@@ -37,16 +44,18 @@ class ContentSecurityPolicy
 
       Theme.where(id: Theme.transform_ids(theme_ids)).find_each do |theme|
         theme.cached_settings.each do |setting, value|
-          extensions << build_theme_extension(value) if setting.to_s == THEME_SETTING
+          extensions << build_theme_extension(value.split("|")) if setting.to_s == THEME_SETTING
         end
       end
+
+      extensions << build_theme_extension(ThemeModifierHelper.new(theme_ids: theme_ids).csp_extensions)
 
       extensions
     end
 
-    def build_theme_extension(raw)
+    def build_theme_extension(entries)
       {}.tap do |extension|
-        raw.split('|').each do |entry|
+        entries.each do |entry|
           directive, source = entry.split(':', 2).map(&:strip)
 
           extension[directive] ||= []

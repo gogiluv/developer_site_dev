@@ -1,4 +1,4 @@
-require_dependency 'has_errors'
+# frozen_string_literal: true
 
 class NewPostResult
   include HasErrors
@@ -9,6 +9,8 @@ class NewPostResult
   attr_accessor :post
   attr_accessor :reviewable
   attr_accessor :pending_count
+  attr_accessor :route_to
+  attr_accessor :message
 
   def initialize(action, success = false)
     @action = action
@@ -27,7 +29,7 @@ class NewPostResult
     if arr.empty?
       @success = true
     else
-      arr.each { |e| errors[:base] << e unless errors[:base].include?(e) }
+      arr.each { |e| errors.add(:base, e) unless errors[:base].include?(e) }
     end
   end
 

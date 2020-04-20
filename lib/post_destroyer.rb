@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #
 # How a post is deleted is affected by who is performing the action.
 # this class contains the logic to delete it.
@@ -22,7 +24,7 @@ class PostDestroyer
             WHERE t.deleted_at IS NOT NULL AND
                   t.id = posts.topic_id
         )")
-      .where("updated_at < ? AND post_number > 1", SiteSetting.delete_removed_posts_after.hours.ago)
+      .where("updated_at < ?", SiteSetting.delete_removed_posts_after.hours.ago)
       .where("NOT EXISTS (
                   SELECT 1
                   FROM post_actions pa
@@ -37,6 +39,13 @@ class PostDestroyer
     end
   end
 
+  def self.delete_with_replies(performed_by, post, reviewable = nil, defer_reply_flags: true)
+    reply_ids = post.reply_ids(Guardian.new(performed_by), only_replies_to_single_post: false)
+    replies = Post.where(id: reply_ids.map { |r| r[:id] })
+    PostDestroyer.new(performed_by, post, reviewable: reviewable).destroy
+    replies.each { |reply| PostDestroyer.new(performed_by, reply, defer_flags: defer_reply_flags).destroy }
+  end
+
   def initialize(user, post, opts = {})
     @user = user
     @post = post
@@ -47,8 +56,9 @@ class PostDestroyer
   def destroy
     payload = WebHook.generate_payload(:post, @post) if WebHook.active_web_hooks(:post).exists?
     topic = @post.topic
+    is_first_post = @post.is_first_post? && topic
 
-    if @post.is_first_post? && topic
+    if is_first_post
       topic_view = TopicView.new(topic.id, Discourse.system_user)
       topic_payload = WebHook.generate_payload(:topic, topic_view, WebHookTopicViewSerializer) if WebHook.active_web_hooks(:topic).exists?
     end
@@ -66,10 +76,11 @@ class PostDestroyer
     DiscourseEvent.trigger(:post_destroyed, @post, @opts, @user)
     WebHook.enqueue_post_hooks(:post_destroyed, @post, payload)
 
-    if @post.is_first_post? && @post.topic
-      UserActionManager.topic_destroyed(@post.topic)
-      DiscourseEvent.trigger(:topic_destroyed, @post.topic, @user)
-      WebHook.enqueue_topic_hooks(:topic_destroyed, @post.topic, topic_payload)
+    if is_first_post
+      UserProfile.remove_featured_topic_from_all_profiles(@topic)
+      UserActionManager.topic_destroyed(topic)
+      DiscourseEvent.trigger(:topic_destroyed, topic, @user)
+      WebHook.enqueue_topic_hooks(:topic_destroyed, topic, topic_payload)
     end
   end
 
@@ -80,6 +91,7 @@ class PostDestroyer
       user_recovered
     end
     topic = Topic.with_deleted.find @post.topic_id
+    topic.update_column(:user_id, Discourse::SYSTEM_USER_ID) if !topic.user_id
     topic.recover!(@user) if @post.is_first_post?
     topic.update_statistics
     UserActionManager.post_created(@post)
@@ -92,6 +104,7 @@ class PostDestroyer
   end
 
   def staff_recovered
+    @post.update_column(:user_id, Discourse::SYSTEM_USER_ID) if !@post.user_id
     @post.recover!
 
     mark_topic_changed
@@ -111,7 +124,7 @@ class PostDestroyer
         counts = Post.where(post_type: Post.types[:regular], topic_id: @post.topic_id).where('post_number > 1').group(:user_id).count
         counts.each do |user_id, count|
           if user_stat = UserStat.where(user_id: user_id).first
-            user_stat.update_attributes(post_count: user_stat.post_count + count)
+            user_stat.update(post_count: user_stat.post_count + count)
           end
         end
       end
@@ -147,12 +160,10 @@ class PostDestroyer
       TopicUser.update_post_action_cache(post_id: @post.id)
 
       DB.after_commit do
-        if reviewable = @post.reviewable_flag
-          if @opts[:defer_flags]
-            ignore(reviewable)
-          else
-            agree(reviewable)
-          end
+        if @opts[:reviewable]
+          notify_deletion(@opts[:reviewable])
+        elsif reviewable = @post.reviewable_flag
+          @opts[:defer_flags] ? ignore(reviewable) : agree(reviewable)
         end
       end
     end
@@ -170,12 +181,14 @@ class PostDestroyer
       key = @post.is_first_post? ? 'js.topic.deleted_by_author' : 'js.post.deleted_by_author'
       @post.revise(@user,
         { raw: I18n.t(key, count: delete_removed_posts_after) },
-        force_new_version: true
+        force_new_version: true,
+        deleting_post: true
       )
 
       Post.transaction do
         @post.update_column(:user_deleted, true)
         @post.topic_links.each(&:destroy)
+        @post.topic.update_column(:closed, true) if @post.is_first_post?
       end
     end
   end
@@ -186,6 +199,7 @@ class PostDestroyer
     Post.transaction do
       @post.update_column(:user_deleted, false)
       @post.skip_unique_check = true
+      @post.topic.update_column(:closed, false) if @post.is_first_post?
     end
 
     # has internal transactions, if we nest then there are some very high risk deadlocks
@@ -251,23 +265,7 @@ class PostDestroyer
   end
 
   def agree(reviewable)
-    if @user.human? && @user.staff? && rs = reviewable.reviewable_scores.order('created_at DESC').first
-      Jobs.enqueue(
-        :send_system_message,
-        user_id: @post.user_id,
-        message_type: :flags_agreed_and_post_deleted,
-        message_options: {
-          flagged_post_raw_content: @post.raw,
-          url: @post.url,
-          flag_reason: I18n.t(
-            "flag_reasons.#{PostActionType.types[rs.reviewable_score_type]}",
-            locale: SiteSetting.default_locale,
-            base_path: Discourse.base_path
-          )
-        }
-      )
-    end
-
+    notify_deletion(reviewable)
     result = reviewable.perform(@user, :agree_and_keep, post_was_deleted: true)
     reviewable.transition_to(result.transition_to, @user)
   end
@@ -275,6 +273,28 @@ class PostDestroyer
   def ignore(reviewable)
     reviewable.perform_ignore(@user, post_was_deleted: true)
     reviewable.transition_to(:ignored, @user)
+  end
+
+  def notify_deletion(reviewable)
+    return if @post.user.blank?
+
+    allowed_user = @user.human? && @user.staff?
+    return unless allowed_user && rs = reviewable.reviewable_scores.order('created_at DESC').first
+
+    Jobs.enqueue(
+      :send_system_message,
+      user_id: @post.user_id,
+      message_type: :flags_agreed_and_post_deleted,
+      message_options: {
+        flagged_post_raw_content: @post.raw,
+        url: @post.url,
+        flag_reason: I18n.t(
+          "flag_reasons.#{PostActionType.types[rs.reviewable_score_type]}",
+          locale: SiteSetting.default_locale,
+          base_path: Discourse.base_path
+        )
+      }
+    )
   end
 
   def trash_user_actions
@@ -291,10 +311,10 @@ class PostDestroyer
   end
 
   def remove_associated_replies
-    post_ids = PostReply.where(reply_id: @post.id).pluck(:post_id)
+    post_ids = PostReply.where(reply_post_id: @post.id).pluck(:post_id)
 
     if post_ids.present?
-      PostReply.where(reply_id: @post.id).delete_all
+      PostReply.where(reply_post_id: @post.id).delete_all
       Post.where(id: post_ids).each { |p| p.update_column :reply_count, p.replies.count }
     end
   end
@@ -347,7 +367,7 @@ class PostDestroyer
       counts = Post.where(post_type: Post.types[:regular], topic_id: @post.topic_id).where('post_number > 1').group(:user_id).count
       counts.each do |user_id, count|
         if user_stat = UserStat.where(user_id: user_id).first
-          user_stat.update_attributes(post_count: user_stat.post_count - count)
+          user_stat.update(post_count: user_stat.post_count - count)
         end
       end
     end

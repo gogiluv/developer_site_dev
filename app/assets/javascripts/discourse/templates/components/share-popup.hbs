@@ -1,5 +1,5 @@
 <div class="title">
-  <h3>{{{shareTitle}}}</h3>
+  <h3>{{html-safe shareTitle}}</h3>
 
   {{#if date}}
     <span class="date">{{displayDate}}</span>
@@ -8,7 +8,6 @@
 
 <div>
   <input type="text">
-  <div class="share-for-touch"><div class="overflow-ellipsis"><a></a></div></div>
 </div>
 
 <div class="actions">
@@ -35,8 +34,6 @@
       </div>
     {{/if}}
 
-    <a href {{action "close"}} class="close-share" aria-label={{i18n "share.close"}} title={{i18n "share.close"}}>
-      {{d-icon "times"}}
-    </a>
+    {{d-button action="close" class="btn btn-flat close" icon="times" aria-label="share.close" title="share.close"}}
   </div>
 </div>

@@ -12,11 +12,11 @@ id:
         today: Hari ini 1 %{time}
         tomorrow: Besok 1 %{time}
         yesterday: Kemarin 1 %{time}
-      title: Masukkan tanggal
       create:
-        modal_title: Masukkan tanggal
         form:
           insert: Masukkan
           advanced_mode: Mode lanjutan
           simple_mode: Mode sederhana
           timezones_title: Zona waktu yang ditampilkan
+          date_title: Tanggal
+          timezone: Zona Waktu

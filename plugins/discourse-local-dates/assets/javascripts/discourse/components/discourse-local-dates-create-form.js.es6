@@ -1,11 +1,18 @@
+import EmberObject from "@ember/object";
+import { isEmpty } from "@ember/utils";
+import { schedule } from "@ember/runloop";
+import Component from "@ember/component";
+import { notEmpty } from "@ember/object/computed";
+import { Promise } from "rsvp";
 /* global Pikaday:true */
 import { propertyNotEqual } from "discourse/lib/computed";
 import loadScript from "discourse/lib/load-script";
-import { default as computed } from "ember-addons/ember-computed-decorators";
+import computed, { observes } from "discourse-common/utils/decorators";
 import { cookAsync } from "discourse/lib/text";
-import debounce from "discourse/lib/debounce";
+import discourseDebounce from "discourse/lib/debounce";
+import { INPUT_DELAY } from "discourse-common/config/environment";
 
-export default Ember.Component.extend({
+export default Component.extend({
   timeFormat: "HH:mm:ss",
   dateFormat: "YYYY-MM-DD",
   dateTimeFormat: "YYYY-MM-DD HH:mm:ss",
@@ -20,9 +27,9 @@ export default Ember.Component.extend({
   isValid: true,
   timezone: null,
   fromSelected: null,
-  fromFilled: Ember.computed.notEmpty("date"),
+  fromFilled: notEmpty("date"),
   toSelected: null,
-  toFilled: Ember.computed.notEmpty("toDate"),
+  toFilled: notEmpty("toDate"),
 
   init() {
     this._super(...arguments);
@@ -48,18 +55,19 @@ export default Ember.Component.extend({
     });
   },
 
-  _renderPreview: debounce(function() {
-    const markup = this.get("markup");
+  @observes("markup")
+  _renderPreview: discourseDebounce(function() {
+    const markup = this.markup;
 
     if (markup) {
       cookAsync(markup).then(result => {
         this.set("currentPreview", result);
-        Ember.run.schedule("afterRender", () =>
+        schedule("afterRender", () =>
           this.$(".preview .discourse-local-date").applyLocalDates()
         );
       });
     }
-  }, 250).observes("markup"),
+  }, INPUT_DELAY),
 
   @computed("date", "toDate", "toTime")
   isRange(date, toDate, toTime) {
@@ -104,11 +112,11 @@ export default Ember.Component.extend({
     }
 
     let format = options.format;
-    if (timeInferred && this.get("formats").includes(format)) {
+    if (timeInferred && this.formats.includes(format)) {
       format = "LL";
     }
 
-    return Ember.Object.create({
+    return EmberObject.create({
       date: dateTime.format(this.dateFormat),
       time,
       dateTime,
@@ -137,11 +145,11 @@ export default Ember.Component.extend({
     }
 
     let format = options.format;
-    if (timeInferred && this.get("formats").includes(format)) {
+    if (timeInferred && this.formats.includes(format)) {
       format = "LL";
     }
 
-    return Ember.Object.create({
+    return EmberObject.create({
       date: dateTime.format(this.dateFormat),
       time,
       dateTime,
@@ -152,7 +160,7 @@ export default Ember.Component.extend({
 
   @computed("recurring", "timezones", "timezone", "format")
   options(recurring, timezones, timezone, format) {
-    return Ember.Object.create({
+    return EmberObject.create({
       recurring,
       timezones,
       timezone,
@@ -166,7 +174,7 @@ export default Ember.Component.extend({
     "options.{recurring,timezones,timezone,format}"
   )
   computedConfig(fromConfig, toConfig, options) {
-    return Ember.Object.create({
+    return EmberObject.create({
       from: fromConfig,
       to: toConfig,
       options
@@ -176,6 +184,11 @@ export default Ember.Component.extend({
   @computed
   currentUserTimezone() {
     return moment.tz.guess();
+  },
+
+  @computed
+  allTimezones() {
+    return moment.tz.names();
   },
 
   timezoneIsDifferentFromUserTimezone: propertyNotEqual(
@@ -337,11 +350,11 @@ export default Ember.Component.extend({
     },
 
     save() {
-      const markup = this.get("markup");
+      const markup = this.markup;
 
       if (markup) {
         this._closeModal();
-        this.get("toolbarEvent").addText(markup);
+        this.toolbarEvent.addText(markup);
       }
     },
 
@@ -351,7 +364,7 @@ export default Ember.Component.extend({
   },
 
   _setTimeIfValid(time, key) {
-    if (Ember.isEmpty(time)) {
+    if (isEmpty(time)) {
       this.set(key, null);
       return;
     }
@@ -362,7 +375,7 @@ export default Ember.Component.extend({
   },
 
   _setupPicker() {
-    return new Ember.RSVP.Promise(resolve => {
+    return new Promise(resolve => {
       loadScript("/javascripts/pikaday.js").then(() => {
         const options = {
           field: this.$(`.fake-input`)[0],
@@ -371,7 +384,6 @@ export default Ember.Component.extend({
           format: "YYYY-MM-DD",
           reposition: false,
           firstDay: 1,
-          defaultDate: moment(this.get("date"), this.dateFormat).toDate(),
           setDefaultDate: true,
           keyboardInput: false,
           i18n: {
@@ -379,16 +391,16 @@ export default Ember.Component.extend({
             nextMonth: I18n.t("dates.next_month"),
             months: moment.months(),
             weekdays: moment.weekdays(),
-            weekdaysShort: moment.weekdaysShort()
+            weekdaysShort: moment.weekdaysMin()
           },
           onSelect: date => {
             const formattedDate = moment(date).format("YYYY-MM-DD");
 
-            if (this.get("fromSelected")) {
+            if (this.fromSelected) {
               this.set("date", formattedDate);
             }
 
-            if (this.get("toSelected")) {
+            if (this.toSelected) {
               this.set("toDate", formattedDate);
             }
           }
@@ -404,7 +416,7 @@ export default Ember.Component.extend({
       date = null;
     }
 
-    Ember.run.schedule("afterRender", () => {
+    schedule("afterRender", () => {
       this._picker.setMinDate(moment(date, this.dateFormat).toDate());
     });
   },
@@ -414,8 +426,8 @@ export default Ember.Component.extend({
       date = null;
     }
 
-    Ember.run.schedule("afterRender", () => {
-      this._picker.setDate(date, true);
+    schedule("afterRender", () => {
+      this._picker.setDate(moment.utc(date), true);
     });
   },
 

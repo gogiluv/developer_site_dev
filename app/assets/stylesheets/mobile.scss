@@ -23,11 +23,13 @@
 @import "mobile/ring";
 @import "mobile/group";
 @import "mobile/dashboard";
+@import "mobile/admin_badges";
 @import "mobile/admin_customize";
 @import "mobile/admin_reports";
 @import "mobile/admin_report";
 @import "mobile/admin_report_table";
 @import "mobile/admin_report_counters";
+@import "mobile/admin_emojis";
 @import "mobile/menu-panel";
 @import "mobile/reviewables";
 
@@ -38,6 +40,4 @@
 
 /* These files doesn't actually exist, they are injected by Stylesheet::Compiler. */
 
-@import "plugins";
-@import "plugins_mobile";
 @import "category_backgrounds";

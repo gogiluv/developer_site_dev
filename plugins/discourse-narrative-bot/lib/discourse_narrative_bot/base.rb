@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module DiscourseNarrativeBot
   class Base
     include Actions
@@ -48,7 +50,13 @@ module DiscourseNarrativeBot
 
         begin
           old_data = @data.dup
-          new_post = (@skip && @state != :end) ? skip_tutorial(next_state) : self.send(action)
+
+          new_post =
+            if (@skip && @state != :end)
+              skip_tutorial(next_state)
+            else
+              self.send(action)
+            end
 
           if new_post
             old_state = old_data[:state]
@@ -66,7 +74,7 @@ module DiscourseNarrativeBot
               cancel_timeout_job(user)
 
               BadgeGranter.grant(
-                Badge.find_by(name: self.class::BADGE_NAME),
+                Badge.find_by(name: self.class.badge_name),
                 user
               )
 

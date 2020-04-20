@@ -1,4 +1,10 @@
 .reviewable {
+  .flagged-post-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
   .status {
     color: $primary-medium;
     span.approved {
@@ -14,6 +20,9 @@
       }
     }
   }
+  .explain {
+    margin-left: 0.5em;
+  }
 
   .nav-pills {
     margin-bottom: 1em;
@@ -28,7 +37,7 @@
       flex: 1;
       box-sizing: border-box;
       max-width: 760px; // Match topic post width
-      min-width: 320px;
+      min-width: 0;
       margin-right: auto;
     }
 
@@ -45,8 +54,9 @@
 }
 
 .reviewable-settings {
-  p.description {
-    margin-bottom: 2em;
+  h4 {
+    margin-top: 1em;
+    margin-bottom: 1em;
   }
 
   .saved {
@@ -54,7 +64,11 @@
   }
   .reviewable-score-type {
     display: flex;
+    margin-bottom: 0.5em;
 
+    .select-kit {
+      min-width: 10em;
+    }
     .title {
       width: 30%;
     }
@@ -107,6 +121,42 @@
     .category-chooser {
       width: 100%;
     }
+
+    .d-date-time-input-range {
+      width: inherit;
+      border: none;
+      padding: 0;
+
+      .d-date-input {
+        flex: 1 1 auto;
+        border: 1px solid $primary-medium;
+      }
+    }
+  }
+}
+
+.reviewable-claimed-topic {
+  display: flex;
+  align-items: center;
+  .btn-small {
+    margin-left: 0.5em;
+  }
+}
+
+.reviewable-actions .claimed-actions {
+  display: flex;
+  flex: 1 1 100%;
+  margin-right: 0;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5em;
+}
+
+.claimed-by {
+  display: flex;
+  align-items: center;
+  .claimed-username {
+    margin-left: 0.5em;
   }
 }
 
@@ -126,6 +176,7 @@
     .btn {
       display: flex;
       align-items: center;
+      margin-left: 1em;
     }
   }
 }
@@ -215,6 +266,7 @@
   .reviewable-actions {
     display: flex;
     flex-wrap: wrap;
+    width: 100%;
 
     button {
       white-space: nowrap;
@@ -223,10 +275,6 @@
     .reviewable-action,
     .reviewable-action-dropdown {
       margin-right: 0.5em;
-
-      &.delete-user {
-        @extend .btn-danger;
-      }
     }
   }
   padding-bottom: 1em;
@@ -249,7 +297,6 @@
   .reviewed-by {
     display: flex;
     align-items: center;
-    white-space: nowrap;
   }
 
   .user-flag-percentage {
@@ -274,8 +321,7 @@
       &.user a,
       &.reviewed-by a {
         max-width: 150px;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        @include ellipsis;
       }
     }
 
@@ -288,7 +334,13 @@
     }
     > tr > th,
     > tr > td {
-      padding: 0.5em 1em 0.5em 0;
+      &:not(:empty) {
+        padding: 0.5em 1em 0.5em 0;
+      }
+      @include breakpoint("mobile-large") {
+        @include ellipsis;
+        padding-right: 0.5em;
+      }
     }
     .reviewable-score-spacer {
       padding-right: 1em;
@@ -321,12 +373,20 @@
 }
 
 .reviewable-item {
+  .show-raw-email {
+    color: $primary-medium;
+    font-size: $font-down-2;
+  }
   .post-title {
     background-color: yellow;
   }
   .created-by {
     margin-right: 1em;
     padding-top: 0.35em;
+    @include breakpoint("mobile-large") {
+      float: left;
+      margin-bottom: 1em;
+    }
   }
 
   .names {
@@ -334,14 +394,35 @@
   }
 
   .post-contents-wrapper {
-    display: flex;
     width: 100%;
     margin-top: 1em;
     min-width: 275px;
+    word-break: break-word;
+    @include breakpoint("mobile-large", min-width) {
+      display: flex;
+    }
+  }
+  .reviewable-post-header {
+    display: flex;
+    justify-content: space-between;
+    max-width: $topic-body-width;
+    width: $topic-body-width;
+    align-items: center;
+
+    .reviewable-reply-to {
+      display: flex;
+      align-items: center;
+      color: $primary-medium;
+      font-size: 0.9em;
+      .d-icon {
+        margin-right: 0.5em;
+      }
+    }
   }
 
   .post-contents {
     width: 100%;
+    min-width: 0; // Flexbox fix
   }
 
   .post-body {
@@ -381,6 +462,14 @@
 }
 
 .editable-fields {
+  .editable-created-by {
+    display: flex;
+    .avatar {
+      margin-right: 0.25em;
+    }
+    margin-bottom: 0.5em;
+  }
+
   width: 100%;
   .editable-field {
     .mini-tag-chooser {
@@ -405,16 +494,22 @@
     width: 100%;
     display: block;
     tbody {
-      width: 100%;
+      width: calc(100% - 5px);
       display: block;
+      clear: both;
     }
   }
   tr.reviewable-score {
     display: grid;
     grid-template-columns: auto auto 1fr;
-    grid-template-rows: 1fr 1fr;
   }
   td.reviewable-score-spacer {
     display: none;
+  }
+}
+
+@include breakpoint("mobile-large") {
+  tr.reviewable-score {
+    grid-template-columns: auto auto auto;
   }
 }

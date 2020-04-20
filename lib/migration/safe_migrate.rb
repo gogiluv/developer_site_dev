@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Migration; end
 
 class Discourse::InvalidMigration < StandardError; end
@@ -65,8 +67,13 @@ class Migration::SafeMigrate
     end
   end
 
+  def self.post_migration_path
+    Discourse::DB_POST_MIGRATE_PATH
+  end
+
   def self.enable!
     return if PG::Connection.method_defined?(:exec_migrator_unpatched)
+    return if ENV['RAILS_ENV'] == "production"
 
     PG::Connection.class_eval do
       alias_method :exec_migrator_unpatched, :exec
@@ -86,6 +93,8 @@ class Migration::SafeMigrate
 
   def self.disable!
     return if !PG::Connection.method_defined?(:exec_migrator_unpatched)
+    return if ENV['RAILS_ENV'] == "production"
+
     PG::Connection.class_eval do
       alias_method :exec, :exec_migrator_unpatched
       alias_method :async_exec, :async_exec_migrator_unpatched
@@ -96,6 +105,8 @@ class Migration::SafeMigrate
   end
 
   def self.patch_active_record!
+    return if ENV['RAILS_ENV'] == "production"
+
     ActiveSupport.on_load(:active_record) do
       ActiveRecord::Migration.prepend(SafeMigration)
     end

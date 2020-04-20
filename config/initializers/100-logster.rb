@@ -1,3 +1,12 @@
+# frozen_string_literal: true
+
+if GlobalSetting.skip_redis?
+  if Rails.logger.respond_to? :chained
+    Rails.logger = Rails.logger.chained.first
+  end
+  return
+end
+
 if Rails.env.development? && RUBY_VERSION.match?(/^2\.5\.[23]/)
   STDERR.puts "WARNING: Discourse development environment runs slower on Ruby 2.5.3 or below"
   STDERR.puts "We recommend you upgrade to Ruby 2.6.1 for the optimal development performance"
@@ -95,6 +104,7 @@ Logster.config.subdirectory = "#{GlobalSetting.relative_url_root}/logs"
 
 Logster.config.application_version = Discourse.git_version
 Logster.config.enable_custom_patterns_via_ui = true
+Logster.config.enable_js_error_reporting = GlobalSetting.enable_js_error_reporting
 
 store = Logster.store
 redis = Logster.store.redis
@@ -135,6 +145,20 @@ RailsMultisite::ConnectionManagement.each_connection do
 end
 
 if Rails.configuration.multisite
-  chained = Rails.logger.chained
-  chained && chained.first.formatter = RailsMultisite::Formatter.new
+  if Rails.logger.respond_to? :chained
+    chained = Rails.logger.chained
+    chained && chained.first.formatter = RailsMultisite::Formatter.new
+  end
+end
+
+Logster.config.project_directories = [
+  { path: Rails.root.to_s, url: "https://github.com/discourse/discourse", main_app: true }
+]
+Discourse.plugins.each do |plugin|
+  next if !plugin.metadata.url
+
+  Logster.config.project_directories << {
+    path: "#{Rails.root.to_s}/plugins/#{plugin.directory_name}",
+    url: plugin.metadata.url
+  }
 end

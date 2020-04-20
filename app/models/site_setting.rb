@@ -1,6 +1,4 @@
-require 'site_setting_extension'
-require_dependency 'global_path'
-require_dependency 'site_settings/yaml_loader'
+# frozen_string_literal: true
 
 class SiteSetting < ActiveRecord::Base
   extend GlobalPath
@@ -75,33 +73,20 @@ class SiteSetting < ActiveRecord::Base
 
   def self.should_download_images?(src)
     setting = disabled_image_download_domains
-    return true unless setting.present?
+    return true if setting.blank?
 
     host = URI.parse(src).host
-    return !(setting.split('|').include?(host))
+    !setting.split("|").include?(host)
   rescue URI::Error
-    return true
+    true
   end
 
   def self.scheme
     force_https? ? "https" : "http"
   end
 
-  def self.default_categories_selected
-    [
-      SiteSetting.default_categories_watching.split("|"),
-      SiteSetting.default_categories_tracking.split("|"),
-      SiteSetting.default_categories_muted.split("|"),
-      SiteSetting.default_categories_watching_first_post.split("|")
-    ].flatten.to_set
-  end
-
   def self.min_redirected_to_top_period(duration)
-    period = ListController.best_period_with_topics_for(duration)
-    return period if period
-
-    # not enough topics
-    nil
+    ListController.best_period_with_topics_for(duration)
   end
 
   def self.queue_jobs=(val)
@@ -113,12 +98,31 @@ class SiteSetting < ActiveRecord::Base
     SiteSetting.manual_polling_enabled? || SiteSetting.pop3_polling_enabled?
   end
 
+  WATCHED_SETTINGS ||= [
+    :default_locale,
+    :attachment_content_type_blacklist,
+    :attachment_filename_blacklist,
+    :unicode_username_character_whitelist,
+    :markdown_typographer_quotation_marks
+  ]
+
+  def self.reset_cached_settings!
+    @attachment_content_type_blacklist_regex = nil
+    @attachment_filename_blacklist_regex = nil
+    @unicode_username_whitelist_regex = nil
+  end
+
   def self.attachment_content_type_blacklist_regex
     @attachment_content_type_blacklist_regex ||= Regexp.union(SiteSetting.attachment_content_type_blacklist.split("|"))
   end
 
   def self.attachment_filename_blacklist_regex
     @attachment_filename_blacklist_regex ||= Regexp.union(SiteSetting.attachment_filename_blacklist.split("|"))
+  end
+
+  def self.unicode_username_character_whitelist_regex
+    @unicode_username_whitelist_regex ||= SiteSetting.unicode_username_character_whitelist.present? \
+      ? Regexp.new(SiteSetting.unicode_username_character_whitelist) : nil
   end
 
   # helpers for getting s3 settings that fallback to global
@@ -169,6 +173,11 @@ class SiteSetting < ActiveRecord::Base
     SiteSetting::Upload
   end
 
+  def self.require_invite_code
+    invite_code.present?
+  end
+  client_settings << :require_invite_code
+
   %i{
     site_logo_url
     site_logo_small_url
@@ -182,6 +191,7 @@ class SiteSetting < ActiveRecord::Base
     digest_logo
     mobile_logo
     large_icon
+    manifest_icon
     favicon
     apple_touch_icon
     twitter_summary_large_image
@@ -189,6 +199,10 @@ class SiteSetting < ActiveRecord::Base
     push_notifications_icon
   }.each do |setting_name|
     define_singleton_method("site_#{setting_name}_url") do
+      if SiteIconManager.respond_to?("#{setting_name}_url")
+        return SiteIconManager.public_send("#{setting_name}_url")
+      end
+
       upload = self.public_send(setting_name)
       upload ? full_cdn_url(upload.url) : ''
     end

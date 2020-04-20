@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe WebHook do
@@ -35,11 +37,27 @@ describe WebHook do
   end
 
   context 'web hooks' do
-    let!(:post_hook) { Fabricate(:web_hook, payload_url: " https://example.com ") }
-    let!(:topic_hook) { Fabricate(:topic_web_hook) }
+    fab!(:post_hook) { Fabricate(:web_hook, payload_url: " https://example.com ") }
+    fab!(:topic_hook) { Fabricate(:topic_web_hook) }
 
     it "removes whitspace from payload_url before saving" do
       expect(post_hook.payload_url).to eq("https://example.com")
+    end
+
+    it "excludes disabled plugin web_hooks" do
+      web_hook_event_types = WebHookEventType.active.find_by(name: 'solved')
+      expect(web_hook_event_types).to eq(nil)
+    end
+
+    it "includes non-plugin web_hooks" do
+      web_hook_event_types = WebHookEventType.active.where(name: 'topic')
+      expect(web_hook_event_types.count).to eq(1)
+    end
+
+    it "includes enabled plugin web_hooks" do
+      SiteSetting.stubs(:solved_enabled).returns(true)
+      web_hook_event_types = WebHookEventType.active.where(name: 'solved')
+      expect(web_hook_event_types.count).to eq(1)
     end
 
     describe '#active_web_hooks' do
@@ -63,7 +81,7 @@ describe WebHook do
       end
 
       describe 'wildcard web hooks' do
-        let!(:wildcard_hook) { Fabricate(:wildcard_web_hook) }
+        fab!(:wildcard_hook) { Fabricate(:wildcard_web_hook) }
 
         it 'should include wildcard hooks' do
           expect(WebHook.active_web_hooks(:wildcard)).to eq([wildcard_hook])
@@ -92,7 +110,7 @@ describe WebHook do
       end
 
       context 'includes wildcard hooks' do
-        let!(:wildcard_hook) { Fabricate(:wildcard_web_hook) }
+        fab!(:wildcard_hook) { Fabricate(:wildcard_web_hook) }
 
         describe '#enqueue_hooks' do
           it 'enqueues hooks with ids' do
@@ -173,6 +191,22 @@ describe WebHook do
         payload = JSON.parse(job_args["payload"])
         expect(payload["id"]).to eq(topic_id)
       end
+
+      category = Fabricate(:category)
+
+      expect do
+        PostRevisor.new(post, post.topic).revise!(
+          post.user,
+          category_id: category.id,
+        )
+      end.to change { Jobs::EmitWebHookEvent.jobs.length }.by(1)
+
+      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
+
+      expect(job_args["event_name"]).to eq("topic_edited")
+      payload = JSON.parse(job_args["payload"])
+      expect(payload["id"]).to eq(topic_id)
+      expect(payload["category_id"]).to eq(category.id)
     end
 
     describe 'when topic has been deleted' do
@@ -275,7 +309,7 @@ describe WebHook do
       PostDestroyer.new(user, post).destroy
 
       job = Jobs::EmitWebHookEvent.new
-      job.expects(:web_hook_request).times(2)
+      job.expects(:send_webhook!).times(2)
 
       args = Jobs::EmitWebHookEvent.jobs[1]["args"].first
       job.execute(args.with_indifferent_access)
@@ -306,7 +340,7 @@ describe WebHook do
       payload = JSON.parse(job_args["payload"])
       expect(payload["id"]).to eq(admin.id)
 
-      ReviewableUser.find_by(target: user).perform(admin, :approve)
+      ReviewableUser.find_by(target: user).perform(admin, :approve_user)
       job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
 
       expect(job_args["event_name"]).to eq("user_approved")
@@ -426,68 +460,14 @@ describe WebHook do
       expect(payload["id"]).to eq(tag.id)
     end
 
-    # NOTE: Backwards compatibility, people should use reviewable instead
-    it 'should enqueue the right hooks for flag events' do
-      post = Fabricate(:post)
-      admin = Fabricate(:admin)
-      moderator = Fabricate(:moderator)
-      Fabricate(:flag_web_hook)
-
-      result = PostActionCreator.spam(admin, post)
+    it 'should enqueue the right hooks for notifications' do
+      Fabricate(:notification_web_hook)
+      notification = Fabricate(:notification)
       job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
 
-      expect(job_args["event_name"]).to eq("flag_created")
+      expect(job_args["event_name"]).to eq("notification_created")
       payload = JSON.parse(job_args["payload"])
-      expect(payload["id"]).to eq(result.post_action.id)
-
-      result.reviewable.perform(moderator, :agree_and_keep)
-      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
-
-      expect(job_args["event_name"]).to eq("flag_agreed")
-      payload = JSON.parse(job_args["payload"])
-      expect(payload["id"]).to eq(result.post_action.id)
-
-      result = PostActionCreator.spam(Fabricate(:user), post)
-      result.reviewable.perform(moderator, :disagree)
-      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
-
-      expect(job_args["event_name"]).to eq("flag_disagreed")
-      payload = JSON.parse(job_args["payload"])
-      expect(payload["id"]).to eq(result.post_action.id)
-
-      post = Fabricate(:post)
-      result = PostActionCreator.spam(admin, post)
-      result.reviewable.perform(moderator, :ignore)
-      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
-
-      expect(job_args["event_name"]).to eq("flag_deferred")
-      payload = JSON.parse(job_args["payload"])
-      expect(payload["id"]).to eq(result.post_action.id)
-    end
-
-    # NOTE: Backwards compatibility, people should use reviewable instead
-    it 'should enqueue the right hooks for queued post events' do
-      Fabricate(:queued_post_web_hook)
-      reviewable = Fabricate(:reviewable_queued_post)
-      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
-
-      expect(job_args["event_name"]).to eq("queued_post_created")
-      payload = JSON.parse(job_args["payload"])
-      expect(payload["id"]).to eq(reviewable.id)
-
-      reviewable.perform(Discourse.system_user, :approve)
-      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
-
-      expect(job_args["event_name"]).to eq("approved_post")
-      payload = JSON.parse(job_args["payload"])
-      expect(payload["id"]).to eq(reviewable.id)
-
-      reviewable.perform(Discourse.system_user, :reject)
-      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
-
-      expect(job_args["event_name"]).to eq("rejected_post")
-      payload = JSON.parse(job_args["payload"])
-      expect(payload["id"]).to eq(reviewable.id)
+      expect(payload["id"]).to eq(notification.id)
     end
 
     it 'should enqueue the right hooks for reviewables' do
@@ -499,12 +479,37 @@ describe WebHook do
       payload = JSON.parse(job_args["payload"])
       expect(payload["id"]).to eq(reviewable.id)
 
-      reviewable.perform(Discourse.system_user, :reject)
+      reviewable.perform(Discourse.system_user, :reject_user_delete)
       job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
 
       expect(job_args["event_name"]).to eq("reviewable_transitioned_to")
       payload = JSON.parse(job_args["payload"])
       expect(payload["id"]).to eq(reviewable.id)
+    end
+
+    it 'should enqueue the right hooks for badge grants' do
+      Fabricate(:user_badge_web_hook)
+      badge = Fabricate(:badge)
+      badge.multiple_grant = true
+      badge.show_posts = true
+      badge.save
+
+      now = Time.now
+      freeze_time now
+
+      BadgeGranter.grant(badge, user, granted_by: admin, post_id: post.id)
+
+      job_args = Jobs::EmitWebHookEvent.jobs.last["args"].first
+      expect(job_args["event_name"]).to eq("user_badge_granted")
+      payload = JSON.parse(job_args["payload"])
+      expect(payload["badge_id"]).to eq(badge.id)
+      expect(payload["user_id"]).to eq(user.id)
+      expect(payload["granted_by_id"]).to eq(admin.id)
+      # be_within required because rounding occurs
+      expect(Time.zone.parse(payload["granted_at"]).to_f).to be_within(0.001).of(now.to_f)
+      expect(payload["post_id"]).to eq(post.id)
+
+      # Future work: revoke badge hook
     end
   end
 end

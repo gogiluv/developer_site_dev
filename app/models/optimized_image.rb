@@ -1,7 +1,4 @@
-require_dependency "file_helper"
-require_dependency "url_helper"
-require_dependency "db_helper"
-require_dependency "file_store/local_store"
+# frozen_string_literal: true
 
 class OptimizedImage < ActiveRecord::Base
   include HasUrl
@@ -12,7 +9,7 @@ class OptimizedImage < ActiveRecord::Base
   URL_REGEX ||= /(\/optimized\/\dX[\/\.\w]*\/([a-zA-Z0-9]+)[\.\w]*)/
 
   def self.lock(upload_id, width, height)
-    @hostname ||= `hostname`.strip rescue "unknown"
+    @hostname ||= Discourse.os_hostname
     # note, the extra lock here ensures we only optimize one image per machine on webs
     # this can very easily lead to runaway CPU so slowing it down is beneficial and it is hijacked
     #
@@ -109,10 +106,12 @@ class OptimizedImage < ActiveRecord::Base
 
           # store the optimized image and update its url
           File.open(temp_path) do |file|
-            url = Discourse.store.store_optimized_image(file, thumbnail)
+            url = Discourse.store.store_optimized_image(file, thumbnail, nil, secure: upload.secure?)
             if url.present?
               thumbnail.url = url
               thumbnail.save
+            else
+              Rails.logger.error("Failed to store optimized image of size #{width}x#{height} from url: #{upload.url}\nTemp image path: #{temp_path}")
             end
           end
         end
@@ -237,11 +236,12 @@ class OptimizedImage < ActiveRecord::Base
 
   def self.resize_instructions_animated(from, to, dimensions, opts = {})
     ensure_safe_paths!(from, to)
+    resize_method = opts[:scale_image] ? "scale" : "resize-fit"
 
     %W{
       gifsicle
       --colors=#{opts[:colors] || 256}
-      --resize-fit #{dimensions}
+      --#{resize_method} #{dimensions}
       --optimize=3
       --output #{to}
       #{from}
@@ -321,10 +321,12 @@ class OptimizedImage < ActiveRecord::Base
 
   def self.optimize(operation, from, to, dimensions, opts = {})
     method_name = "#{operation}_instructions"
+
     if !!opts[:allow_animation] && (from =~ /\.GIF$/i)
       method_name += "_animated"
     end
-    instructions = self.send(method_name.to_sym, from, to, dimensions, opts)
+
+    instructions = self.public_send(method_name.to_sym, from, to, dimensions, opts)
     convert_with(instructions, to, opts)
   end
 

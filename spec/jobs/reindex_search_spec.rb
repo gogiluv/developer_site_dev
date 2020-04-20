@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe Jobs::ReindexSearch do
@@ -14,18 +16,19 @@ describe Jobs::ReindexSearch do
       model = Fabricate(m.to_sym)
       SiteSetting.default_locale = locale
       subject.execute({})
-      expect(model.send("#{m}_search_data").locale).to eq locale
+      expect(model.public_send("#{m}_search_data").locale).to eq locale
     end
 
     it "should rebuild `#{m}` when INDEX_VERSION changed" do
       model = Fabricate(m.to_sym)
       # so that search data can be reindexed
-      search_data = model.send("#{m}_search_data")
-      search_data.update_attributes!(version: 0)
+      search_data = model.public_send("#{m}_search_data")
+      search_data.update!(version: 0)
       model.reload
 
       subject.execute({})
-      expect(model.send("#{m}_search_data").version).to eq SearchIndexer::INDEX_VERSION
+      expect(model.public_send("#{m}_search_data").version)
+        .to eq(SearchIndexer::INDEX_VERSION)
     end
   end
 
@@ -112,21 +115,25 @@ describe Jobs::ReindexSearch do
       post2.save!(validate: false)
       post3 = Fabricate(:post)
       post3.topic.trash!
-      post4 = nil
+      post4, post5, post6 = nil
 
       freeze_time(described_class::CLEANUP_GRACE_PERIOD) do
         post4 = Fabricate(:post)
         post4.topic.trash!
+
+        post5 = Fabricate(:post)
+        post6 = Fabricate(:post, topic_id: post5.topic_id)
+        post6.trash!
       end
 
-      expect { subject.execute({}) }.to change { PostSearchData.count }.by(-2)
+      expect { subject.execute({}) }.to change { PostSearchData.count }.by(-3)
 
       expect(Post.pluck(:id)).to contain_exactly(
-        post.id, post2.id, post3.id, post4.id
+        post.id, post2.id, post3.id, post4.id, post5.id
       )
 
       expect(PostSearchData.pluck(:post_id)).to contain_exactly(
-        post.post_search_data.post_id, post3.post_search_data.post_id
+        post.id, post3.id, post5.id
       )
     end
   end

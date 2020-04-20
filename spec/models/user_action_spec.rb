@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe UserAction do
@@ -11,11 +13,11 @@ describe UserAction do
 
   describe '#stream' do
 
-    let(:public_post) { Fabricate(:post) }
+    fab!(:public_post) { Fabricate(:post) }
     let(:public_topic) { public_post.topic }
-    let(:user) { Fabricate(:user) }
+    fab!(:user) { Fabricate(:user) }
 
-    let(:private_post) { Fabricate(:post) }
+    fab!(:private_post) { Fabricate(:post) }
     let(:private_topic) do
       topic = private_post.topic
       topic.update_columns(category_id: nil, archetype: Archetype::private_message)
@@ -51,6 +53,7 @@ describe UserAction do
       end
 
       it 'includes the events correctly' do
+        Jobs.run_immediately!
         PostActionNotifier.enable
 
         mystats = stats_for_user(user)
@@ -153,9 +156,9 @@ describe UserAction do
 
   describe 'when user likes' do
 
-    let(:post) { Fabricate(:post) }
+    fab!(:post) { Fabricate(:post) }
     let(:likee) { post.user }
-    let(:liker) { Fabricate(:coding_horror) }
+    fab!(:liker) { Fabricate(:coding_horror) }
 
     def likee_stream
       UserAction.stream(user_id: likee.id, guardian: Guardian.new)
@@ -189,7 +192,7 @@ describe UserAction do
       end
 
       context 'private message' do
-        let(:post) { Fabricate(:private_message_post) }
+        fab!(:post) { Fabricate(:private_message_post) }
         let(:likee) { post.topic.topic_allowed_users.first.user }
         let(:liker) { post.topic.topic_allowed_users.last.user }
 
@@ -223,22 +226,19 @@ describe UserAction do
   end
 
   describe 'when a user posts a new topic' do
-    def process_alerts(post)
-      PostAlerter.post_created(post)
-    end
-
     before do
-      @post = create_post(created_at: DateTime.now - 100)
-      process_alerts(@post)
+      freeze_time(100.days.ago) do
+        @post = create_post
+        PostAlerter.post_created(@post)
+      end
     end
 
     describe 'topic action' do
-      before do
-        @action = @post.user.user_actions.find_by(action_type: UserAction::NEW_TOPIC)
-      end
       it 'should exist' do
+        @action = @post.user.user_actions.find_by(action_type: UserAction::NEW_TOPIC)
+
         expect(@action).not_to eq(nil)
-        expect(@action.created_at).to be_within(1).of(@post.topic.created_at)
+        expect(@action.created_at).to eq_time(@post.topic.created_at)
       end
     end
 
@@ -253,7 +253,7 @@ describe UserAction do
 
         @response = PostCreator.new(@other_user, reply_to_post_number: 1, topic_id: @post.topic_id, raw: "perhaps @#{@mentioned.username} knows how this works?").create
 
-        process_alerts(@response)
+        PostAlerter.post_created(@response)
       end
 
       it 'should log user actions correctly' do
@@ -293,11 +293,11 @@ describe UserAction do
 
   describe 'secures private messages' do
 
-    let(:user) do
+    fab!(:user) do
       Fabricate(:user)
     end
 
-    let(:user2) do
+    fab!(:user2) do
       Fabricate(:user)
     end
 

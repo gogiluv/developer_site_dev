@@ -20,7 +20,6 @@
     border: 1px solid $primary-medium;
     font-size: $font-0;
     transition: none;
-    height: 10px; // IE11 needs any height here for vertical centering, overriden elsewhere by min-height
   }
   .select-kit {
     align-self: center;
@@ -52,6 +51,14 @@
 .category-topic-link.visited {
   a.title:not(.badge-notification) {
     color: $primary-medium;
+  }
+}
+
+.topic-list-item {
+  .post-excerpt {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    font-size: $font-down-2;
   }
 }
 
@@ -129,6 +136,20 @@
 
   .main-link {
     @extend .topic-list-main-link;
+
+    .raw-topic-link > * {
+      pointer-events: none;
+    }
+  }
+
+  .unread-indicator {
+    &.read {
+      display: none;
+    }
+    .d-icon {
+      vertical-align: middle;
+      font-size: $font-down-5;
+    }
   }
 
   .link-bottom-line {
@@ -138,9 +159,6 @@
     align-items: center;
     .discourse-tags {
       flex-wrap: wrap;
-      // IE11 is being very stubborn but this is only protection for topics with
-      // a very excessive number of extra long tags - edge case.
-      -ms-flex: 1 0 0px;
     }
     a.badge-wrapper.box,
     a.discourse-tag.box {
@@ -194,15 +212,19 @@
 
 .heatmap-high,
 .heatmap-high a {
-  color: #fe7a15 !important;
+  color: #ec7213 !important;
 }
 .heatmap-med,
 .heatmap-med a {
-  color: #cf7721 !important;
+  color: #b06318 !important;
 }
 .heatmap-low,
 .heatmap-low a {
-  color: #9b764f !important;
+  color: #93704a !important;
+}
+
+.topic-list .heatmap-high {
+  font-weight: bold;
 }
 
 .loading .topic-list {

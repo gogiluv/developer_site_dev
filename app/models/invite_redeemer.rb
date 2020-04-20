@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 InviteRedeemer = Struct.new(:invite, :username, :name, :password, :user_custom_fields, :ip_address) do
 
   def redeem
@@ -13,27 +15,30 @@ InviteRedeemer = Struct.new(:invite, :username, :name, :password, :user_custom_f
 
   # extracted from User cause it is very specific to invites
   def self.create_user_from_invite(invite, username, name, password = nil, user_custom_fields = nil, ip_address = nil)
+    user = User.where(staged: true).with_email(invite.email.strip.downcase).first
+    user.unstage! if user
+
+    user ||= User.new
+
     if username && UsernameValidator.new(username).valid_format? && User.username_available?(username)
       available_username = username
     else
       available_username = UserNameSuggester.suggest(invite.email)
     end
-    available_name = name || available_username
 
-    user_params = {
+    user.attributes = {
       email: invite.email,
       username: available_username,
-      name: available_name,
+      name: name || available_username,
       active: false,
       trust_level: SiteSetting.default_invitee_trust_level,
       ip_address: ip_address,
       registration_ip_address: ip_address
     }
 
-    user = User.unstage(user_params)
-    user = User.new(user_params) if user.nil?
-
-    if !SiteSetting.must_approve_users? || (SiteSetting.must_approve_users? && invite.invited_by.staff?)
+    if !SiteSetting.must_approve_users? ||
+        (SiteSetting.must_approve_users? && invite.invited_by.staff?) ||
+        EmailValidator.can_auto_approve_user?(user.email)
       ReviewableUser.set_approved_fields!(user, invite.invited_by)
     end
 
@@ -58,7 +63,7 @@ InviteRedeemer = Struct.new(:invite, :username, :name, :password, :user_custom_f
 
     user.save!
 
-    if invite.via_email
+    if invite.emailed_status != Invite.emailed_status_types[:not_required]
       user.email_tokens.create!(email: user.email)
       user.activate
     end
@@ -78,7 +83,6 @@ InviteRedeemer = Struct.new(:invite, :username, :name, :password, :user_custom_f
     add_user_to_groups
     send_welcome_message
     notify_invitee
-    delete_duplicate_invites
   end
 
   def invite_was_redeemed?
@@ -87,9 +91,15 @@ InviteRedeemer = Struct.new(:invite, :username, :name, :password, :user_custom_f
   end
 
   def mark_invite_redeemed
-    Invite.where('id = ? AND redeemed_at IS NULL AND created_at >= ?',
+    count = Invite.where('id = ? AND redeemed_at IS NULL AND updated_at >= ?',
                  invite.id, SiteSetting.invite_expiry_days.days.ago)
       .update_all('redeemed_at = CURRENT_TIMESTAMP')
+
+    if count == 1
+      delete_duplicate_invites
+    end
+
+    count
   end
 
   def get_invited_user
@@ -127,7 +137,7 @@ InviteRedeemer = Struct.new(:invite, :username, :name, :password, :user_custom_f
     if invited_user.present? && reviewable_user = ReviewableUser.find_by(target: invited_user)
       reviewable_user.perform(
         invite.invited_by,
-        :approve,
+        :approve_user,
         send_email: false,
         approved_by_invite: true
       )

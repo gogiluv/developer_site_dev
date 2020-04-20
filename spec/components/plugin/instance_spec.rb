@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'plugin/instance'
 
 describe Plugin::Instance do
 
@@ -31,8 +32,29 @@ describe Plugin::Instance do
 
     context "with a plugin that extends things" do
 
-      class Trout; end
-      class TroutSerializer < ApplicationSerializer; end
+      class Trout
+        attr_accessor :data
+      end
+
+      class TroutSerializer < ApplicationSerializer
+        attribute :name
+
+        def name
+          "a trout"
+        end
+      end
+      class TroutJuniorSerializer < TroutSerializer
+
+        attribute :i_am_child
+
+        def name
+          "a trout jr"
+        end
+
+        def i_am_child
+          true
+        end
+      end
 
       class TroutPlugin < Plugin::Instance
         attr_accessor :enabled
@@ -45,6 +67,12 @@ describe Plugin::Instance do
         @plugin = TroutPlugin.new
         @trout = Trout.new
 
+        poison = TroutSerializer.new(@trout)
+        poison.attributes
+
+        poison = TroutJuniorSerializer.new(@trout)
+        poison.attributes
+
         # New method
         @plugin.add_to_class(:trout, :status?) { "evil" }
 
@@ -55,7 +83,9 @@ describe Plugin::Instance do
 
         # Serializer
         @plugin.add_to_serializer(:trout, :scales) { 1024 }
+
         @serializer = TroutSerializer.new(@trout)
+        @child_serializer = TroutJuniorSerializer.new(@trout)
       end
 
       after do
@@ -63,7 +93,6 @@ describe Plugin::Instance do
       end
 
       it "checks enabled/disabled functionality for extensions" do
-
         # with an enabled plugin
         @plugin.enabled = true
         expect(@trout.status?).to eq("evil")
@@ -72,6 +101,8 @@ describe Plugin::Instance do
         expect(@serializer.scales).to eq(1024)
         expect(@serializer.include_scales?).to eq(true)
 
+        expect(@child_serializer.attributes[:scales]).to eq(1024)
+
         # When a plugin is disabled
         @plugin.enabled = false
         expect(@trout.status?).to eq(nil)
@@ -79,7 +110,22 @@ describe Plugin::Instance do
         expect(@hello_count).to eq(1)
         expect(@serializer.scales).to eq(1024)
         expect(@serializer.include_scales?).to eq(false)
+        expect(@serializer.name).to eq("a trout")
 
+        expect(@child_serializer.scales).to eq(1024)
+        expect(@child_serializer.include_scales?).to eq(false)
+        expect(@child_serializer.name).to eq("a trout jr")
+      end
+
+      it "only returns HTML if enabled" do
+        ctx = Trout.new
+        ctx.data = "hello"
+
+        @plugin.register_html_builder('test:html') { |c| "<div>#{c.data}</div>" }
+        @plugin.enabled = false
+        expect(DiscoursePluginRegistry.build_html('test:html', ctx)).to eq("")
+        @plugin.enabled = true
+        expect(DiscoursePluginRegistry.build_html('test:html', ctx)).to eq("<div>hello</div>")
       end
     end
   end
@@ -92,8 +138,8 @@ describe Plugin::Instance do
 
       plugin.send :register_assets!
 
-      expect(DiscoursePluginRegistry.mobile_stylesheets.count).to eq(0)
-      expect(DiscoursePluginRegistry.stylesheets.count).to eq(2)
+      expect(DiscoursePluginRegistry.mobile_stylesheets[plugin.directory_name]).to be_nil
+      expect(DiscoursePluginRegistry.stylesheets[plugin.directory_name].count).to eq(2)
     end
 
     it "remaps vendored_core_pretty_text asset" do
@@ -128,39 +174,48 @@ describe Plugin::Instance do
   end
 
   it 'patches the enabled? function for auth_providers if not defined' do
-    SiteSetting.stubs(:ubuntu_login_enabled).returns(false)
+    SimpleAuthenticator = Class.new(Auth::Authenticator) do
+      def name
+        "my_authenticator"
+      end
+    end
 
     plugin = Plugin::Instance.new
 
+    # lets piggy back on another boolean setting, so we don't dirty our SiteSetting object
+    SiteSetting.enable_badges = false
+
     # No enabled_site_setting
-    authenticator = Auth::Authenticator.new
+    authenticator = SimpleAuthenticator.new
     plugin.auth_provider(authenticator: authenticator)
     plugin.notify_before_auth
     expect(authenticator.enabled?).to eq(true)
 
     # With enabled site setting
     plugin = Plugin::Instance.new
-    authenticator = Auth::Authenticator.new
-    plugin.auth_provider(enabled_setting: 'ubuntu_login_enabled', authenticator: authenticator)
+    authenticator = SimpleAuthenticator.new
+    plugin.auth_provider(enabled_setting: 'enable_badges', authenticator: authenticator)
     plugin.notify_before_auth
     expect(authenticator.enabled?).to eq(false)
 
     # Defines own method
     plugin = Plugin::Instance.new
-    SiteSetting.stubs(:ubuntu_login_enabled).returns(true)
-    authenticator = Class.new(Auth::Authenticator) do
+
+    SiteSetting.enable_badges = true
+    authenticator = Class.new(SimpleAuthenticator) do
       def enabled?
         false
       end
     end.new
-    plugin.auth_provider(enabled_setting: 'ubuntu_login_enabled', authenticator: authenticator)
+    plugin.auth_provider(enabled_setting: 'enable_badges', authenticator: authenticator)
     plugin.notify_before_auth
     expect(authenticator.enabled?).to eq(false)
   end
 
   context "activate!" do
     before do
-      SiteSetting.stubs(:ubuntu_login_enabled).returns(false)
+      # lets piggy back on another boolean setting, so we don't dirty our SiteSetting object
+      SiteSetting.enable_badges = false
     end
 
     it "can activate plugins correctly" do
@@ -190,7 +245,7 @@ describe Plugin::Instance do
       plugin.notify_before_auth
       expect(DiscoursePluginRegistry.auth_providers.count).to eq(1)
       auth_provider = DiscoursePluginRegistry.auth_providers.to_a[0]
-      expect(auth_provider.authenticator.name).to eq('ubuntu')
+      expect(auth_provider.authenticator.name).to eq('facebook')
     end
 
     it "finds all the custom assets" do
@@ -215,10 +270,10 @@ describe Plugin::Instance do
 
       expect(DiscoursePluginRegistry.javascripts.count).to eq(2)
       expect(DiscoursePluginRegistry.admin_javascripts.count).to eq(2)
-      expect(DiscoursePluginRegistry.desktop_stylesheets.count).to eq(2)
+      expect(DiscoursePluginRegistry.desktop_stylesheets[plugin.directory_name].count).to eq(2)
       expect(DiscoursePluginRegistry.sass_variables.count).to eq(2)
-      expect(DiscoursePluginRegistry.stylesheets.count).to eq(2)
-      expect(DiscoursePluginRegistry.mobile_stylesheets.count).to eq(1)
+      expect(DiscoursePluginRegistry.stylesheets[plugin.directory_name].count).to eq(2)
+      expect(DiscoursePluginRegistry.mobile_stylesheets[plugin.directory_name].count).to eq(1)
     end
   end
 
@@ -309,7 +364,7 @@ describe Plugin::Instance do
 
       expect(called).to eq(1)
 
-      user.update_attributes!(username: 'some_username')
+      user.update!(username: 'some_username')
 
       expect(called).to eq(1)
     end
@@ -325,7 +380,7 @@ describe Plugin::Instance do
 
       expect(called).to eq(1)
 
-      user.update_attributes!(username: 'some_username')
+      user.update!(username: 'some_username')
 
       expect(called).to eq(1)
     end
@@ -481,6 +536,36 @@ describe Plugin::Instance do
       Plugin::Instance.new.extend_list_method Reviewable, :types, [new_element]
 
       expect(Reviewable.types).to match_array(current_list << new_element)
+    end
+  end
+
+  describe '#register_emoji' do
+    before do
+      Plugin::CustomEmoji.clear_cache
+    end
+
+    after do
+      Plugin::CustomEmoji.clear_cache
+    end
+
+    it 'allows to register an emoji' do
+      Plugin::Instance.new.register_emoji("foo", "/foo/bar.png")
+
+      custom_emoji = Emoji.custom.first
+
+      expect(custom_emoji.name).to eq("foo")
+      expect(custom_emoji.url).to eq("/foo/bar.png")
+      expect(custom_emoji.group).to eq(Emoji::DEFAULT_GROUP)
+    end
+
+    it 'allows to register an emoji with a group' do
+      Plugin::Instance.new.register_emoji("bar", "/baz/bar.png", "baz")
+
+      custom_emoji = Emoji.custom.first
+
+      expect(custom_emoji.name).to eq("bar")
+      expect(custom_emoji.url).to eq("/baz/bar.png")
+      expect(custom_emoji.group).to eq("baz")
     end
   end
 end

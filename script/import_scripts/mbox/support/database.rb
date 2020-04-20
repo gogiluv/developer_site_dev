@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'sqlite3'
 
 module ImportScripts::Mbox
@@ -166,6 +168,7 @@ module ImportScripts::Mbox
         SELECT email, name, date_of_first_message
         FROM user
         WHERE email > :last_email
+        ORDER BY email
         LIMIT #{@batch_size}
       SQL
 

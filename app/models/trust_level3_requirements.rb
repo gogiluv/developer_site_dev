@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This class performs calculations to determine if a user qualifies for
 # the Leader (3) trust level.
 class TrustLevel3Requirements
@@ -5,9 +7,14 @@ class TrustLevel3Requirements
   class PenaltyCounts
     attr_reader :silenced, :suspended
 
-    def initialize(row)
+    def initialize(user, row)
       @silenced = row['silence_count'] || 0
       @suspended = row['suspend_count'] || 0
+
+      # If penalty started more than 6 months ago and still continues, it will
+      # not be selected by the query from 'penalty_counts'.
+      @silenced += 1 if @silenced == 0 && user.silenced?
+      @suspended += 1 if @suspended == 0 && user.suspended?
     end
 
     def total
@@ -18,6 +25,7 @@ class TrustLevel3Requirements
   include ActiveModel::Serialization
 
   LOW_WATER_MARK = 0.9
+  FORGIVENESS_PERIOD = 6.months
 
   attr_accessor :days_visited, :min_days_visited,
                 :num_topics_replied_to, :min_topics_replied_to,
@@ -96,33 +104,37 @@ class TrustLevel3Requirements
   def penalty_counts
     args = {
       user_id: @user.id,
+      system_user_id: Discourse.system_user.id,
       silence_user: UserHistory.actions[:silence_user],
       unsilence_user: UserHistory.actions[:unsilence_user],
       suspend_user: UserHistory.actions[:suspend_user],
-      unsuspend_user: UserHistory.actions[:unsuspend_user]
+      unsuspend_user: UserHistory.actions[:unsuspend_user],
+      since: FORGIVENESS_PERIOD.ago
     }
 
     sql = <<~SQL
-      SELECT SUM(
+      SELECT
+      SUM(
           CASE
             WHEN action = :silence_user THEN 1
-            WHEN action = :unsilence_user THEN -1
+            WHEN action = :unsilence_user AND acting_user_id != :system_user_id THEN -1
             ELSE 0
           END
         ) AS silence_count,
         SUM(
           CASE
             WHEN action = :suspend_user THEN 1
-            WHEN action = :unsuspend_user THEN -1
+            WHEN action = :unsuspend_user AND acting_user_id != :system_user_id THEN -1
             ELSE 0
           END
         ) AS suspend_count
       FROM user_histories AS uh
       WHERE uh.target_user_id = :user_id
-        AND uh.action IN (:silence_user, :unsilence_user, :suspend_user, :unsuspend_user)
+        AND uh.action IN (:silence_user, :suspend_user, :unsilence_user, :unsuspend_user)
+        AND uh.created_at > :since
     SQL
 
-    PenaltyCounts.new(DB.query_hash(sql, args).first)
+    PenaltyCounts.new(@user, DB.query_hash(sql, args).first)
   end
 
   def min_days_visited
@@ -130,7 +142,11 @@ class TrustLevel3Requirements
   end
 
   def num_topics_replied_to
-    @user.posts.select('distinct topic_id').where('created_at > ? AND post_number > 1', time_period.days.ago).count
+    @user.posts
+      .public_posts
+      .where("posts.created_at > ? AND posts.post_number > 1", time_period.days.ago)
+      .select("distinct topic_id")
+      .count
   end
 
   def min_topics_replied_to
@@ -138,7 +154,10 @@ class TrustLevel3Requirements
   end
 
   def topics_viewed_query
-    TopicViewItem.where(user_id: @user.id).select('topic_id')
+    TopicViewItem.where(user_id: @user.id)
+      .joins(:topic)
+      .where("topics.archetype <> ?", Archetype.private_message)
+      .select("topic_id")
   end
 
   def topics_viewed
@@ -206,7 +225,11 @@ class TrustLevel3Requirements
   end
 
   def num_likes_given
-    UserAction.where(user_id: @user.id, action_type: UserAction::LIKE).where('created_at > ?', time_period.days.ago).count
+    UserAction.where(user_id: @user.id, action_type: UserAction::LIKE)
+      .where("user_actions.created_at > ?", time_period.days.ago)
+      .joins(:target_topic)
+      .where("topics.archetype <> ?", Archetype.private_message)
+      .count
   end
 
   def min_likes_given
@@ -214,7 +237,10 @@ class TrustLevel3Requirements
   end
 
   def num_likes_received_query
-    UserAction.where(user_id: @user.id, action_type: UserAction::WAS_LIKED).where('created_at > ?', time_period.days.ago)
+    UserAction.where(user_id: @user.id, action_type: UserAction::WAS_LIKED)
+      .where("user_actions.created_at > ?", time_period.days.ago)
+      .joins(:target_topic)
+      .where("topics.archetype <> ?", Archetype.private_message)
   end
 
   def num_likes_received
@@ -227,7 +253,7 @@ class TrustLevel3Requirements
 
   def num_likes_received_days
     # don't do a COUNT(DISTINCT date(created_at)) here!
-    num_likes_received_query.pluck('date(created_at)').uniq.size
+    num_likes_received_query.pluck('date(user_actions.created_at)').uniq.size
   end
 
   def min_likes_received_days
@@ -246,8 +272,8 @@ class TrustLevel3Requirements
   end
 
   def self.clear_cache
-    $redis.del NUM_TOPICS_KEY
-    $redis.del NUM_POSTS_KEY
+    Discourse.redis.del NUM_TOPICS_KEY
+    Discourse.redis.del NUM_POSTS_KEY
   end
 
   CACHE_DURATION = 1.day.seconds - 60
@@ -255,17 +281,17 @@ class TrustLevel3Requirements
   NUM_POSTS_KEY  = "tl3_num_posts"
 
   def self.num_topics_in_time_period
-    $redis.get(NUM_TOPICS_KEY) || begin
+    Discourse.redis.get(NUM_TOPICS_KEY) || begin
       count = Topic.listable_topics.visible.created_since(SiteSetting.tl3_time_period.days.ago).count
-      $redis.setex NUM_TOPICS_KEY, CACHE_DURATION, count
+      Discourse.redis.setex NUM_TOPICS_KEY, CACHE_DURATION, count
       count
     end
   end
 
   def self.num_posts_in_time_period
-    $redis.get(NUM_POSTS_KEY) || begin
+    Discourse.redis.get(NUM_POSTS_KEY) || begin
       count = Post.public_posts.visible.created_since(SiteSetting.tl3_time_period.days.ago).count
-      $redis.setex NUM_POSTS_KEY, CACHE_DURATION, count
+      Discourse.redis.setex NUM_POSTS_KEY, CACHE_DURATION, count
       count
     end
   end

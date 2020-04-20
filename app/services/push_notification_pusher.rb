@@ -1,4 +1,4 @@
-require_dependency 'webpush'
+# frozen_string_literal: true
 
 class PushNotificationPusher
   TOKEN_VALID_FOR_SECONDS ||= 5 * 60

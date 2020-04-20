@@ -1,272 +1,252 @@
+import { isEmpty } from "@ember/utils";
+
 function checkSelectKitIsNotExpanded(selector) {
   if (find(selector).hasClass("is-expanded")) {
     // eslint-disable-next-line no-console
-    console.warn(
-      "You expected select-kit to be collapsed but it is expanded."
-    );
+    console.warn("You expected select-kit to be collapsed but it is expanded.");
   }
 }
 
 function checkSelectKitIsNotCollapsed(selector) {
   if (!find(selector).hasClass("is-expanded")) {
     // eslint-disable-next-line no-console
-    console.warn(
-      "You expected select-kit to be expanded but it is collapsed."
+    console.warn("You expected select-kit to be expanded but it is collapsed.");
+  }
+}
+
+async function expandSelectKit(selector) {
+  checkSelectKitIsNotExpanded(selector);
+  return await click(`${selector} .select-kit-header`);
+}
+
+async function collapseSelectKit(selector) {
+  checkSelectKitIsNotCollapsed(selector);
+  return await click(`${selector} .select-kit-header`);
+}
+
+async function selectKitFillInFilter(filter, selector) {
+  checkSelectKitIsNotCollapsed(selector);
+  await fillIn(
+    `${selector} .filter-input`,
+    find(`${selector} .filter-input`).val() + filter
+  );
+}
+
+async function selectKitSelectRowByValue(value, selector) {
+  checkSelectKitIsNotCollapsed(selector);
+  await click(`${selector} .select-kit-row[data-value='${value}']`);
+}
+
+async function selectKitSelectRowByName(name, selector) {
+  checkSelectKitIsNotCollapsed(selector);
+  await click(`${selector} .select-kit-row[data-name='${name}']`);
+}
+
+async function selectKitSelectNoneRow(selector) {
+  checkSelectKitIsNotCollapsed(selector);
+  await click(`${selector} .select-kit-row.none`);
+}
+
+async function selectKitSelectRowByIndex(index, selector) {
+  checkSelectKitIsNotCollapsed(selector);
+  await click(find(`${selector} .select-kit-row`).eq(index));
+}
+
+async function keyboardHelper(value, target, selector) {
+  target = find(selector).find(target || ".filter-input");
+
+  if (value === "selectAll") {
+    // special casing the only one not working with triggerEvent
+    const event = jQuery.Event("keydown");
+    event.keyCode = 65;
+    event.metaKey = true;
+    target.trigger(event);
+  } else {
+    const mapping = {
+      enter: { keyCode: 13 },
+      backspace: { keyCode: 8 },
+      escape: { keyCode: 27 },
+      down: { keyCode: 40 },
+      up: { keyCode: 38 },
+      tab: { keyCode: 9 }
+    };
+
+    await triggerEvent(
+      target,
+      "keydown",
+      mapping[value] || { keyCode: value.charCodeAt(0) }
     );
   }
 }
 
-Ember.Test.registerAsyncHelper("expandSelectKit", function(app, selector) {
-  checkSelectKitIsNotExpanded(selector);
-  click(selector + " .select-kit-header");
-});
-
-Ember.Test.registerAsyncHelper("collapseSelectKit", function(app, selector) {
-  checkSelectKitIsNotCollapsed(selector);
-  click(selector + " .select-kit-header");
-});
-
-Ember.Test.registerAsyncHelper("selectKitFillInFilter", function(
-  app,
-  filter,
-  selector
-) {
-  checkSelectKitIsNotCollapsed(selector);
-  fillIn(selector + " .filter-input", filter);
-});
-
-Ember.Test.registerAsyncHelper("selectKitSelectRowByValue", function(
-  app,
-  value,
-  selector
-) {
-  checkSelectKitIsNotCollapsed(selector);
-  click(selector + " .select-kit-row[data-value='" + value + "']");
-});
-
-Ember.Test.registerAsyncHelper("selectKitSelectRowByName", function(
-  app,
-  name,
-  selector
-) {
-  checkSelectKitIsNotCollapsed(selector);
-  click(selector + " .select-kit-row[data-name='" + name + "']");
-});
-
-Ember.Test.registerAsyncHelper("selectKitSelectNoneRow", function(
-  app,
-  selector
-) {
-  checkSelectKitIsNotCollapsed(selector);
-  click(selector + " .select-kit-row.none");
-});
-
-Ember.Test.registerAsyncHelper("selectKitSelectRowByIndex", function(
-  app,
-  index,
-  selector
-) {
-  checkSelectKitIsNotCollapsed(selector);
-  click(find(selector + " .select-kit-row").eq(index));
-});
-
-Ember.Test.registerAsyncHelper("keyboardHelper", function(
-  app,
-  value,
-  target,
-  selector
-) {
-  function createEvent(element, keyCode, options) {
-    element = element || ".filter-input";
-    selector = find(selector).find(element);
-    options = options || {};
-
-    var type = options.type || "keydown";
-    var event = jQuery.Event(type);
-    event.keyCode = keyCode;
-    if (options && options.metaKey) {
-      event.metaKey = true;
+function rowHelper(row) {
+  return {
+    name() {
+      return row.attr("data-name");
+    },
+    icon() {
+      return row.find(".d-icon");
+    },
+    title() {
+      return row.attr("title");
+    },
+    value() {
+      const value = row.attr("data-value");
+      return isEmpty(value) ? null : value;
+    },
+    exists() {
+      return exists(row);
+    },
+    el() {
+      return row;
     }
+  };
+}
 
-    andThen(() => {
-      find(selector).trigger(event);
-    });
-  }
+function headerHelper(header) {
+  return {
+    value() {
+      const value = header.attr("data-value");
+      return isEmpty(value) ? null : value;
+    },
+    name() {
+      return header.attr("data-name");
+    },
+    label() {
+      return header.text().trim();
+    },
+    icon() {
+      return header.find(".d-icon");
+    },
+    title() {
+      return header.attr("title");
+    },
+    el() {
+      return header;
+    }
+  };
+}
 
-  switch (value) {
-    case "enter":
-      return createEvent(target, 13);
-    case "backspace":
-      return createEvent(target, 8);
-    case "selectAll":
-      return createEvent(target, 65, { metaKey: true });
-    case "escape":
-      return createEvent(target, 27);
-    case "down":
-      return createEvent(target, 40);
-    case "up":
-      return createEvent(target, 38);
-    case "tab":
-      return createEvent(target, 9);
-  }
-});
+function filterHelper(filter) {
+  return {
+    icon() {
+      return filter.find(".d-icon");
+    },
+    exists() {
+      return exists(filter);
+    },
+    value() {
+      return filter.find("input").val();
+    },
+    el() {
+      return filter;
+    }
+  };
+}
 
-// eslint-disable-next-line no-unused-vars
-function selectKit(selector) {
+export default function selectKit(selector) {
   selector = selector || ".select-kit";
 
-  function rowHelper(row) {
-    return {
-      name: function() {
-        return row.attr("data-name");
-      },
-      icon: function() {
-        return row.find(".d-icon");
-      },
-      title: function() {
-        return row.attr("title");
-      },
-      value: function() {
-        return row.attr("data-value");
-      },
-      exists: function() {
-        return exists(row);
-      },
-      el: function() {
-        return row;
-      }
-    };
-  }
-
-  function headerHelper(header) {
-    return {
-      value: function() {
-        return header.attr("data-value");
-      },
-      name: function() {
-        return header.attr("data-name");
-      },
-      label: function() {
-        return header.text().trim();
-      },
-      icon: function() {
-        return header.find(".icon");
-      },
-      title: function() {
-        return header.attr("title");
-      },
-      el: function() {
-        return header;
-      }
-    };
-  }
-
-  function filterHelper(filter) {
-    return {
-      icon: function() {
-        return filter.find(".d-icon");
-      },
-      exists: function() {
-        return exists(filter);
-      },
-      el: function() {
-        return filter;
-      }
-    };
-  }
-
   return {
-    expand: function() {
-      return expandSelectKit(selector);
+    async expand() {
+      await expandSelectKit(selector);
     },
 
-    collapse: function() {
-      return collapseSelectKit(selector);
+    async collapse() {
+      await collapseSelectKit(selector);
     },
 
-    selectRowByIndex: function(index) {
-      selectKitSelectRowByIndex(index, selector);
-      return selectKit(selector);
+    async selectRowByIndex(index) {
+      await selectKitSelectRowByIndex(index, selector);
     },
 
-    selectRowByValue: function(value) {
-      return selectKitSelectRowByValue(value, selector);
+    async selectRowByValue(value) {
+      await selectKitSelectRowByValue(value, selector);
     },
 
-    // Remove when stable is updated to Discourse 2.1
-    selectRowByValueAwait: function(value) {
-      return selectKitSelectRowByValue(value, selector);
+    async selectKitSelectRowByName(name) {
+      await selectKitSelectRowByName(name, selector);
     },
 
-    selectRowByName: function(name) {
-      selectKitSelectRowByValue(name, selector);
-      return selectKit(selector);
+    async selectRowByName(name) {
+      await selectKitSelectRowByName(name, selector);
     },
 
-    selectNoneRow: function() {
-      return selectKitSelectNoneRow(selector);
+    async selectNoneRow() {
+      await selectKitSelectNoneRow(selector);
     },
 
-    fillInFilter: function(filter) {
-      return selectKitFillInFilter(filter, selector);
+    async fillInFilter(filter) {
+      await selectKitFillInFilter(filter, selector);
     },
 
-    keyboard: function(value, target) {
-      return keyboardHelper(value, target, selector);
+    async keyboard(value, target) {
+      await keyboardHelper(value, target, selector);
     },
 
-    isExpanded: function() {
+    isExpanded() {
       return find(selector).hasClass("is-expanded");
     },
 
-    isFocused: function() {
+    isFocused() {
       return find(selector).hasClass("is-focused");
     },
 
-    isHidden: function() {
+    isHidden() {
       return find(selector).hasClass("is-hidden");
     },
 
-    header: function() {
+    header() {
       return headerHelper(find(selector).find(".select-kit-header"));
     },
 
-    filter: function() {
+    filter() {
       return filterHelper(find(selector).find(".select-kit-filter"));
     },
 
-    rows: function() {
+    rows() {
       return find(selector).find(".select-kit-row");
     },
 
-    rowByValue: function(value) {
+    displayedContent() {
+      return this.rows()
+        .map((_, row) => {
+          return {
+            name: row.getAttribute("data-name"),
+            id: row.getAttribute("data-value")
+          };
+        })
+        .toArray();
+    },
+
+    rowByValue(value) {
       return rowHelper(
         find(selector).find('.select-kit-row[data-value="' + value + '"]')
       );
     },
 
-    rowByName: function(name) {
+    rowByName(name) {
       return rowHelper(
         find(selector).find('.select-kit-row[data-name="' + name + '"]')
       );
     },
 
-    rowByIndex: function(index) {
+    rowByIndex(index) {
       return rowHelper(
         find(selector).find(".select-kit-row:eq(" + index + ")")
       );
     },
 
-    el: function() {
+    el() {
       return find(selector);
     },
 
-    noneRow: function() {
+    noneRow() {
       return rowHelper(find(selector).find(".select-kit-row.none"));
     },
 
-    validationMessage: function() {
-      var validationMessage = find(selector).find(".validation-message");
+    validationMessage() {
+      const validationMessage = find(selector).find(".validation-message");
 
       if (validationMessage.length) {
         return validationMessage.html().trim();
@@ -275,15 +255,23 @@ function selectKit(selector) {
       }
     },
 
-    selectedRow: function() {
+    selectedRow() {
       return rowHelper(find(selector).find(".select-kit-row.is-selected"));
     },
 
-    highlightedRow: function() {
+    highlightedRow() {
       return rowHelper(find(selector).find(".select-kit-row.is-highlighted"));
     },
 
-    exists: function() {
+    async deselectItem(value) {
+      await click(
+        find(selector)
+          .find(".select-kit-header")
+          .find(`[data-value=${value}]`)
+      );
+    },
+
+    exists() {
       return exists(selector);
     }
   };

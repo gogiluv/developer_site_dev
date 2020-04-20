@@ -1,7 +1,7 @@
-import {
-  default as computed,
-  on
-} from "ember-addons/ember-computed-decorators";
+import { cancel, debounce } from "@ember/runloop";
+import Component from "@ember/component";
+import { gt } from "@ember/object/computed";
+import computed, { on } from "discourse-common/utils/decorators";
 import {
   keepAliveDuration,
   bufferTime
@@ -9,12 +9,14 @@ import {
 
 const MB_GET_LAST_MESSAGE = -2;
 
-export default Ember.Component.extend({
+export default Component.extend({
   topicId: null,
   presenceUsers: null,
 
+  shouldDisplay: gt("users.length", 0),
+
   clear() {
-    if (!this.get("isDestroyed")) this.set("presenceUsers", []);
+    if (!this.isDestroyed) this.set("presenceUsers", []);
   },
 
   @on("didInsertElement")
@@ -22,10 +24,10 @@ export default Ember.Component.extend({
     this.clear();
 
     this.messageBus.subscribe(
-      this.get("channel"),
+      this.channel,
       message => {
-        if (!this.get("isDestroyed")) this.set("presenceUsers", message.users);
-        this._clearTimer = Ember.run.debounce(
+        if (!this.isDestroyed) this.set("presenceUsers", message.users);
+        this._clearTimer = debounce(
           this,
           "clear",
           keepAliveDuration + bufferTime
@@ -37,8 +39,8 @@ export default Ember.Component.extend({
 
   @on("willDestroyElement")
   _destroyed() {
-    Ember.run.cancel(this._clearTimer);
-    this.messageBus.unsubscribe(this.get("channel"));
+    cancel(this._clearTimer);
+    this.messageBus.unsubscribe(this.channel);
   },
 
   @computed("topicId")
@@ -53,7 +55,5 @@ export default Ember.Component.extend({
       user =>
         user.id !== currentUser.id && !ignoredUsers.includes(user.username)
     );
-  },
-
-  shouldDisplay: Ember.computed.gt("users.length", 0)
+  }
 });

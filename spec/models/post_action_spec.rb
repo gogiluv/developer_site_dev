@@ -1,14 +1,16 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe PostAction do
   it { is_expected.to rate_limit }
 
-  let(:moderator) { Fabricate(:moderator) }
-  let(:codinghorror) { Fabricate(:coding_horror) }
-  let(:eviltrout) { Fabricate(:evil_trout) }
-  let(:admin) { Fabricate(:admin) }
-  let(:post) { Fabricate(:post) }
-  let(:second_post) { Fabricate(:post, topic: post.topic) }
+  fab!(:moderator) { Fabricate(:moderator) }
+  fab!(:codinghorror) { Fabricate(:coding_horror) }
+  fab!(:eviltrout) { Fabricate(:evil_trout) }
+  fab!(:admin) { Fabricate(:admin) }
+  fab!(:post) { Fabricate(:post) }
+  fab!(:second_post) { Fabricate(:post, topic: post.topic) }
   let(:bookmark) { PostAction.new(user_id: post.user_id, post_action_type_id: PostActionType.types[:bookmark] , post_id: post.id) }
 
   def value_for(user_id, dt)
@@ -52,10 +54,10 @@ describe PostAction do
       expect(topic_user_ids).to include(mod.id)
 
       expect(topic.topic_users.where(user_id: mod.id)
-              .pluck(:notification_level).first).to eq(TopicUser.notification_levels[:tracking])
+              .pluck_first(:notification_level)).to eq(TopicUser.notification_levels[:tracking])
 
       expect(topic.topic_users.where(user_id: codinghorror.id)
-              .pluck(:notification_level).first).to eq(TopicUser.notification_levels[:watching])
+              .pluck_first(:notification_level)).to eq(TopicUser.notification_levels[:watching])
 
       # reply to PM should not clear flag
       PostCreator.new(mod, topic_id: posts[0].topic_id, raw: "This is my test reply to the user, it should clear flags").create
@@ -256,18 +258,18 @@ describe PostAction do
     end
 
     describe 'likes consolidation' do
-      let(:liker) { Fabricate(:user) }
-      let(:liker2) { Fabricate(:user) }
-      let(:likee) { Fabricate(:user) }
+      fab!(:liker) { Fabricate(:user) }
+      fab!(:liker2) { Fabricate(:user) }
+      fab!(:likee) { Fabricate(:user) }
 
       it "can be disabled" do
-        SiteSetting.likes_notification_consolidation_threshold = 0
+        SiteSetting.notification_consolidation_threshold = 0
 
         expect do
           PostActionCreator.like(liker, Fabricate(:post, user: likee))
         end.to change { likee.reload.notifications.count }.by(1)
 
-        SiteSetting.likes_notification_consolidation_threshold = 1
+        SiteSetting.notification_consolidation_threshold = 1
 
         expect do
           PostActionCreator.like(liker, Fabricate(:post, user: likee))
@@ -283,7 +285,7 @@ describe PostAction do
         end
 
         it 'should consolidate likes notification when the threshold is reached' do
-          SiteSetting.likes_notification_consolidation_threshold = 2
+          SiteSetting.notification_consolidation_threshold = 2
 
           expect do
             3.times do
@@ -351,7 +353,7 @@ describe PostAction do
         end
 
         it 'should consolidate liked notifications when threshold is reached' do
-          SiteSetting.likes_notification_consolidation_threshold = 2
+          SiteSetting.notification_consolidation_threshold = 2
 
           post = Fabricate(:post, user: likee)
 
@@ -515,7 +517,8 @@ describe PostAction do
       mod = Fabricate(:moderator)
       post = Fabricate(:post, user: mod)
 
-      SiteSetting.score_required_to_hide_post = 2.0
+      Reviewable.set_priorities(high: 2.0)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:low]
       Discourse.stubs(:site_contact_user).returns(admin)
 
       PostActionCreator.spam(eviltrout, post)
@@ -529,7 +532,8 @@ describe PostAction do
       mod = Fabricate(:moderator)
       post = Fabricate(:post, user: mod)
 
-      SiteSetting.score_required_to_hide_post = 8.0
+      Reviewable.set_priorities(high: 8.0)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:low]
       Discourse.stubs(:site_contact_user).returns(admin)
 
       PostActionCreator.spam(eviltrout, post)
@@ -541,11 +545,25 @@ describe PostAction do
       expect(post.hidden_at).to be_present
     end
 
+    it "will not trigger auto hide on like" do
+      mod = Fabricate(:moderator)
+      post = Fabricate(:post, user: mod)
+
+      result = PostActionCreator.spam(eviltrout, post)
+      result.reviewable.update!(score: 1000.0)
+      PostActionCreator.like(Fabricate(:admin), post)
+
+      post.reload
+
+      expect(post.hidden).to eq(false)
+    end
+
     it 'should follow the rules for automatic hiding workflow' do
       post = create_post
       walterwhite = Fabricate(:walter_white)
 
-      SiteSetting.score_required_to_hide_post = 3.0
+      Reviewable.set_priorities(high: 3.0)
+      SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:low]
       Discourse.stubs(:site_contact_user).returns(admin)
 
       PostActionCreator.spam(eviltrout, post)
@@ -603,7 +621,6 @@ describe PostAction do
       post.reload
       expect(post.hidden).to eq(true)
     end
-
     it "hide tl0 posts that are flagged as spam by a tl3 user" do
       newuser = Fabricate(:newuser)
       post = create_post(user: newuser)
@@ -617,41 +634,6 @@ describe PostAction do
       expect(post.hidden).to eq(true)
       expect(post.hidden_at).to be_present
       expect(post.hidden_reason_id).to eq(Post.hidden_reasons[:flagged_by_tl3_user])
-    end
-
-    it "hide non-tl4 posts that are flagged by a tl4 user" do
-      SiteSetting.site_contact_username = admin.username
-
-      tl4_user = Fabricate(:trust_level_4)
-      user = Fabricate(:leader)
-      post = create_post(user: user)
-
-      PostActionCreator.spam(tl4_user, post)
-
-      post.reload
-
-      expect(post.hidden).to be_truthy
-      expect(post.hidden_at).to be_present
-      expect(post.hidden_reason_id).to eq(Post.hidden_reasons[:flagged_by_tl4_user])
-
-      post = create_post(user: user)
-      PostActionCreator.spam(Fabricate(:leader), post)
-      post.reload
-
-      expect(post.hidden).to be_falsey
-
-      post = create_post(user: user)
-      PostActionCreator.spam(Fabricate(:moderator), post)
-      post.reload
-
-      expect(post.hidden).to be_falsey
-
-      user = Fabricate(:trust_level_4)
-      post = create_post(user: user)
-      PostActionCreator.spam(tl4_user, post)
-      post.reload
-
-      expect(post.hidden).to be_falsey
     end
 
     it "can flag the topic instead of a post" do
@@ -696,22 +678,25 @@ describe PostAction do
     end
 
     context "topic auto closing" do
-      let(:topic) { Fabricate(:topic) }
+      fab!(:topic) { Fabricate(:topic) }
       let(:post1) { create_post(topic: topic) }
       let(:post2) { create_post(topic: topic) }
       let(:post3) { create_post(topic: topic) }
 
-      let(:flagger1) { Fabricate(:user) }
-      let(:flagger2) { Fabricate(:user) }
+      fab!(:flagger1) { Fabricate(:user) }
+      fab!(:flagger2) { Fabricate(:user) }
 
       before do
-        SiteSetting.score_required_to_hide_post = 0
-        SiteSetting.score_to_auto_close_topic = 12.0
+        SiteSetting.hide_post_sensitivity = Reviewable.sensitivity[:disabled]
+        Reviewable.set_priorities(high: 4.5)
+        SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:low]
         SiteSetting.num_flaggers_to_close_topic = 2
         SiteSetting.num_hours_to_close_topic = 1
       end
 
       it "will automatically pause a topic due to large community flagging" do
+        freeze_time
+
         # reaching `num_flaggers_to_close_topic` isn't enough
         [flagger1, flagger2].each do |flagger|
           PostActionCreator.inappropriate(flagger, post1)
@@ -744,13 +729,13 @@ describe PostAction do
         topic_status_update = TopicTimer.last
 
         expect(topic_status_update.topic).to eq(topic)
-        expect(topic_status_update.execute_at).to be_within(1.second).of(1.hour.from_now)
+        expect(topic_status_update.execute_at).to eq_time(1.hour.from_now)
         expect(topic_status_update.status_type).to eq(TopicTimer.types[:open])
       end
 
       context "on a staff post" do
-        let(:staff_user) { Fabricate(:user, moderator: true) }
-        let(:topic) { Fabricate(:topic, user: staff_user) }
+        fab!(:staff_user) { Fabricate(:user, moderator: true) }
+        fab!(:topic) { Fabricate(:topic, user: staff_user) }
 
         it "will not close topics opened by staff" do
           [flagger1, flagger2].each do |flagger|
@@ -767,7 +752,8 @@ describe PostAction do
         freeze_time
 
         SiteSetting.num_flaggers_to_close_topic = 1
-        SiteSetting.score_to_auto_close_topic = 2.0
+        Reviewable.set_priorities(high: 0.5)
+        SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:low]
 
         post = Fabricate(:post, topic: topic)
         PostActionCreator.spam(flagger1, post)
@@ -786,11 +772,12 @@ describe PostAction do
         Jobs::ToggleTopicClosed.new.execute(topic_timer_id: timer.id, state: false)
 
         expect(topic.reload.closed).to eq(true)
-        expect(timer.reload.execute_at).to eq(1.hour.from_now)
+        expect(timer.reload.execute_at).to eq_time(1.hour.from_now)
 
         freeze_time timer.execute_at
         SiteSetting.num_flaggers_to_close_topic = 10
-        SiteSetting.score_to_auto_close_topic = 20.0
+        Reviewable.set_priorities(high: 10.0)
+        SiteSetting.auto_close_topic_sensitivity = Reviewable.sensitivity[:low]
 
         Jobs::ToggleTopicClosed.new.execute(topic_timer_id: timer.id, state: false)
 
@@ -985,7 +972,7 @@ describe PostAction do
   end
 
   describe "triggers Discourse events" do
-    let(:post) { Fabricate(:post) }
+    fab!(:post) { Fabricate(:post) }
 
     it 'triggers a flag_created event' do
       event = DiscourseEvent.track(:flag_created) { PostActionCreator.spam(eviltrout, post) }

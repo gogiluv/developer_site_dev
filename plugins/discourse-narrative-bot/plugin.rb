@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # name: discourse-narrative-bot
 # about: Introduces staff to Discourse
 # version: 1.0
@@ -31,6 +33,7 @@ after_initialize do
     '../autoload/jobs/narrative_timeout.rb',
     '../autoload/jobs/narrative_init.rb',
     '../autoload/jobs/send_default_welcome_message.rb',
+    '../autoload/jobs/send_advanced_tutorial_message.rb',
     '../autoload/jobs/onceoff/grant_badges.rb',
     '../autoload/jobs/onceoff/remap_old_bot_images.rb',
     '../lib/discourse_narrative_bot/actions.rb',
@@ -78,30 +81,42 @@ after_initialize do
       requires_login
 
       def generate
-        unless params[:user_id]&.present?
-          raise Discourse::InvalidParameters.new('user_id must be present')
+        immutable_for(24.hours)
+
+        %i[date user_id].each do |key|
+          raise Discourse::InvalidParameters.new("#{key} must be present") unless params[key]&.present?
         end
+
+        rate_limiter = RateLimiter.new(current_user, 'svg_certificate', 3, 1.minute)
+        rate_limiter.performed! unless current_user.staff?
 
         user = User.find_by(id: params[:user_id])
         raise Discourse::NotFound if user.blank?
+        cdn_avatar_url = fetch_avatar_url(user)
 
-        unless params[:date]&.present?
-          raise Discourse::InvalidParameters.new('date must be present')
-        end
+        hijack do
+          generator = CertificateGenerator.new(user, params[:date], cdn_avatar_url)
 
-        generator = CertificateGenerator.new(user, params[:date])
+          svg = params[:type] == 'advanced' ? generator.advanced_user_track : generator.new_user_track
 
-        svg =
-          case params[:type]
-          when 'advanced'
-            generator.advanced_user_track
-          else
-            generator.new_user_track
+          respond_to do |format|
+            format.svg { render inline: svg }
           end
-
-        respond_to do |format|
-          format.svg { render inline: svg }
         end
+      end
+
+      private
+
+      def fetch_avatar_url(user)
+        avatar_url = UrlHelper.absolute(Discourse.base_uri + user.avatar_template.gsub('{size}', '250'))
+        FileHelper.download(
+          avatar_url.to_s,
+          max_file_size: SiteSetting.max_image_size_kb.kilobytes,
+          tmp_file_name: 'narrative-bot-avatar',
+          follow_redirect: true
+        )&.read
+      rescue OpenURI::HTTPError
+        # Ignore if fetching image returns a non 200 response
       end
     end
   end
@@ -118,9 +133,9 @@ after_initialize do
     DiscourseNarrativeBot::Store.remove(self.id)
   end
 
-  self.add_model_callback(User, :after_commit, on: :create) do
-    if SiteSetting.discourse_narrative_bot_welcome_post_delay == 0 && !self.staged
-      self.enqueue_bot_welcome_post
+  self.on(:user_created) do |user|
+    if SiteSetting.discourse_narrative_bot_welcome_post_delay == 0 && !user.staged
+      user.enqueue_bot_welcome_post
     end
   end
 
@@ -163,7 +178,7 @@ after_initialize do
   self.on(:post_created) do |post, options|
     user = post.user
 
-    if user.enqueue_narrative_bot_job? && !options[:skip_bot]
+    if user&.enqueue_narrative_bot_job? && !options[:skip_bot]
       Jobs.enqueue(:bot_input,
         user_id: user.id,
         post_id: post.id,
@@ -173,7 +188,7 @@ after_initialize do
   end
 
   self.on(:post_edited) do |post|
-    if post.user.enqueue_narrative_bot_job?
+    if post.user&.enqueue_narrative_bot_job?
       Jobs.enqueue(:bot_input,
         user_id: post.user.id,
         post_id: post.id,
@@ -183,7 +198,7 @@ after_initialize do
   end
 
   self.on(:post_destroyed) do |post, options, user|
-    if user.enqueue_narrative_bot_job? && !options[:skip_bot]
+    if user&.enqueue_narrative_bot_job? && !options[:skip_bot]
       Jobs.enqueue(:bot_input,
         user_id: user.id,
         post_id: post.id,
@@ -194,7 +209,7 @@ after_initialize do
   end
 
   self.on(:post_recovered) do |post, _, user|
-    if user.enqueue_narrative_bot_job?
+    if user&.enqueue_narrative_bot_job?
       Jobs.enqueue(:bot_input,
         user_id: user.id,
         post_id: post.id,
@@ -225,6 +240,14 @@ after_initialize do
     end
   end
 
+  self.add_model_callback(Bookmark, :after_commit, on: :create) do
+    if SiteSetting.enable_bookmarks_with_reminders?
+      if self.post && self.user.enqueue_narrative_bot_job?
+        Jobs.enqueue(:bot_input, user_id: self.user_id, post_id: self.post_id, input: :bookmark)
+      end
+    end
+  end
+
   self.on(:topic_notification_level_changed) do |_, user_id, topic_id|
     user = User.find_by(id: user_id)
 
@@ -234,6 +257,20 @@ after_initialize do
         topic_id: topic_id,
         input: :topic_notification_level_changed
       )
+    end
+  end
+
+  self.on(:user_promoted) do |args|
+    promoted_from_tl1 = args[:new_trust_level] == TrustLevel[2] &&
+      args[:old_trust_level] == TrustLevel[1]
+
+    if SiteSetting.discourse_narrative_bot_enabled && promoted_from_tl1
+      # The event 'user_promoted' is sometimes called from inside a transaction.
+      # Use this helper to ensure the job is enqueued after commit to prevent
+      # any race conditions.
+      DB.after_commit do
+        Jobs.enqueue(:send_advanced_tutorial_message, user_id: args[:user_id])
+      end
     end
   end
 end

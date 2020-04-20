@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'has_errors'
 
 class Embedding < OpenStruct
@@ -8,13 +10,10 @@ class Embedding < OpenStruct
        embed_post_limit
        embed_title_scrubber
        embed_truncate
+       embed_unlisted
        embed_whitelist_selector
        embed_blacklist_selector
-       embed_classname_whitelist
-       feed_polling_enabled
-       feed_polling_url
-       feed_polling_frequency_mins
-       embed_username_key_from_feed)
+       embed_classname_whitelist)
   end
 
   def base_url
@@ -23,7 +22,7 @@ class Embedding < OpenStruct
 
   def save
     Embedding.settings.each do |s|
-      SiteSetting.send("#{s}=", send(s))
+      SiteSetting.set(s, public_send(s))
     end
     true
   rescue Discourse::InvalidParameters => p
@@ -37,8 +36,7 @@ class Embedding < OpenStruct
 
   def self.find
     embedding_args = { id: 'default' }
-
-    Embedding.settings.each { |s| embedding_args[s] = SiteSetting.send(s) }
+    Embedding.settings.each { |s| embedding_args[s] = SiteSetting.get(s) }
     Embedding.new(embedding_args)
   end
 end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'mysql2'
 require File.expand_path(File.dirname(__FILE__) + "/base.rb")
 
@@ -192,6 +194,11 @@ class ImportScripts::SimplePress < ImportScripts::Base
 
   def process_simplepress_post(raw, import_id)
     s = raw.dup
+
+    # fix invalid byte sequence in UTF-8 (ArgumentError)
+    unless s.valid_encoding?
+      s.force_encoding("UTF-8")
+    end
 
     # convert the quote line
     s.gsub!(/\[quote='([^']+)'.*?pid='(\d+).*?\]/) {

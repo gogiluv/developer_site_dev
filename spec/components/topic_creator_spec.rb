@@ -1,10 +1,11 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe TopicCreator do
-
-  let(:user)      { Fabricate(:user, trust_level: TrustLevel[2]) }
-  let(:moderator) { Fabricate(:moderator) }
-  let(:admin)     { Fabricate(:admin) }
+  fab!(:user)      { Fabricate(:user, trust_level: TrustLevel[2]) }
+  fab!(:moderator) { Fabricate(:moderator) }
+  fab!(:admin)     { Fabricate(:admin) }
 
   let(:valid_attrs) { Fabricate.attributes_for(:topic) }
   let(:pm_valid_attrs)  { { raw: 'this is a new post', title: 'this is a new title', archetype: Archetype.private_message, target_usernames: moderator.username } }
@@ -34,6 +35,18 @@ describe TopicCreator do
         expect(TopicCreator.create(moderator, Guardian.new(moderator), valid_attrs)).to be_valid
       end
 
+      it "supports both meta_data and custom_fields" do
+        opts = valid_attrs.merge(
+          meta_data: { import_topic_id: "foo" },
+          custom_fields: { import_id: "bar" }
+        )
+
+        topic = TopicCreator.create(admin, Guardian.new(admin), opts)
+
+        expect(topic.custom_fields["import_topic_id"]).to eq("foo")
+        expect(topic.custom_fields["import_id"]).to eq("bar")
+      end
+
       context 'regular user' do
         before { SiteSetting.min_trust_to_create_topic = TrustLevel[0] }
 
@@ -51,9 +64,9 @@ describe TopicCreator do
           expect(topic.public_topic_timer).to eq(nil)
         end
 
-        it "category name is case insensitive" do
+        it "can create a topic in a category" do
           category = Fabricate(:category, name: "Neil's Blog")
-          topic = TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(category: "neil's blog"))
+          topic = TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(category: category.id))
           expect(topic).to be_valid
           expect(topic.category).to eq(category)
         end
@@ -61,8 +74,8 @@ describe TopicCreator do
     end
 
     context 'tags' do
-      let!(:tag1) { Fabricate(:tag, name: "fun") }
-      let!(:tag2) { Fabricate(:tag, name: "fun2") }
+      fab!(:tag1) { Fabricate(:tag, name: "fun") }
+      fab!(:tag2) { Fabricate(:tag, name: "fun2") }
 
       before do
         SiteSetting.tagging_enabled = true
@@ -97,22 +110,22 @@ describe TopicCreator do
       end
 
       context 'minimum_required_tags is present' do
-        let!(:category) { Fabricate(:category, name: "beta", minimum_required_tags: 2) }
+        fab!(:category) { Fabricate(:category, name: "beta", minimum_required_tags: 2) }
 
         it "fails for regular user if minimum_required_tags is not satisfied" do
           expect do
-            TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(category: "beta"))
+            TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(category: category.id))
           end.to raise_error(ActiveRecord::Rollback)
         end
 
         it "lets admin create a topic regardless of minimum_required_tags" do
-          topic = TopicCreator.create(admin, Guardian.new(admin), valid_attrs.merge(tags: [tag1.name], category: "beta"))
+          topic = TopicCreator.create(admin, Guardian.new(admin), valid_attrs.merge(tags: [tag1.name], category: category.id))
           expect(topic).to be_valid
           expect(topic.tags.length).to eq(1)
         end
 
         it "works for regular user if minimum_required_tags is satisfied" do
-          topic = TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(tags: [tag1.name, tag2.name], category: "beta"))
+          topic = TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(tags: [tag1.name, tag2.name], category: category.id))
           expect(topic).to be_valid
           expect(topic.tags.length).to eq(2)
         end
@@ -120,8 +133,37 @@ describe TopicCreator do
         it "lets new user create a topic if they don't have sufficient trust level to tag topics" do
           SiteSetting.min_trust_level_to_tag_topics = 1
           new_user = Fabricate(:newuser)
-          topic = TopicCreator.create(new_user, Guardian.new(new_user), valid_attrs.merge(category: "beta"))
+          topic = TopicCreator.create(new_user, Guardian.new(new_user), valid_attrs.merge(category: category.id))
           expect(topic).to be_valid
+        end
+      end
+
+      context 'required tag group' do
+        fab!(:tag_group) { Fabricate(:tag_group, tags: [tag1]) }
+        fab!(:category) { Fabricate(:category, name: "beta", required_tag_group: tag_group, min_tags_from_required_group: 1) }
+
+        it "when no tags are not present" do
+          expect do
+            TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(category: category.id))
+          end.to raise_error(ActiveRecord::Rollback)
+        end
+
+        it "when tags are not part of the tag group" do
+          expect do
+            TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(category: category.id, tags: ['nope']))
+          end.to raise_error(ActiveRecord::Rollback)
+        end
+
+        it "when requirement is met" do
+          topic = TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(category: category.id, tags: [tag1.name, tag2.name]))
+          expect(topic).to be_valid
+          expect(topic.tags.length).to eq(2)
+        end
+
+        it "lets staff ignore the restriction" do
+          topic = TopicCreator.create(user, Guardian.new(admin), valid_attrs.merge(category: category.id))
+          expect(topic).to be_valid
+          expect(topic.tags.length).to eq(0)
         end
       end
     end
@@ -192,6 +234,35 @@ describe TopicCreator do
             TopicCreator.create(user, Guardian.new(user), pm_to_email_valid_attrs)
           end.to raise_error(ActiveRecord::Rollback)
         end
+      end
+    end
+
+    context 'setting timestamps' do
+      it 'supports Time instances' do
+        freeze_time
+
+        topic = TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(
+          created_at: 1.week.ago,
+          pinned_at: 3.days.ago
+        ))
+
+        expect(topic.created_at).to eq_time(1.week.ago)
+        expect(topic.pinned_at).to eq_time(3.days.ago)
+      end
+
+      it 'supports strings' do
+        freeze_time
+
+        time1 = Time.zone.parse('2019-09-02')
+        time2 = Time.zone.parse('2020-03-10 15:17')
+
+        topic = TopicCreator.create(user, Guardian.new(user), valid_attrs.merge(
+          created_at: '2019-09-02',
+          pinned_at: '2020-03-10 15:17'
+        ))
+
+        expect(topic.created_at).to eq_time(time1)
+        expect(topic.pinned_at).to eq_time(time2)
       end
     end
   end

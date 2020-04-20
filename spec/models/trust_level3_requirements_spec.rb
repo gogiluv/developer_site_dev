@@ -1,16 +1,19 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe TrustLevel3Requirements do
 
   let(:user) { Fabricate.build(:user) }
   subject(:tl3_requirements) { described_class.new(user) }
-  let(:moderator) { Fabricate(:moderator) }
+  fab!(:moderator) { Fabricate(:moderator) }
 
   before do
     described_class.clear_cache
   end
 
   def make_view(id, at, user_id)
+    Fabricate(:topic, id: id) unless Topic.where(id: id).exists?
     TopicViewItem.add(id, '11.22.33.44', user_id, at, _skip_redis = true)
   end
 
@@ -22,7 +25,7 @@ describe TrustLevel3Requirements do
 
     describe "penalty_counts" do
 
-      it "returns if the user has ever been silenced" do
+      it "returns if the user has been silenced in last 6 months" do
         expect(tl3_requirements.penalty_counts.silenced).to eq(0)
         expect(tl3_requirements.penalty_counts.total).to eq(0)
         UserSilencer.new(user, moderator).silence
@@ -33,7 +36,18 @@ describe TrustLevel3Requirements do
         expect(tl3_requirements.penalty_counts.total).to eq(0)
       end
 
-      it "returns if the user has ever been suspended" do
+      it "ignores system user unsilences" do
+        expect(tl3_requirements.penalty_counts.silenced).to eq(0)
+        expect(tl3_requirements.penalty_counts.total).to eq(0)
+        UserSilencer.new(user, moderator).silence
+        expect(tl3_requirements.penalty_counts.silenced).to eq(1)
+        expect(tl3_requirements.penalty_counts.total).to eq(1)
+        UserSilencer.new(user, Discourse.system_user).unsilence
+        expect(tl3_requirements.penalty_counts.silenced).to eq(1)
+        expect(tl3_requirements.penalty_counts.total).to eq(1)
+      end
+
+      it "returns if the user has been suspended in last 6 months" do
         user.save!
 
         expect(tl3_requirements.penalty_counts.suspended).to eq(0)
@@ -41,6 +55,7 @@ describe TrustLevel3Requirements do
 
         UserHistory.create!(
           target_user_id: user.id,
+          acting_user_id: moderator.id,
           action: UserHistory.actions[:suspend_user]
         )
 
@@ -49,11 +64,70 @@ describe TrustLevel3Requirements do
 
         UserHistory.create!(
           target_user_id: user.id,
+          acting_user_id: moderator.id,
           action: UserHistory.actions[:unsuspend_user]
         )
 
         expect(tl3_requirements.penalty_counts.suspended).to eq(0)
         expect(tl3_requirements.penalty_counts.total).to eq(0)
+      end
+
+      it "ignores system user un-suspend" do
+        user.save!
+
+        expect(tl3_requirements.penalty_counts.suspended).to eq(0)
+        expect(tl3_requirements.penalty_counts.total).to eq(0)
+
+        UserHistory.create!(
+          target_user_id: user.id,
+          acting_user_id: Discourse.system_user.id,
+          action: UserHistory.actions[:suspend_user]
+        )
+
+        expect(tl3_requirements.penalty_counts.suspended).to eq(1)
+        expect(tl3_requirements.penalty_counts.total).to eq(1)
+
+        UserHistory.create!(
+          target_user_id: user.id,
+          acting_user_id: Discourse.system_user.id,
+          action: UserHistory.actions[:unsuspend_user]
+        )
+
+        expect(tl3_requirements.penalty_counts.suspended).to eq(1)
+        expect(tl3_requirements.penalty_counts.total).to eq(1)
+      end
+
+      it "does not return if the user been silenced or suspended over 6 months ago" do
+        freeze_time 1.year.ago do
+          UserSilencer.new(user, moderator, silenced_till: 1.months.from_now).silence
+          UserHistory.create!(target_user_id: user.id, action: UserHistory.actions[:suspend_user])
+        end
+
+        expect(tl3_requirements.penalty_counts.silenced).to eq(0)
+        expect(tl3_requirements.penalty_counts.suspended).to eq(0)
+        expect(tl3_requirements.penalty_counts.total).to eq(0)
+
+        freeze_time 3.months.ago do
+          UserSilencer.new(user).unsilence
+          UserSilencer.new(user, moderator, silenced_till: 1.months.from_now).silence
+          UserHistory.create!(target_user_id: user.id, action: UserHistory.actions[:suspend_user])
+        end
+
+        expect(tl3_requirements.penalty_counts.silenced).to eq(1)
+        expect(tl3_requirements.penalty_counts.suspended).to eq(1)
+        expect(tl3_requirements.penalty_counts.total).to eq(2)
+      end
+
+      it "does return if the user has been silenced or suspended over 6 months ago and continues" do
+        freeze_time 1.year.ago do
+          UserSilencer.new(user, moderator, silenced_till: 10.years.from_now).silence
+          UserHistory.create!(target_user_id: user.id, action: UserHistory.actions[:suspend_user])
+          user.update(suspended_till: 10.years.from_now)
+        end
+
+        expect(tl3_requirements.penalty_counts.silenced).to eq(1)
+        expect(tl3_requirements.penalty_counts.suspended).to eq(1)
+        expect(tl3_requirements.penalty_counts.total).to eq(2)
       end
     end
 
@@ -169,13 +243,27 @@ describe TrustLevel3Requirements do
       _not_a_reply = create_post(user: user) # user created the topic, so it doesn't count
 
       topic1 = create_post.topic
-      _reply1      = create_post(topic: topic1, user: user)
+      _reply1 = create_post(topic: topic1, user: user)
       _reply_again = create_post(topic: topic1, user: user) # two replies in one topic
 
       topic2 = create_post(created_at: 101.days.ago).topic
       _reply2 = create_post(topic: topic2, user: user, created_at: 101.days.ago) # topic is over 100 days old
 
       expect(tl3_requirements.num_topics_replied_to).to eq(1)
+    end
+
+    it "excludes private messages" do
+      user.save!
+
+      private_topic = create_post(
+        user: moderator,
+        archetype: Archetype.private_message,
+        target_usernames: [user.username, moderator.username]
+      ).topic
+
+      _reply1 = create_post(topic: private_topic, user: user)
+
+      expect(tl3_requirements.num_topics_replied_to).to eq(0)
     end
   end
 
@@ -199,6 +287,19 @@ describe TrustLevel3Requirements do
       make_view(4, 201.days.ago, user.id) # too long ago
       expect(tl3_requirements.topics_viewed).to eq(3)
     end
+
+    it "excludes private messages" do
+      user.save
+      private_topic = create_post(
+        user: moderator,
+        archetype: Archetype.private_message,
+        target_usernames: [user.username, moderator.username]
+      ).topic
+
+      make_view(9, 1.day.ago, user.id)
+      make_view(private_topic.id, 1.day.ago, user.id)
+      expect(tl3_requirements.topics_viewed).to eq(1)
+    end
   end
 
   describe "posts_read" do
@@ -218,6 +319,22 @@ describe TrustLevel3Requirements do
       make_view(10, 1.day.ago,    user.id)
       make_view(9,  100.days.ago, user.id)
       make_view(8,  101.days.ago, user.id)
+      expect(tl3_requirements.topics_viewed_all_time).to eq(3)
+    end
+
+    it "excludes private messages" do
+      user.save
+      private_topic = create_post(
+        user: moderator,
+        archetype: Archetype.private_message,
+        target_usernames: [user.username, moderator.username]
+      ).topic
+
+      make_view(10, 1.day.ago,    user.id)
+      make_view(9,  100.days.ago, user.id)
+      make_view(8,  101.days.ago, user.id)
+      make_view(private_topic.id, 1.day.ago, user.id)
+      make_view(private_topic.id, 100.days.ago, user.id)
       expect(tl3_requirements.topics_viewed_all_time).to eq(3)
     end
   end
@@ -263,37 +380,65 @@ describe TrustLevel3Requirements do
   end
 
   describe "num_likes_given" do
-    it "counts likes given in the last 100 days" do
+    before do
       UserActionManager.enable
-
-      recent_post1 = create_post(created_at: 1.hour.ago)
-      recent_post2 = create_post(created_at: 10.days.ago)
-      old_post     = create_post(created_at: 102.days.ago)
-
       user.save
+    end
+
+    let(:recent_post1) { create_post(created_at: 1.hour.ago) }
+    let(:recent_post2) { create_post(created_at: 10.days.ago) }
+    let(:old_post) { create_post(created_at: 102.days.ago) }
+    let(:private_post) do
+      create_post(
+        user: moderator,
+        archetype: Archetype.private_message,
+        target_usernames: [user.username, moderator.username]
+      )
+    end
+
+    it "counts likes given in the last 100 days" do
       like_at(user, recent_post1, 2.hours.ago)
       like_at(user, recent_post2, 5.days.ago)
       like_at(user, old_post, 101.days.ago)
 
       expect(tl3_requirements.num_likes_given).to eq(2)
     end
+
+    it "excludes private messages" do
+      like_at(user, recent_post1, 2.hours.ago)
+      like_at(user, private_post, 2.hours.ago)
+
+      expect(tl3_requirements.num_likes_given).to eq(1)
+    end
   end
 
   describe "num_likes_received" do
-    it "counts likes received in the last 100 days" do
+    before do
       UserActionManager.enable
+    end
 
-      t = Fabricate(:topic, user: user, created_at: 102.days.ago)
-      old_post     = create_post(topic: t, user: user, created_at: 102.days.ago)
-      recent_post2 = create_post(topic: t, user: user, created_at: 10.days.ago)
-      recent_post1 = create_post(topic: t, user: user, created_at: 1.hour.ago)
+    let(:topic) { Fabricate(:topic, user: user, created_at: 102.days.ago) }
+    let(:old_post) { create_post(topic: topic, user: user, created_at: 102.days.ago) }
+    let(:recent_post1) { create_post(topic: topic, user: user, created_at: 1.hour.ago) }
+    let(:recent_post2) { create_post(topic: topic, user: user, created_at: 10.days.ago) }
+    let(:private_post) do
+      create_post(
+        user: user,
+        archetype: Archetype.private_message,
+        target_usernames: [liker.username, liker2.username]
+      )
+    end
 
-      liker = Fabricate(:user)
-      liker2 = Fabricate(:user)
+    let(:liker) { Fabricate(:user) }
+    let(:liker2) { Fabricate(:user) }
+
+    it "counts likes received in the last 100 days" do
       like_at(liker, recent_post1, 2.hours.ago)
       like_at(liker2, recent_post1, 2.hours.ago)
       like_at(liker, recent_post2, 5.days.ago)
       like_at(liker, old_post, 101.days.ago)
+      like_at(liker, private_post, 2.hours.ago)
+      like_at(liker2, private_post, 5.days.ago)
 
       expect(tl3_requirements.num_likes_received).to eq(3)
       expect(tl3_requirements.num_likes_received_days).to eq(2)

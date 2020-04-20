@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe UserApiKeysController do
@@ -131,6 +133,19 @@ describe UserApiKeysController do
       expect(key.revoked_at).not_to eq(nil)
     end
 
+    it "will not allow revoking another users key" do
+      key = Fabricate(:readonly_user_api_key)
+      acting_user = Fabricate(:user)
+      sign_in(acting_user)
+
+      post "/user-api-key/revoke.json",
+        params: { id: key.id }
+
+      expect(response.status).to eq(403)
+      key.reload
+      expect(key.revoked_at).to eq(nil)
+    end
+
     it "will not return p access if not yet configured" do
       SiteSetting.min_trust_level_for_user_api_key = 0
       SiteSetting.allowed_user_api_auth_redirects = args[:auth_redirect]
@@ -190,7 +205,7 @@ describe UserApiKeysController do
       expect(parsed["nonce"]).to eq(args[:nonce])
       expect(parsed["push"]).to eq(true)
 
-      api_key = UserApiKey.find_by(key: parsed["key"])
+      api_key = UserApiKey.with_key(parsed["key"]).first
 
       expect(api_key.user_id).to eq(user.id)
       expect(api_key.scopes.sort).to eq(["push", "message_bus", "notifications", "session_info", "one_time_password"].sort)
@@ -211,7 +226,7 @@ describe UserApiKeysController do
       parsed_otp = key.private_decrypt(encrypted_otp)
       redis_key = "otp_#{parsed_otp}"
 
-      expect($redis.get(redis_key)).to eq(user.username)
+      expect(Discourse.redis.get(redis_key)).to eq(user.username)
     end
 
     it "will just show the payload if no redirect" do
@@ -227,7 +242,7 @@ describe UserApiKeysController do
       encrypted = Base64.decode64(payload)
       key = OpenSSL::PKey::RSA.new(private_key)
       parsed = JSON.parse(key.private_decrypt(encrypted))
-      api_key = UserApiKey.find_by(key: parsed["key"])
+      api_key = UserApiKey.with_key(parsed["key"]).first
       expect(api_key.user_id).to eq(user.id)
     end
 
@@ -244,7 +259,7 @@ describe UserApiKeysController do
       encrypted = Base64.decode64(payload)
       key = OpenSSL::PKey::RSA.new(private_key)
       parsed = JSON.parse(key.private_decrypt(encrypted))
-      api_key = UserApiKey.find_by(key: parsed["key"])
+      api_key = UserApiKey.with_key(parsed["key"]).first
       expect(api_key.user_id).to eq(user.id)
 
     end
@@ -257,6 +272,23 @@ describe UserApiKeysController do
 
       post "/user-api-key.json", params: args
       expect(response.status).to eq(302)
+    end
+
+    it 'will keep query_params added in auth_redirect' do
+      SiteSetting.min_trust_level_for_user_api_key = 0
+      SiteSetting.allowed_user_api_auth_redirects = args[:auth_redirect] + "/*"
+
+      user = Fabricate(:user, trust_level: 0)
+      sign_in(user)
+
+      query_str = "/?param1=val1"
+      args[:auth_redirect] = args[:auth_redirect] + query_str
+
+      post "/user-api-key.json", params: args
+      expect(response.status).to eq(302)
+
+      uri = URI.parse(response.redirect_url)
+      expect(uri.to_s).to include(query_str)
     end
   end
 
@@ -330,7 +362,7 @@ describe UserApiKeysController do
 
       parsed = key.private_decrypt(encrypted)
 
-      expect($redis.get("otp_#{parsed}")).to eq(user.username)
+      expect(Discourse.redis.get("otp_#{parsed}")).to eq(user.username)
     end
   end
 end

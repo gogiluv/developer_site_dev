@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # we should set the locale before the migration
 task 'set_locale' do
   begin
@@ -11,6 +13,10 @@ module MultisiteTestHelpers
   def self.load_multisite?
     Rails.env.test? && !ENV["RAILS_DB"] && !ENV["SKIP_MULTISITE"]
   end
+
+  def self.create_multisite?
+    (ENV["RAILS_ENV"] == "test" || !ENV["RAILS_ENV"]) && !ENV["RAILS_DB"] && !ENV["SKIP_MULTISITE"]
+  end
 end
 
 task 'db:environment:set' => [:load_config]  do |_, args|
@@ -19,25 +25,164 @@ task 'db:environment:set' => [:load_config]  do |_, args|
   end
 end
 
+task 'db:force_skip_persist' do
+  GlobalSetting.skip_db = true
+  GlobalSetting.skip_redis = true
+end
+
 task 'db:create' => [:load_config] do |_, args|
-  if MultisiteTestHelpers.load_multisite?
-    system("RAILS_DB=discourse_test_multisite rake db:create")
+  if MultisiteTestHelpers.create_multisite?
+    unless system("RAILS_ENV=test RAILS_DB=discourse_test_multisite rake db:create")
+
+      STDERR.puts "-" * 80
+      STDERR.puts "ERROR: Could not create multisite DB. A common cause of this is a plugin"
+      STDERR.puts "checking the column structure when initializing, which raises an error."
+      STDERR.puts "-" * 80
+      raise "Could not initialize discourse_test_multisite"
+    end
   end
+end
+
+begin
+  reqs = Rake::Task['db:create'].prerequisites.map(&:to_sym)
+  Rake::Task['db:create'].clear_prerequisites
+  Rake::Task['db:create'].enhance(["db:force_skip_persist"] + reqs)
 end
 
 task 'db:drop' => [:load_config] do |_, args|
-  if MultisiteTestHelpers.load_multisite?
-    system("RAILS_DB=discourse_test_multisite rake db:drop")
+  if MultisiteTestHelpers.create_multisite?
+    system("RAILS_DB=discourse_test_multisite RAILS_ENV=test rake db:drop")
   end
 end
 
+begin
+  Rake::Task["db:migrate"].clear
+  Rake::Task["db:rollback"].clear
+end
+
+task 'db:rollback' => ['environment', 'set_locale'] do |_, args|
+  step = ENV["STEP"] ? ENV["STEP"].to_i : 1
+  ActiveRecord::Base.connection.migration_context.rollback(step)
+  Rake::Task['db:_dump'].invoke
+end
+
+# our optimized version of multisite migrate, we have many sites and we have seeds
+# this ensures we can run migrations concurrently to save huge amounts of time
+Rake::Task['multisite:migrate'].clear
+
+class StdOutDemux
+  def initialize(stdout)
+    @stdout = stdout
+    @data = {}
+  end
+
+  def write(data)
+    (@data[Thread.current] ||= +"") << data
+  end
+
+  def close
+    finish_chunk
+  end
+
+  def finish_chunk
+    data = @data[Thread.current]
+    if data
+      @stdout.write(data)
+      @data.delete Thread.current
+    end
+  end
+end
+
+task 'multisite:migrate' => ['db:load_config', 'environment', 'set_locale'] do |_, args|
+  if ENV["RAILS_ENV"] != "production"
+    raise "Multisite migrate is only supported in production"
+  end
+
+  concurrency = (ENV['MIGRATE_CONCURRENCY'].presence || "20").to_i
+
+  puts "Multisite migrator is running using #{concurrency} threads"
+  puts
+
+  queue = Queue.new
+  exceptions = Queue.new
+
+  old_stdout = $stdout
+  $stdout = StdOutDemux.new($stdout)
+
+  RailsMultisite::ConnectionManagement.each_connection do |db|
+    queue << db
+  end
+
+  concurrency.times { queue << :done }
+
+  SeedFu.quiet = true
+
+  (1..concurrency).map do
+    Thread.new {
+      while true
+        db = queue.pop
+        break if db == :done
+
+        RailsMultisite::ConnectionManagement.with_connection(db) do
+          begin
+            puts "Migrating #{db}"
+            ActiveRecord::Tasks::DatabaseTasks.migrate
+            SeedFu.seed(DiscoursePluginRegistry.seed_paths)
+            if !Discourse.skip_post_deployment_migrations? && ENV['SKIP_OPTIMIZE_ICONS'] != '1'
+              SiteIconManager.ensure_optimized!
+            end
+          rescue => e
+            exceptions << [db, e]
+          ensure
+            begin
+              $stdout.finish_chunk
+            rescue => ex
+              STDERR.puts ex.inspect
+              STDERR.puts ex.backtrace
+            end
+          end
+        end
+      end
+    }
+  end.each(&:join)
+
+  $stdout = old_stdout
+
+  if exceptions.length > 0
+    STDERR.puts
+    STDERR.puts "-" * 80
+    STDERR.puts "#{exceptions.length} migrations failed!"
+    while !exceptions.empty?
+      db, e = exceptions.pop
+      STDERR.puts
+      STDERR.puts "Failed to migrate #{db}"
+      STDERR.puts e.inspect
+      STDERR.puts e.backtrace
+      STDERR.puts
+    end
+    exit 1
+  end
+
+  Rake::Task['db:_dump'].invoke
+end
+
 # we need to run seed_fu every time we run rake db:migrate
-task 'db:migrate' => ['environment', 'set_locale'] do |_, args|
+task 'db:migrate' => ['load_config', 'environment', 'set_locale'] do |_, args|
+
+  ActiveRecord::Tasks::DatabaseTasks.migrate
+
+  if !Discourse.is_parallel_test?
+    Rake::Task['db:_dump'].invoke
+  end
+
+  SeedFu.quiet = true
   SeedFu.seed(DiscoursePluginRegistry.seed_paths)
 
-  if MultisiteTestHelpers.load_multisite?
-    system("rake db:schema:dump")
-    system("RAILS_DB=discourse_test_multisite rake db:schema:load")
+  if !Discourse.skip_post_deployment_migrations? && ENV['SKIP_OPTIMIZE_ICONS'] != '1'
+    SiteIconManager.ensure_optimized!
+  end
+
+  if !Discourse.is_parallel_test? && MultisiteTestHelpers.load_multisite?
     system("RAILS_DB=discourse_test_multisite rake db:migrate")
   end
 end
@@ -95,10 +240,12 @@ task 'db:stats' => 'environment' do
       from pg_class
       where oid = ('public.' || table_name)::regclass
     ) AS row_estimate,
-    pg_size_pretty(pg_relation_size(quote_ident(table_name))) size
+    pg_size_pretty(pg_table_size(quote_ident(table_name))) table_size,
+    pg_size_pretty(pg_indexes_size(quote_ident(table_name))) index_size,
+    pg_size_pretty(pg_total_relation_size(quote_ident(table_name))) total_size
     from information_schema.tables
     where table_schema = 'public'
-    order by pg_relation_size(quote_ident(table_name)) DESC
+    order by pg_total_relation_size(quote_ident(table_name)) DESC
   SQL
 
   puts

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class TopicViewDetailsSerializer < ApplicationSerializer
 
   def self.can_attributes
@@ -11,7 +13,10 @@ class TopicViewDetailsSerializer < ApplicationSerializer
      :can_create_post,
      :can_reply_as_new_topic,
      :can_flag_topic,
-     :can_convert_topic]
+     :can_convert_topic,
+     :can_review_topic,
+     :can_edit_tags,
+     :can_publish_page]
   end
 
   attributes(
@@ -77,6 +82,10 @@ class TopicViewDetailsSerializer < ApplicationSerializer
     define_method(ca) { true }
   end
 
+  def include_can_review_topic?
+    scope.can_review_topic?(object.topic)
+  end
+
   def include_can_move_posts?
     scope.can_move_posts?(object.topic)
   end
@@ -119,6 +128,14 @@ class TopicViewDetailsSerializer < ApplicationSerializer
 
   def include_can_convert_topic?
     scope.can_convert_topic?(object.topic)
+  end
+
+  def include_can_edit_tags?
+    !scope.can_edit?(object.topic) && scope.can_edit_tags?(object.topic)
+  end
+
+  def include_can_publish_page?
+    scope.can_publish_page?(object.topic)
   end
 
   def allowed_users

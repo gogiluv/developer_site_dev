@@ -1,6 +1,4 @@
-require_dependency 'theme_settings_parser'
-require_dependency 'theme_translation_parser'
-require_dependency 'theme_javascript_compiler'
+# frozen_string_literal: true
 
 class ThemeField < ActiveRecord::Base
 
@@ -44,7 +42,8 @@ class ThemeField < ActiveRecord::Base
                         theme_upload_var: 2,
                         theme_color_var: 3, # No longer used
                         theme_var: 4, # No longer used
-                        yaml: 5)
+                        yaml: 5,
+                        js: 6)
   end
 
   def self.theme_var_type_ids
@@ -61,7 +60,13 @@ class ThemeField < ActiveRecord::Base
   validates :name, format: { with: /\A[a-z_][a-z0-9_-]*\z/i },
                    if: Proc.new { |field| ThemeField.theme_var_type_ids.include?(field.type_id) }
 
-  COMPILER_VERSION = 10
+  BASE_COMPILER_VERSION = 15
+  DEPENDENT_CONSTANTS = [
+    BASE_COMPILER_VERSION,
+    Ember::VERSION,
+    GlobalSetting.cdn_url
+  ]
+  COMPILER_VERSION = Digest::SHA1.hexdigest(DEPENDENT_CONSTANTS.join)
 
   belongs_to :theme
 
@@ -69,13 +74,15 @@ class ThemeField < ActiveRecord::Base
     errors = []
     javascript_cache || build_javascript_cache
 
-    js_compiler = ThemeJavascriptCompiler.new(theme_id)
+    errors << I18n.t("themes.errors.optimized_link") if contains_optimized_link?(html)
+
+    js_compiler = ThemeJavascriptCompiler.new(theme_id, self.theme.name)
 
     doc = Nokogiri::HTML.fragment(html)
 
     doc.css('script[type="text/x-handlebars"]').each do |node|
       name = node["name"] || node["data-template-name"] || "broken"
-      is_raw = name =~ /\.raw$/
+      is_raw = name =~ /\.(raw|hbr)$/
       hbs_template = node.inner_html
 
       begin
@@ -120,6 +127,29 @@ class ThemeField < ActiveRecord::Base
     [doc.to_s, errors&.join("\n")]
   end
 
+  def process_extra_js(content)
+    errors = []
+
+    js_compiler = ThemeJavascriptCompiler.new(theme_id, theme.name)
+    filename, extension = name.split(".", 2)
+    begin
+      case extension
+      when "js.es6", "js"
+        js_compiler.append_module(content, filename)
+      when "hbs"
+        js_compiler.append_ember_template(filename.sub("discourse/templates/", ""), content)
+      when "hbr", "raw.hbs"
+        js_compiler.append_raw_template(filename.sub("discourse/templates/", ""), content)
+      else
+        raise ThemeJavascriptCompiler::CompileError.new(I18n.t("themes.compile_error.unrecognized_extension", extension: extension))
+      end
+    rescue ThemeJavascriptCompiler::CompileError => ex
+      errors << ex.message
+    end
+
+    [js_compiler.content, errors&.join("\n")]
+  end
+
   def raw_translation_data(internal: false)
     # Might raise ThemeTranslationParser::InvalidYaml
     ThemeTranslationParser.new(self, internal: internal).load
@@ -151,24 +181,29 @@ class ThemeField < ActiveRecord::Base
   def process_translation
     errors = []
     javascript_cache || build_javascript_cache
-    js_compiler = ThemeJavascriptCompiler.new(theme_id)
+    js_compiler = ThemeJavascriptCompiler.new(theme_id, self.theme.name)
     begin
       data = translation_data
 
       js = <<~JS
-        /* Translation data for theme #{self.theme_id} (#{self.name})*/
-        const data = #{data.to_json};
+        export default {
+          name: "theme-#{theme_id}-translations",
+          initialize() {
+            /* Translation data for theme #{self.theme_id} (#{self.name})*/
+            const data = #{data.to_json};
 
-        for (let lang in data){
-          let cursor = I18n.translations;
-          for (let key of [lang, "js", "theme_translations"]){
-            cursor = cursor[key] = cursor[key] || {};
+            for (let lang in data){
+              let cursor = I18n.translations;
+              for (let key of [lang, "js", "theme_translations"]){
+                cursor = cursor[key] = cursor[key] || {};
+              }
+              cursor[#{self.theme_id}] = data[lang];
+            }
           }
-          cursor[#{self.theme_id}] = data[lang];
-        }
+        };
       JS
 
-      js_compiler.append_plugin_script(js, 0)
+      js_compiler.append_module(js, "discourse/pre-initializers/theme-#{theme_id}-translations", include_variables: false)
     rescue ThemeTranslationParser::InvalidYaml => e
       errors << e.message
     end
@@ -225,6 +260,8 @@ class ThemeField < ActiveRecord::Base
       types[:scss]
     elsif target.to_s == "extra_scss"
       types[:scss]
+    elsif target.to_s == "extra_js"
+      types[:js]
     elsif target.to_s == "settings" || target.to_s == "translations"
       types[:yaml]
     end
@@ -245,6 +282,10 @@ class ThemeField < ActiveRecord::Base
   def basic_html_field?
     ThemeField.basic_targets.include?(Theme.targets[self.target_id].to_s) &&
       ThemeField.html_fields.include?(self.name)
+  end
+
+  def extra_js_field?
+    Theme.targets[self.target_id] == :extra_js
   end
 
   def basic_scss_field?
@@ -276,6 +317,10 @@ class ThemeField < ActiveRecord::Base
       self.value_baked, self.error = translation_field? ? process_translation : process_html(self.value)
       self.error = nil unless self.error.present?
       self.compiler_version = COMPILER_VERSION
+    elsif extra_js_field?
+      self.value_baked, self.error = process_extra_js(self.value)
+      self.error = nil unless self.error.present?
+      self.compiler_version = COMPILER_VERSION
     elsif basic_scss_field?
       ensure_scss_compiles!
       Stylesheet::Manager.clear_theme_cache!
@@ -304,7 +349,7 @@ class ThemeField < ActiveRecord::Base
   end
 
   def compile_scss
-    Stylesheet::Compiler.compile("@import \"common/foundation/variables\"; @import \"theme_variables\"; @import \"theme_field\";",
+    Stylesheet::Compiler.compile("@import \"common/foundation/variables\"; @import \"common/foundation/mixins\"; @import \"theme_variables\"; @import \"theme_field\";",
       "theme.scss",
       theme_field: self.value.dup,
       theme: self.theme
@@ -315,7 +360,11 @@ class ThemeField < ActiveRecord::Base
     result = ["failed"]
     begin
       result = compile_scss
-      self.error = nil unless error.nil?
+      if contains_optimized_link?(self.value)
+        self.error = I18n.t("themes.errors.optimized_link")
+      else
+        self.error = nil unless error.nil?
+      end
     rescue SassC::SyntaxError => e
       self.error = e.message unless self.destroyed?
     end
@@ -325,6 +374,10 @@ class ThemeField < ActiveRecord::Base
 
   def target_name
     Theme.targets[target_id].to_s
+  end
+
+  def contains_optimized_link?(text)
+    OptimizedImage::URL_REGEX.match?(text)
   end
 
   class ThemeFileMatcher
@@ -377,9 +430,12 @@ class ThemeField < ActiveRecord::Base
     ThemeFileMatcher.new(regex: /^common\/embedded\.scss$/,
                          targets: :common, names: "embedded_scss", types: :scss,
                          canonical: -> (h) { "common/embedded.scss" }),
-    ThemeFileMatcher.new(regex: /^scss\/(?<name>.+)\.scss$/,
+    ThemeFileMatcher.new(regex: /^(?:scss|stylesheets)\/(?<name>.+)\.scss$/,
                          targets: :extra_scss, names: nil, types: :scss,
-                         canonical: -> (h) { "scss/#{h[:name]}.scss" }),
+                         canonical: -> (h) { "stylesheets/#{h[:name]}.scss" }),
+    ThemeFileMatcher.new(regex: /^javascripts\/(?<name>.+)$/,
+                         targets: :extra_js, names: nil, types: :js,
+                         canonical: -> (h) { "javascripts/#{h[:name]}" }),
     ThemeFileMatcher.new(regex: /^settings\.ya?ml$/,
                          names: "yaml", types: :yaml, targets: :settings,
                          canonical: -> (h) { "settings.yml" }),
@@ -471,12 +527,12 @@ end
 #  id               :integer          not null, primary key
 #  theme_id         :integer          not null
 #  target_id        :integer          not null
-#  name             :string(30)       not null
+#  name             :string(255)      not null
 #  value            :text             not null
 #  value_baked      :text
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
-#  compiler_version :integer          default(0), not null
+#  compiler_version :string(50)       default("0"), not null
 #  error            :string
 #  upload_id        :integer
 #  type_id          :integer          default(0), not null

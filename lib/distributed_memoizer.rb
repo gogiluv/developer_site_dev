@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class DistributedMemoizer
 
   # never wait for longer that 1 second for a cross process lock
@@ -6,18 +8,18 @@ class DistributedMemoizer
 
   # memoize a key across processes and machines
   def self.memoize(key, duration = 60 * 60 * 24, redis = nil)
-    redis ||= $redis
+    redis ||= Discourse.redis
 
     redis_key = self.redis_key(key)
 
     unless result = redis.get(redis_key)
       redis_lock_key = self.redis_lock_key(key)
 
-      start = Time.new
+      start = Time.now
       got_lock = false
 
       begin
-        while Time.new < start + MAX_WAIT && !got_lock
+        while Time.now < start + MAX_WAIT && !got_lock
           LOCK.synchronize do
             got_lock = get_lock(redis, redis_lock_key)
           end
@@ -39,16 +41,16 @@ class DistributedMemoizer
   end
 
   def self.redis_lock_key(key)
-    "memoize_lock_" << key
+    +"memoize_lock_" << key
   end
 
   def self.redis_key(key)
-    "memoize_" << key
+    +"memoize_" << key
   end
 
   # Used for testing
   def self.flush!
-    $redis.scan_each(match: "memoize_*").each { |key| $redis.del(key) }
+    Discourse.redis.scan_each(match: "memoize_*").each { |key| Discourse.redis.del(key) }
   end
 
   protected

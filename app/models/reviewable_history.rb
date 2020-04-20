@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ReviewableHistory < ActiveRecord::Base
   belongs_to :reviewable
   belongs_to :created_by, class_name: 'User'
@@ -6,7 +8,9 @@ class ReviewableHistory < ActiveRecord::Base
     @types ||= Enum.new(
       created: 0,
       transitioned: 1,
-      edited: 2
+      edited: 2,
+      claimed: 3,
+      unclaimed: 4
     )
   end
 
@@ -16,7 +20,7 @@ end
 #
 # Table name: reviewable_histories
 #
-#  id                      :bigint(8)        not null, primary key
+#  id                      :bigint           not null, primary key
 #  reviewable_id           :integer          not null
 #  reviewable_history_type :integer          not null
 #  status                  :integer          not null

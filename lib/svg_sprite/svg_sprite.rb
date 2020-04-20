@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
-require_dependency 'distributed_cache'
-
 module SvgSprite
   SVG_ICONS ||= Set.new([
     "adjust",
+    "address-book",
     "ambulance",
     "anchor",
     "angle-double-down",
@@ -21,14 +20,18 @@ module SvgSprite
     "arrows-alt-h",
     "arrows-alt-v",
     "at",
+    "asterisk",
     "backward",
     "ban",
     "bars",
     "bed",
+    "bell",
     "bell-slash",
     "bold",
     "book",
+    "book-reader",
     "bookmark",
+    "discourse-bookmark-clock",
     "briefcase",
     "calendar-alt",
     "caret-down",
@@ -55,6 +58,9 @@ module SvgSprite
     "crosshairs",
     "cube",
     "desktop",
+    "discourse-bell-exclamation",
+    "discourse-bell-one",
+    "discourse-bell-slash",
     "discourse-compress",
     "discourse-expand",
     "download",
@@ -68,6 +74,8 @@ module SvgSprite
     "external-link-alt",
     "fab-android",
     "fab-apple",
+    "fab-chrome",
+    "fab-discord",
     "fab-discourse",
     "fab-facebook-square",
     "fab-facebook",
@@ -124,6 +132,7 @@ module SvgSprite
     "heading",
     "heart",
     "home",
+    "id-card",
     "info-circle",
     "italic",
     "key",
@@ -165,6 +174,8 @@ module SvgSprite
     "signal",
     "step-backward",
     "step-forward",
+    "stream",
+    "sync-alt",
     "sync",
     "table",
     "tag",
@@ -183,11 +194,14 @@ module SvgSprite
     "unlock-alt",
     "upload",
     "user",
+    "user-edit",
     "user-plus",
     "user-secret",
+    "user-shield",
     "user-times",
     "users",
     "wrench",
+    "spinner",
     "chalkboard-teacher",
     "h-square",
     "shapes",
@@ -207,11 +221,13 @@ module SvgSprite
     ThemeField.where(type_id: ThemeField.types[:theme_upload_var], name: THEME_SPRITE_VAR_NAME, theme_id: Theme.transform_ids(theme_ids))
       .pluck(:upload_id).each do |upload_id|
 
-      upload = Upload.find(upload_id)
-      original_path = Discourse.store.path_for(upload)
-      if original_path.blank?
+      upload = Upload.find(upload_id) rescue nil
+
+      if Discourse.store.external?
         external_copy = Discourse.store.download(upload) rescue nil
         original_path = external_copy.try(:path)
+      else
+        original_path = Discourse.store.path_for(upload)
       end
 
       custom_sprite_paths << original_path if original_path.present?
@@ -238,7 +254,7 @@ module SvgSprite
 
   def self.version(theme_ids = [])
     get_set_cache("version_#{Theme.transform_ids(theme_ids).join(',')}") do
-      Digest::SHA1.hexdigest(all_icons(theme_ids).join('|'))
+      Digest::SHA1.hexdigest(bundle(theme_ids))
     end
   end
 
@@ -305,6 +321,39 @@ License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL
     false
   end
 
+  def self.icon_picker_search(keyword)
+    results = Set.new
+
+    sprite_sources([SiteSetting.default_theme_id]).each do |fname|
+      svg_file = Nokogiri::XML(File.open(fname))
+      svg_filename = "#{File.basename(fname, ".svg")}"
+
+      svg_file.css('symbol').each do |sym|
+        icon_id = prepare_symbol(sym, svg_filename)
+        if keyword.empty? || icon_id.include?(keyword)
+          sym.attributes['id'].value = icon_id
+          sym.css('title').each(&:remove)
+          results.add(id: icon_id, symbol: sym.to_xml)
+        end
+      end
+    end
+
+    results.sort_by { |icon| icon[:id] }
+  end
+
+  # For use in no_ember .html.erb layouts
+  def self.raw_svg(name)
+    get_set_cache("raw_svg_#{name}") do
+      symbol = search(name)
+      break "" unless symbol
+      symbol = Nokogiri::XML(symbol).children.first
+      symbol.name = "svg"
+      <<~HTML
+        <svg class="fa d-icon svg-icon svg-node" aria-hidden="true">#{symbol}</svg>
+      HTML
+    end.html_safe
+  end
+
   def self.theme_sprite_variable_name
     THEME_SPRITE_VAR_NAME
   end
@@ -335,10 +384,6 @@ License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL
     site_setting_icons
   end
 
-  DiscourseEvent.on(:site_setting_saved) do |site_setting|
-    expire_cache if site_setting.name.to_s.include?("_icon")
-  end
-
   def self.plugin_icons
     DiscoursePluginRegistry.svg_icons
   end
@@ -362,6 +407,8 @@ License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL
         end
       end
     end
+
+    theme_icon_settings |= ThemeModifierHelper.new(theme_ids: theme_ids).svg_icons
 
     theme_icon_settings
   end
@@ -388,8 +435,8 @@ License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL
   end
 
   def self.process(icon_name)
-    icon_name.strip!
-    FA_ICON_MAP.each { |k, v| icon_name.sub!(k, v) }
+    icon_name = icon_name.strip
+    FA_ICON_MAP.each { |k, v| icon_name = icon_name.sub(k, v) }
     fa4_to_fa5_names[icon_name] || icon_name
   end
 

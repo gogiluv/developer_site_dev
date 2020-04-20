@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ReviewableUserSerializer < ReviewableSerializer
 
   attributes :link_admin, :user_fields
@@ -5,7 +7,9 @@ class ReviewableUserSerializer < ReviewableSerializer
   payload_attributes(
     :username,
     :email,
-    :name
+    :name,
+    :bio,
+    :website
   )
 
   def link_admin

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe TopicViewSerializer do
@@ -12,9 +14,9 @@ describe TopicViewSerializer do
     RandomTopicSelector.clear_cache!
   end
 
-  let(:topic) { Fabricate(:topic) }
-  let(:user) { Fabricate(:user) }
-  let(:admin) { Fabricate(:admin) }
+  fab!(:topic) { Fabricate(:topic) }
+  fab!(:user) { Fabricate(:user) }
+  fab!(:admin) { Fabricate(:admin) }
 
   describe '#featured_link and #featured_link_root_domain' do
     let(:featured_link) { 'http://meta.discourse.org' }
@@ -39,6 +41,30 @@ describe TopicViewSerializer do
 
         expect(json[:featured_link]).to eq(featured_link)
         expect(json[:featured_link_root_domain]).to eq('discourse.org')
+      end
+    end
+  end
+
+  describe '#image_url' do
+    let(:image_url) { 'http://meta.discourse.org/images/welcome/discourse-edit-post-animated.gif' }
+
+    describe 'when a topic has an image' do
+      it 'should return the image url' do
+        topic.update!(image_url: image_url)
+
+        json = serialize_topic(topic, user)
+
+        expect(json[:image_url]).to eq(image_url)
+      end
+    end
+
+    describe 'when a topic does not contain an image' do
+      it 'should return a nil image url' do
+
+        json = serialize_topic(topic, user)
+
+        expect(json.has_key? :image_url).to eq(true)
+        expect(json[:image_url]).to eq(nil)
       end
     end
   end
@@ -132,6 +158,27 @@ describe TopicViewSerializer do
     end
   end
 
+  context "with flags" do
+    let!(:post) { Fabricate(:post, topic: topic) }
+    let!(:other_post) { Fabricate(:post, topic: topic) }
+
+    it "will return reviewable counts on posts" do
+      r = PostActionCreator.inappropriate(Fabricate(:user), post).reviewable
+      r.perform(admin, :agree_and_keep)
+      PostActionCreator.spam(Fabricate(:user), post)
+
+      json = serialize_topic(topic, admin)
+      p0 = json[:post_stream][:posts][0]
+      expect(p0[:id]).to eq(post.id)
+      expect(p0[:reviewable_score_count]).to eq(2)
+      expect(p0[:reviewable_score_pending_count]).to eq(1)
+
+      p1 = json[:post_stream][:posts][1]
+      expect(p1[:reviewable_score_count]).to eq(0)
+      expect(p1[:reviewable_score_pending_count]).to eq(0)
+    end
+  end
+
   describe "pending posts" do
     context "when the queue is enabled" do
       before do
@@ -183,6 +230,7 @@ describe TopicViewSerializer do
       expect(details[:notification_level]).to be_present
       expect(details[:can_move_posts]).to eq(true)
       expect(details[:can_flag_topic]).to eq(true)
+      expect(details[:can_review_topic]).to eq(true)
       expect(details[:links][0][:clicks]).to eq(100)
 
       participant = details[:participants].find { |p| p[:id] == user.id }
@@ -208,6 +256,58 @@ describe TopicViewSerializer do
       expect(details[:can_remove_self_id]).to eq(admin.id)
       expect(details[:allowed_users].find { |au| au[:id] == pm.user_id }).to be_present
       expect(details[:allowed_groups].find { |ag| ag[:id] == group.id }).to be_present
+    end
+
+    it "has can_publish_page if possible" do
+      SiteSetting.enable_page_publishing = true
+
+      json = serialize_topic(topic, user)
+      expect(json[:details][:can_publish_page]).to be_blank
+
+      json = serialize_topic(topic, admin)
+      expect(json[:details][:can_publish_page]).to eq(true)
+    end
+
+    context "can_edit_tags" do
+      before do
+        SiteSetting.tagging_enabled = true
+        SiteSetting.min_trust_to_edit_wiki_post = 2
+      end
+
+      it "returns true when user can edit a wiki topic" do
+        post = Fabricate(:post, wiki: true)
+        topic = Fabricate(:topic, first_post: post)
+
+        json = serialize_topic(topic, user)
+        expect(json[:details][:can_edit_tags]).to be_nil
+
+        user.update!(trust_level: 2)
+
+        json = serialize_topic(topic, user)
+        expect(json[:details][:can_edit_tags]).to eq(true)
+      end
+    end
+  end
+
+  context "published_page" do
+    fab!(:published_page) { Fabricate(:published_page, topic: topic) }
+
+    it "doesn't return the published page if not enabled" do
+      json = serialize_topic(topic, admin)
+      expect(json[:published_page]).to be_blank
+    end
+
+    it "doesn't return the published page unless staff" do
+      SiteSetting.enable_page_publishing = true
+      json = serialize_topic(topic, user)
+      expect(json[:published_page]).to be_blank
+    end
+
+    it "returns the published page if enabled and staff" do
+      SiteSetting.enable_page_publishing = true
+      json = serialize_topic(topic, admin)
+      expect(json[:published_page]).to be_present
+      expect(json[:published_page][:slug]).to eq("published-page-test")
     end
   end
 

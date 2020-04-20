@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ThemeJavascriptCompiler
 
   module PrecompilerExtension
@@ -62,7 +64,7 @@ class ThemeJavascriptCompiler
       }
 
       function manipulateNode(node) {
-        // Magically add theme id as the first param for each of these helpers
+        // Magically add theme id as the first param for each of these helpers)
         if (node.path.parts && ["theme-i18n", "theme-prefix", "theme-setting"].includes(node.path.parts[0])) {
           if(node.params.length === 1){
             node.params.unshift({
@@ -132,10 +134,16 @@ class ThemeJavascriptCompiler
 
     def discourse_extension
       <<~JS
-        Ember.HTMLBars.registerPlugin('ast', function(){
-          return { name: 'theme-template-manipulator',
-          visitor: { SubExpression: manipulateNode, MustacheStatement: manipulateNode, PathExpression: manipulatePath}
-        }});
+        Ember.HTMLBars.registerPlugin('ast', function() {
+          return {
+            name: 'theme-template-manipulator',
+            visitor: {
+              SubExpression: manipulateNode,
+              MustacheStatement: manipulateNode,
+              PathExpression: manipulatePath
+            }
+          }
+        });
       JS
     end
   end
@@ -145,9 +153,10 @@ class ThemeJavascriptCompiler
 
   attr_accessor :content
 
-  def initialize(theme_id)
+  def initialize(theme_id, theme_name)
     @theme_id = theme_id
-    @content = ""
+    @content = +""
+    @theme_name = theme_name
   end
 
   def prepend_settings(settings_hash)
@@ -177,13 +186,17 @@ class ThemeJavascriptCompiler
     raise CompileError.new e.instance_variable_get(:@error) # e.message contains the entire template, which could be very long
   end
 
+  def raw_template_name(name)
+    name = name.sub(/\.(raw|hbr)$/, '')
+    name.inspect
+  end
+
   def append_raw_template(name, hbs_template)
-    name = name.sub(/\.raw$/, '').inspect
     compiled = RawTemplatePrecompiler.new(@theme_id).compile(hbs_template)
     @content << <<~JS
       (function() {
         if ('Discourse' in window) {
-          Discourse.RAW_TEMPLATES[#{name}] = requirejs('discourse-common/lib/raw-handlebars').template(#{compiled});
+          Discourse.RAW_TEMPLATES[#{raw_template_name(name)}] = requirejs('discourse-common/lib/raw-handlebars').template(#{compiled});
         }
       })();
     JS
@@ -199,29 +212,49 @@ class ThemeJavascriptCompiler
     @content << script + "\n"
   end
 
+  def append_module(script, name, include_variables: true)
+    script = "#{theme_variables}#{script}" if include_variables
+    transpiler = DiscourseJsProcessor::Transpiler.new
+    @content << transpiler.perform(script, "", name)
+  rescue MiniRacer::RuntimeError => ex
+    raise CompileError.new ex.message
+  end
+
   def append_js_error(message)
     @content << "console.error('Theme Transpilation Error:', #{message.inspect});"
   end
 
   private
 
+  def theme_variables
+    <<~JS
+      const __theme_name__ = "#{@theme_name.gsub('"', "\\\"")}";
+      const settings = Discourse.__container__
+        .lookup("service:theme-settings")
+        .getObjectForTheme(#{@theme_id});
+      const themePrefix = (key) => `theme_translations.#{@theme_id}.${key}`;
+    JS
+  end
+
   def transpile(es6_source, version)
-    template = Tilt::ES6ModuleTranspilerTemplate.new {}
+    transpiler = DiscourseJsProcessor::Transpiler.new(skip_module: true)
     wrapped = <<~PLUGIN_API_JS
       (function() {
         if ('Discourse' in window && typeof Discourse._registerPluginCode === 'function') {
-          const settings = Discourse.__container__
-            .lookup("service:theme-settings")
-            .getObjectForTheme(#{@theme_id});
-          const themePrefix = (key) => `theme_translations.#{@theme_id}.${key}`;
+          #{theme_variables}
           Discourse._registerPluginCode('#{version}', api => {
+            try {
             #{es6_source}
+            } catch(err) {
+              const rescue = require("discourse/lib/utilities").rescueThemeError;
+              rescue(__theme_name__, err, api);
+            }
           });
         }
       })();
     PLUGIN_API_JS
 
-    template.babel_transpile(wrapped)
+    transpiler.perform(wrapped)
   rescue MiniRacer::RuntimeError => ex
     raise CompileError.new ex.message
   end

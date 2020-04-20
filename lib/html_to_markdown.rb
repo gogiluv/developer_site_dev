@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 require "nokogiri"
 
 class HtmlToMarkdown
 
   class Block < Struct.new(:name, :head, :body, :opened, :markdown)
-    def initialize(name, head = "", body = "", opened = false, markdown = "")
+    def initialize(name, head = "", body = "", opened = false, markdown = +"")
       super
     end
   end
@@ -29,7 +31,7 @@ class HtmlToMarkdown
 
   def remove_whitespaces!
     @doc.traverse do |node|
-      if node.is_a? Nokogiri::XML::Text
+      if node.is_a?(Nokogiri::XML::Text) && node.parent.name != "pre"
         node.content = node.content.gsub(/\A[[:space:]]+/, "") if node.previous_element&.description&.block?
         node.content = node.content.gsub(/\A[[:space:]]+/, "") if node.previous_element.nil? && node.parent.description&.block?
         node.content = node.content.gsub(/[[:space:]]+\z/, "") if node.next_element&.description&.block?
@@ -42,10 +44,12 @@ class HtmlToMarkdown
 
   def to_markdown
     @stack = [Block.new("root")]
-    @markdown = ""
+    @markdown = +""
     traverse(@doc)
     @markdown << format_block
-    @markdown.gsub(/\n{3,}/, "\n\n").strip
+    @markdown.gsub!(/\n{3,}/, "\n\n")
+    @markdown.strip!
+    @markdown
   end
 
   def traverse(node)
@@ -58,7 +62,7 @@ class HtmlToMarkdown
     if node.description&.block? && node.parent&.description&.block? && @stack[-1].markdown.size > 0
       block = @stack[-1].dup
       @markdown << format_block
-      block.markdown = ""
+      block.markdown = +""
       block.opened = true
       @stack << block
     end
@@ -81,7 +85,7 @@ class HtmlToMarkdown
     code_class = code ? code["class"] : ""
     lang = code_class ? code_class[/lang-(\w+)/, 1] : ""
     pre = Block.new("pre")
-    pre.markdown = "```#{lang}\n"
+    pre.markdown = +"```#{lang}\n"
     @stack << pre
     traverse(node)
     pre.markdown << "\n```\n"
@@ -216,10 +220,21 @@ class HtmlToMarkdown
   end
 
   def visit_text(node)
+    top_block = @stack[-1]
+
+    if top_block.name == "pre"
+      top_block.markdown << node.text
+      return
+    end
+
     node.content = node.content.gsub(/\A[[:space:]]+/, "") if node.previous_element.nil? && EMPHASIS.include?(node.parent.name)
-    indent = node.text[/^\s+/] || ""
+
+    if top_block.markdown.present? && indent = node.text[/^\s+/]
+      top_block.markdown << indent
+    end
+
     text = node.text.gsub(/^\s+/, "").gsub(/\s{2,}/, " ")
-    @stack[-1].markdown << [indent, text].join("")
+    top_block.markdown << text
   end
 
   def format_block

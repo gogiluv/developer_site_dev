@@ -1,8 +1,7 @@
 # frozen_string_literal: true
-require_dependency 'search'
 
 class SearchIndexer
-  INDEX_VERSION = 2
+  INDEX_VERSION = 3
   REINDEX_VERSION = 0
 
   def self.disable
@@ -21,16 +20,13 @@ class SearchIndexer
     # insert some extra words for I.am.a.word so "word" is tokenized
     # I.am.a.word becomes I.am.a.word am a word
     raw.gsub(/[^[:space:]]*[\.]+[^[:space:]]*/) do |with_dot|
-      if with_dot.match?(PlainTextToMarkdown::URL_REGEX)
-        "#{with_dot} #{URI.parse(with_dot).hostname.gsub('.', ' ')}"
-      else
-        split = with_dot.split(".")
 
-        if split.length > 1
-          with_dot + ((+" ") << split[1..-1].join(" "))
-        else
-          with_dot
-        end
+      split = with_dot.split(/https?:\/\/|[?:;,.\/]/)
+
+      if split.length > 1
+        with_dot + ((+" ") << split[1..-1].reject { |x| x.blank? }.join(" "))
+      else
+        with_dot
       end
     end
   end
@@ -141,7 +137,12 @@ class SearchIndexer
     end
 
     category_name = topic.category&.name if topic
-    tag_names = topic.tags.pluck(:name).join(' ') if topic
+    if topic
+      tags = topic.tags.select(:id, :name)
+      unless tags.empty?
+        tag_names = (tags.map(&:name) + Tag.where(target_tag_id: tags.map(&:id)).pluck(:name)).join(' ')
+      end
+    end
 
     if Post === obj && obj.raw.present? &&
        (
@@ -212,8 +213,14 @@ class SearchIndexer
         end
       end
 
+      document.css("img[class='emoji']").each do |node|
+        node.remove_attribute("alt")
+      end
+
       document.css("a[href]").each do |node|
-        node.remove_attribute("href") if node["href"] == node.text
+        if node["href"] == node.text || MENTION_CLASSES.include?(node["class"])
+          node.remove_attribute("href")
+        end
       end
 
       me = new(strip_diacritics: strip_diacritics)
@@ -221,6 +228,7 @@ class SearchIndexer
       me.scrubbed.squish
     end
 
+    MENTION_CLASSES ||= %w{mention mention-group}
     ATTRIBUTES ||= %w{alt title href data-youtube-title}
 
     def start_element(_name, attributes = [])

@@ -1,6 +1,18 @@
 .share-and-invite.modal {
   .modal-body {
     max-width: 475px;
+    min-width: 320px;
+    padding: 0;
+  }
+
+  .modal-panel {
+    padding: 0.667em;
+  }
+
+  .modal-header {
+    .modal-close {
+      padding-left: 0;
+    }
   }
 }
 
@@ -32,14 +44,6 @@
       box-sizing: border-box;
     }
 
-    .topic-share-url-for-touch {
-      a {
-        word-break: break-all;
-        font-size: $font-up-1;
-      }
-    }
-
-    .topic-share-url-for-touch,
     .topic-share-url {
       margin-bottom: s(2);
     }
@@ -77,6 +81,13 @@
 
     .email-or-username-input {
       width: 100%;
+    }
+
+    .invite-user-input-wrapper {
+      display: flex;
+      div.ac-wrap {
+        flex: 1;
+      }
     }
   }
 

@@ -18,15 +18,15 @@ nb_NO:
       multiple:
         help:
           at_least_min_options:
-            one: "Velg minst <strong>1</strong> alternativ"
+            one: "Velg minst <strong>%{count}</strong> alternativ"
             other: "Velg minst <strong>%{count}</strong> alternativer"
           up_to_max_options:
-            one: "Velg inntil <strong>1</strong> alternativ"
-            other: "Velg inntil  <strong>%{count}</strong> alternativer"
+            one: "Velg inntil <strong>%{count}</strong> alternativ"
+            other: "Velg inntil <strong>%{count}</strong> alternativer"
           x_options:
-            one: "Velg <strong>1</strong> alternativ"
+            one: "Velg <strong>%{count}</strong> alternativ"
             other: "Velg <strong>%{count}</strong> alternativer"
-          between_min_and_max_options: "Velg mellom  <strong>%{min}</strong> og <strong>%{max}</strong> alternativer"
+          between_min_and_max_options: "Velg mellom <strong>%{min}</strong> og <strong>%{max}</strong> alternativer"
       cast-votes:
         title: "Stem nå"
         label: "Stem!"
@@ -35,7 +35,8 @@ nb_NO:
         label: "Vis resultat"
       hide-results:
         title: "Tilbake til dine stemmer"
-        label: "Skjul resultater"
+      export-results:
+        label: "Eksporter"
       open:
         title: "Åpne avstemning"
         label: "Åpne"
@@ -51,7 +52,6 @@ nb_NO:
         title: Lag avstemning.
         insert: 'Sett inn avstemning '
         help:
-          options_count: Må inneholde minst 2 alternativer
           invalid_values: Minimumsverdien må være mindre enn maksimumsverdien.
           min_step_value: Minimal stegverdi er 1
         poll_type:
@@ -59,6 +59,8 @@ nb_NO:
           regular: Et valg
           multiple: Flere valg
           number: Nummervurdering
+        poll_result:
+          label: Resultater
         poll_config:
           max: Maksimum
           min: Minimum

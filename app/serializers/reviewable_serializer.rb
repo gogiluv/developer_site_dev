@@ -1,5 +1,4 @@
-require_dependency 'reviewable_action_serializer'
-require_dependency 'reviewable_editable_field_serializer'
+# frozen_string_literal: true
 
 class ReviewableSerializer < ApplicationSerializer
 
@@ -11,6 +10,7 @@ class ReviewableSerializer < ApplicationSerializer
     :type,
     :topic_id,
     :topic_url,
+    :target_url,
     :topic_tags,
     :category_id,
     :created_at,
@@ -19,30 +19,40 @@ class ReviewableSerializer < ApplicationSerializer
     :version,
   )
 
-  has_one :created_by, serializer: BasicUserSerializer, root: 'users'
-  has_one :target_created_by, serializer: BasicUserSerializer, root: 'users'
+  has_one :created_by, serializer: UserWithCustomFieldsSerializer, root: 'users'
+  has_one :target_created_by, serializer: UserWithCustomFieldsSerializer, root: 'users'
   has_one :topic, serializer: ListableTopicSerializer
   has_many :editable_fields, serializer: ReviewableEditableFieldSerializer, embed: :objects
   has_many :reviewable_scores, serializer: ReviewableScoreSerializer
   has_many :bundled_actions, serializer: ReviewableBundledActionSerializer
+  has_one :claimed_by, serializer: UserWithCustomFieldsSerializer, root: 'users'
 
   # Used to keep track of our payload attributes
   class_attribute :_payload_for_serialization
 
   def bundled_actions
-    object.actions_for(scope).bundles
-  end
-
-  def reviewable_actions
-    object.actions_for(scope).to_a
+    args = {}
+    args[:claimed_by] = claimed_by if @options[:claimed_topics]
+    object.actions_for(scope, args).bundles
   end
 
   def editable_fields
-    object.editable_for(scope).to_a
+    args = {}
+    args[:claimed_by] = claimed_by if @options[:claimed_topics]
+    object.editable_for(scope, args).to_a
   end
 
   def can_edit
     editable_fields.present?
+  end
+
+  def claimed_by
+    return nil unless @options[:claimed_topics].present?
+    @options[:claimed_topics][object.topic_id]
+  end
+
+  def include_claimed_by?
+    @options[:claimed_topics]
   end
 
   def self.create_attribute(name, field)
@@ -95,13 +105,21 @@ class ReviewableSerializer < ApplicationSerializer
     object.topic.present? && SiteSetting.tagging_enabled?
   end
 
+  def target_url
+    return Discourse.base_url + object.target.url if object.target.is_a?(Post) && object.target.present?
+    topic_url
+  end
+
+  def include_target_url?
+    target_url.present?
+  end
+
   def topic_url
-    return object.target.url if object.target.is_a?(Post)
-    return object.topic.url
+    object.topic&.url
   end
 
   def include_topic_url?
-    object.topic.present?
+    topic_url.present?
   end
 
   def include_topic_id?

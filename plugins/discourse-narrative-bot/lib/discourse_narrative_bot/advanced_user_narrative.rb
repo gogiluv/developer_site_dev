@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module DiscourseNarrativeBot
   class AdvancedUserNarrative < Base
     I18N_KEY = "discourse_narrative_bot.advanced_user_narrative".freeze
@@ -80,7 +82,7 @@ module DiscourseNarrativeBot
       },
 
       tutorial_poll: {
-        prerequisite: Proc.new { SiteSetting.poll_enabled },
+        prerequisite: Proc.new { SiteSetting.poll_enabled && @user.has_trust_level?(SiteSetting.poll_minimum_trust_level_to_create) },
         next_state: :tutorial_details,
         next_instructions: Proc.new { I18n.t("#{I18N_KEY}.details.instructions", i18n_post_args) },
         reply: {
@@ -95,6 +97,10 @@ module DiscourseNarrativeBot
         }
       }
     }
+
+    def self.badge_name
+      BADGE_NAME
+    end
 
     def self.reset_trigger
       I18n.t('discourse_narrative_bot.advanced_user_narrative.reset_trigger')
@@ -174,12 +180,12 @@ module DiscourseNarrativeBot
       if @post &&
          @post.topic.private_message? &&
          @post.topic.topic_allowed_users.pluck(:user_id).include?(@user.id)
-
-        opts = opts.merge(topic_id: @post.topic_id)
       end
 
       if @data[:topic_id]
-        opts = opts.merge(topic_id: @data[:topic_id])
+        opts = opts
+          .merge(topic_id: @data[:topic_id])
+          .except(:title, :target_usernames, :archetype)
       end
       post = reply_to(@post, raw, opts)
 
@@ -249,7 +255,7 @@ module DiscourseNarrativeBot
       fake_delay
 
       raw = <<~RAW
-      #{I18n.t("#{I18N_KEY}.recover.reply", i18n_post_args)}
+      #{I18n.t("#{I18N_KEY}.recover.reply", i18n_post_args(deletion_after: SiteSetting.delete_removed_posts_after))}
 
       #{instance_eval(&@next_instructions)}
       RAW
