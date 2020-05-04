@@ -39,18 +39,24 @@
                         <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
                     </div>
                 </a>
-                <a {{action "go_to" '/shaders' }}>
-                    <div class="category-link">
-                        <span class="fs-25">{{d-icon "shapes"}}</span><span>쉐이더룸</span>                        
-                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
-                    </div>
-                </a>
                 <a href="/c/unity-qna/">
                     <div class="category-link">                        
                         <span><img src="/images/unity_icon.png" height=25 width=25 style="padding:4.8px 0;"></span><span>유니티 질의응답</span>
                         <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
                     </div>
                 </a>
+                <a href="/c/qaex/">
+                    <div class="category-link">                        
+                        <span><img src="/images/qa.png" height=25 width=25 style="padding:4.8px 0;"></span><span>QA이슈해결사례</span>
+                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
+                    </div>
+                </a>
+                <a {{action "go_to" '/shaders' }}>
+                    <div class="category-link">
+                        <span class="fs-25">{{d-icon "shapes"}}</span><span>쉐이더룸</span>                        
+                        <span class="fs-15 f-r">{{d-icon "chevron-right"}}</span>
+                    </div>
+                </a>                
         </div>      
         <div class="site-guide-box">
                 <div class="guide-opener" {{action "guide_tab"}}>
@@ -176,35 +182,6 @@
             </table>
         </div>
         <div class="list-box">
-            <div class="boxlabel">
-                <span><a {{action "go_to" '/shaders' }}>쉐이더룸</a></span>
-                <span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
-                    {{d-icon "question-circle"}}
-                </span>
-                <span>쉽게 쉐이더를 적용해보고 나의 쉐이더를 공유하는 공간입니다.</span>                
-            </div>
-            {{#each model.shader_list as |row|}}
-            <div class="postbox">
-                <ul>
-                    <li><a {{action "go_to" (concat '/shaders/' row.id) }}>
-                            <div style="border: 1px solid lightgrey;">
-                                <img src="{{ row.img_data }}" width="100%" height="150" alt="Com2uS Developer" style="display:block;"></div>
-                        </a></li>
-
-                    <li style="padding-top:5px;">
-                        <div class="over-text-dot">
-                            <a {{action "go_to" (concat '/shaders/' row.id) }}>{{row.title}}</a>
-                        </div>
-                        <div>
-                            <span class="shader-box-username">by.{{ row.username }} ♥ {{ row.like_count }}</span>
-
-                        </div>
-                    </li>
-                </ul>
-            </div>
-            {{/each}}
-        </div>
-        <div class="list-box">
             <table style="width:100%">
                <colgroup>
                     <col width="15%">
@@ -241,5 +218,71 @@
                 </tbody>
             </table>
         </div>
+        <div class="list-box">
+            <table style="width:100%">
+               <colgroup>
+                    <col width="15%">
+                    <col width="65%">
+                    <col width="10%">
+                    <col width="10%">
+                </colgroup>                
+                <thead>
+                    <tr>
+                        <td colspan="2" style="width:80%">
+                            <span><a href="/c/qaex/">QA이슈해결사례</a></span>
+                            <span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
+                                {{d-icon "question-circle"}}
+                            </span>
+                            <span>QA 사례들을 정리한 공간입니다.</span> 
+                        </td>
+                        <td style="width:10%">
+                            {{d-icon 'far-comment-dots'}}
+                        </td>
+                        <td style="width:10%">
+                            {{d-icon 'far-eye'}}
+                        </td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each model.qa_list as |row|}}
+                    <tr>
+                        <td>{{row.created_dt}}</td>
+                        <td><a href="/t/topic/{{row.id}}">{{row.title}}</a></td>
+                        <td>{{row.posts_count}}</td>
+                        <td>{{row.views}}</td>
+                    </tr>
+                    {{/each}}       
+                </tbody>
+            </table>
+        </div>
+        <div class="list-box">
+            <div class="boxlabel">
+                <span><a {{action "go_to" '/shaders' }}>쉐이더룸</a></span>
+                <span onMouseEnter={{ action "show_tip" }} onMouseLeave={{ action "hide_tip"  }}>
+                    {{d-icon "question-circle"}}
+                </span>
+                <span>쉽게 쉐이더를 적용해보고 나의 쉐이더를 공유하는 공간입니다.</span>                
+            </div>
+            {{#each model.shader_list as |row|}}
+            <div class="postbox">
+                <ul>
+                    <li><a {{action "go_to" (concat '/shaders/' row.id) }}>
+                            <div style="border: 1px solid lightgrey;">
+                                <img src="{{ row.img_data }}" width="100%" height="150" alt="Com2uS Developer" style="display:block;"></div>
+                        </a></li>
+
+                    <li style="padding-top:5px;">
+                        <div class="over-text-dot">
+                            <a {{action "go_to" (concat '/shaders/' row.id) }}>{{row.title}}</a>
+                        </div>
+                        <div>
+                            <span class="shader-box-username">by.{{ row.username }} ♥ {{ row.like_count }}</span>
+
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            {{/each}}
+        </div>        
     </div>
 </div>

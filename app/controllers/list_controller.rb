@@ -368,6 +368,20 @@ class ListController < ApplicationController
       where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 5', unity_c_info.id, unity_c_info.id])
       unity_list
   end
+
+  def get_qa_list
+      qa_c_info = Category.where(parent_category_id: nil, name: "QA이슈해결사례").select(:id, :parent_category_id, :name).first
+      qa_list = Topic.find_by_sql(['select t.id, t.title, t.excerpt, to_char(t.created_at at time zone \'utc\' at time zone \'kst\', \'YYYY-MM-DD\') as created_dt,
+      t.views, t.visible, t.deleted_at, t.excerpt, (t.posts_count-1) as posts_count, u.name as u_name, u.username, c.name as c_name, c.color as c_color, c.slug as c_slug,
+      c.parent_category_id as c_parent_category_id, p.anonymous_chk as anonymous_chk,
+      case when length(t.excerpt)>30 THEN substring(t.excerpt from 1 for 50) || \'...\' else t.excerpt end as preview
+      from topics as t
+      inner join categories as c on t.category_id=c.id
+      inner join users as u on t.user_id = u.id
+      inner join posts as p on t.id = p.topic_id and p.post_number=1
+      where (c.id=? or c.parent_category_id=?) and t.deleted_at is null order by t.created_at desc  limit 5', qa_c_info.id, qa_c_info.id])
+      qa_list
+  end
   
   def get_popular_tags
       Tag.order(topic_count: :desc).limit(10)
@@ -394,6 +408,7 @@ class ListController < ApplicationController
       "shader_list" => get_shader_list,
       "popular_tags" => get_popular_tags,
       "unity_list" => get_unity_list,
+      "qa_list" => get_qa_list,
       "can_create_topic" => guardian.can_create?(Topic),
       "draft_key" => draft_key,
       "draft_sequence" => draft_sequence,
